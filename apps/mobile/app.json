@@ -4,36 +4,24 @@
     "slug": "paisa-buddy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "paisabuddy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#6C63FF"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.paisabuddy.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#6C63FF"
       },
       "package": "com.paisabuddy.app"
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
-    "plugins": [
-      "expo-router",
-      "expo-font",
-      "expo-dev-client"
-    ],
+    "plugins": ["expo-router", "expo-font", "expo-dev-client"],
     "experiments": {
       "typedRoutes": true
     },
