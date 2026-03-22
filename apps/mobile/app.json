@@ -21,7 +21,25 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router", "expo-font", "expo-dev-client"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-dev-client",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.24",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
