@@ -1,3 +1,17 @@
+# Turbo
+.turbo
+
+# Expo
+.expo
+expo-env.d.ts
+
+# Metro
+.metro-cache
+
+# Android / iOS
+android/
+ios/
+
 # Logs
 logs
 *.log
