@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(curl -s \"http://localhost:8081/_expo/fingerprint\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('exports',{}\\).keys\\(\\)\\)[:20]\\)\")",
+      "Bash(curl -s \"http://localhost:8081/index.bundle?platform=ios&dev=true\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); ex=d.get\\('exports',{}\\); print\\(ex.get\\('./localStorage/install','NOT FOUND'\\)\\)\")",
+      "Bash(npx kill-port *)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(curl *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d['version']\\); print\\('peerDeps:', d.get\\('peerDependencies', {}\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('expo-constants dep:', d.get\\('dependencies',{}\\).get\\('expo-constants','not found'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('expo-constants version:', d['version']\\)\")",
+      "Bash(npm info *)",
+      "Bash(python -c \"import sys,json; vs=json.load\\(sys.stdin\\); print\\([v for v in vs if v.startswith\\('5.'\\) or v.startswith\\('6.'\\)][-10:]\\)\")",
+      "Bash(node *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['version']\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('dependencies', {}\\).get\\('react-native-screens', 'not found'\\)\\); print\\(d.get\\('peerDependencies', {}\\).get\\('react-native-screens', 'not found'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\); print\\('rns peer:', d.get\\('peerDependencies', {}\\).get\\('react-native-screens', 'not found'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('version'\\)\\)\")",
+      "Bash(python -c \"import sys; data = sys.stdin.read\\(\\); import re; m = re.search\\(r'react-native-screens[^,\\\\n]*', data\\); print\\(m.group\\(\\) if m else 'not found'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); pkgs = {**d.get\\('dependencies', {}\\), **d.get\\('peerDependencies', {}\\)}; [print\\(k, v\\) for k,v in pkgs.items\\(\\) if 'screen' in k.lower\\(\\) or 'navigation' in k.lower\\(\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\({k:v for k,v in d.items\\(\\) if 'screen' in k.lower\\(\\)}\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('react-native-screens:', d.get\\('version'\\)\\)\")",
+      "Bash(python *)",
+      "Bash(dir \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\expo-router\\\\build\\\\native-tabs\")",
+      "Bash(dir \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\react-native-screens\\\\src\\\\components\")",
+      "Bash(npm uninstall *)",
+      "Bash(del *)",
+      "PowerShell(Get-ChildItem \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\react-native-svg\\\\lib\\\\extract\\\\\" | Where-Object { $_.Name -match \"Brush\" })",
+      "WebFetch(domain:gifted-charts.web.app)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "PowerShell(node -e \"console.log\\(require\\('./node_modules/react-native-gifted-charts/package.json'\\).version\\)\" 2>&1; Get-ChildItem \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\react-native-svg\\\\lib\\\\\" | Select-Object -First 5 Name)"
+    ]
+  }
+}
