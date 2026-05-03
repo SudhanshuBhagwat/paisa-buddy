@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import type { Category, TransactionType } from '@/types/transaction';
 import { useColors } from '@/utils/colors';
@@ -43,7 +44,7 @@ export function CategoryPicker({ categories, selectedId, type, onSelect }: Props
         </Pressable>
       </View>
 
-      <ScrollView
+      <BottomSheetScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8 }}
@@ -80,7 +81,7 @@ export function CategoryPicker({ categories, selectedId, type, onSelect }: Props
             </Pressable>
           );
         })}
-      </ScrollView>
+      </BottomSheetScrollView>
     </View>
   );
 }
