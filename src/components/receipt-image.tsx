@@ -1,19 +1,24 @@
-import { View, Text, Pressable, Alert, Modal } from 'react-native';
+import { View, Text, Pressable, Alert, Modal, ActivityIndicator, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useColors } from '@/utils/colors';
 import { generateId } from '@/utils/dates';
+import { extractReceiptData } from '@/utils/ocr';
 import { useState } from 'react';
+import type { OcrResult } from '@/types/transaction';
 
 type Props = {
   uri?: string;
   onChange: (uri: string | undefined) => void;
+  onExtracted?: (result: OcrResult) => void;
+  onScanError?: (message: string) => void;
 };
 
-export function ReceiptImage({ uri, onChange }: Props) {
+export function ReceiptImage({ uri, onChange, onExtracted, onScanError }: Props) {
   const Colors = useColors();
   const [preview, setPreview] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   async function pick() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -29,7 +34,21 @@ export function ReceiptImage({ uri, onChange }: Props) {
       intermediates: true,
     });
     await FileSystem.copyAsync({ from: asset.uri, to: dest });
+
+    // Show image immediately, then scan in background
     onChange(dest);
+
+    if (onExtracted) {
+      setScanning(true);
+      try {
+        const extracted = await extractReceiptData(dest);
+        onExtracted(extracted);
+      } catch (e) {
+        onScanError?.(e instanceof Error ? e.message : String(e));
+      } finally {
+        setScanning(false);
+      }
+    }
   }
 
   function removeImage() {
@@ -49,6 +68,12 @@ export function ReceiptImage({ uri, onChange }: Props) {
               style={{ width: '100%', height: 140 }}
               contentFit="cover"
             />
+            {scanning && (
+              <View style={styles.scanOverlay}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={styles.scanLabel}>Scanning…</Text>
+              </View>
+            )}
           </View>
         </Pressable>
 
@@ -92,3 +117,19 @@ export function ReceiptImage({ uri, onChange }: Props) {
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  scanOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scanLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});

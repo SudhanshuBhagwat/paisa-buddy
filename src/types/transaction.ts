@@ -24,3 +24,10 @@ export type MonthSummary = {
   expense: number;
   net: number;
 };
+
+export type OcrResult = {
+  type: TransactionType | null;
+  amountRupees: number | null;
+  vendor: string | null;
+  date: string | null; // YYYY-MM-DD
+};
