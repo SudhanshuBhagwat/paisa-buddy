@@ -1,8 +1,10 @@
-import { View, Text, Pressable, TextInput, ScrollView, Alert, Animated } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, Animated, BackHandler } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import { useColors } from '@/utils/colors';
 import { AmountInput } from '@/components/amount-input';
 import { CategoryPicker } from '@/components/category-picker';
@@ -18,7 +20,10 @@ export default function NewTransaction() {
   const Colors = useColors();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ editId?: string }>();
-  const isEdit = !!params.editId; // used only for UI label
+  const isEdit = !!params.editId;
+
+  const sheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['80%', '100%'], []);
 
   const [type, setType] = useState<TransactionType>('expense');
   const [paise, setPaise] = useState(0);
@@ -39,10 +44,34 @@ export default function NewTransaction() {
     setToastKey((k) => k + 1);
   }
 
+  function closeSheet() {
+    sheetRef.current?.close();
+  }
+
+  function handleSheetChange(index: number) {
+    if (index === -1) router.back();
+  }
+
+  // Intercept Android back button — animate sheet closed, then onChange(-1) fires router.back()
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeSheet();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" />
+    ),
+    []
+  );
+
   function handleExtracted(result: OcrResult) {
     if (result.type !== null) {
       setType(result.type);
-      setCategoryId(null); // triggers auto-select for new type
+      setCategoryId(null);
     }
     if (result.amountRupees !== null) {
       setPaise(Math.round(result.amountRupees * 100));
@@ -71,7 +100,6 @@ export default function NewTransaction() {
     }
   }, [params.editId]);
 
-  // Auto-select first category of current type
   useEffect(() => {
     if (!categoryId) {
       const first = categories.find((c) => c.type === type);
@@ -107,7 +135,7 @@ export default function NewTransaction() {
 
     try {
       await saveTransaction(tx);
-      router.back();
+      closeSheet();
     } catch (e) {
       setSaving(false);
       Alert.alert('Save Failed', String(e));
@@ -117,10 +145,20 @@ export default function NewTransaction() {
   const typeColor = type === 'expense' ? Colors.expense : Colors.income;
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingTop: 32, gap: 20, paddingBottom: 40 }}
+    <BottomSheet
+      ref={sheetRef}
+      snapPoints={snapPoints}
+      index={0}
+      onChange={handleSheetChange}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{ backgroundColor: Colors.surface }}
+      handleIndicatorStyle={{ backgroundColor: Colors.textTertiary, width: 36 }}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+    >
+      <BottomSheetScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, gap: 20, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
       >
         <Text
@@ -235,53 +273,55 @@ export default function NewTransaction() {
             borderCurve: 'continuous',
           }}
         />
-        <View
+      </BottomSheetScrollView>
+
+      {/* Button bar — fixed outside scroll */}
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 60,
+          flexDirection: 'row',
+          gap: 12,
+          borderTopWidth: 1,
+          borderColor: Colors.border,
+          backgroundColor: Colors.surface,
+        }}
+      >
+        <Pressable
+          onPress={closeSheet}
           style={{
             flex: 1,
             padding: 16,
-            paddingBottom: Math.max(insets.bottom, 16),
-            flexDirection: 'row',
-            gap: 12,
-            backgroundColor: Colors.surface,
-            borderTopWidth: 1,
-            borderColor: Colors.border,
+            borderRadius: 14,
+            borderCurve: 'continuous',
+            backgroundColor: Colors.surfaceRaised,
+            alignItems: 'center',
           }}
         >
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              flex: 1,
-              padding: 16,
-              borderRadius: 14,
-              borderCurve: 'continuous',
-              backgroundColor: Colors.surfaceRaised,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: Colors.textSecondary, fontWeight: '700', fontSize: 16 }}>Cancel</Text>
-          </Pressable>
+          <Text style={{ color: Colors.textSecondary, fontWeight: '700', fontSize: 16 }}>Cancel</Text>
+        </Pressable>
 
-          <Pressable
-            onPress={handleSave}
-            disabled={saving}
-            style={({ pressed }) => ({
-              flex: 2,
-              padding: 16,
-              borderRadius: 14,
-              borderCurve: 'continuous',
-              backgroundColor: pressed || saving ? `${typeColor}99` : typeColor,
-              alignItems: 'center',
-            })}
-          >
-            <Text style={{ color: Colors.text, fontWeight: '700', fontSize: 16 }}>
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Transaction'}
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+        <Pressable
+          onPress={handleSave}
+          disabled={saving}
+          style={({ pressed }) => ({
+            flex: 2,
+            padding: 16,
+            borderRadius: 14,
+            borderCurve: 'continuous',
+            backgroundColor: pressed || saving ? `${typeColor}99` : typeColor,
+            alignItems: 'center',
+          })}
+        >
+          <Text style={{ color: Colors.text, fontWeight: '700', fontSize: 16 }}>
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Transaction'}
+          </Text>
+        </Pressable>
+      </View>
 
       <Toast toastKey={toastKey} message={toastMessage} />
-    </View>
+    </BottomSheet>
   );
 }
 

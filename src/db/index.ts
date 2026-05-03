@@ -1,12 +1,18 @@
 import * as SQLite from 'expo-sqlite';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export async function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (db) return db;
-  db = await SQLite.openDatabaseAsync('paisa-buddy.db');
-  await migrate(db);
-  return db;
+export function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (db) return Promise.resolve(db);
+  if (!dbPromise) {
+    dbPromise = SQLite.openDatabaseAsync('paisa-buddy.db').then(async (database) => {
+      await migrate(database);
+      db = database;
+      return db;
+    });
+  }
+  return dbPromise;
 }
 
 async function migrate(database: SQLite.SQLiteDatabase): Promise<void> {

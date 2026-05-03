@@ -1,5 +1,5 @@
 import { getDb } from './index';
-import { insertTransaction } from './transactions';
+import { upsertTransaction } from './transactions';
 import type { Transaction } from '@/types/transaction';
 
 function uid() {
@@ -92,7 +92,7 @@ export async function seedTestData(): Promise<{ skipped: boolean }> {
   }
 
   for (const tx of txns) {
-    await insertTransaction(tx);
+    await upsertTransaction(tx);
   }
 
   return { skipped: false };
