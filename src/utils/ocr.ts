@@ -3,7 +3,10 @@ import type { OcrResult, TransactionType } from '@/types/transaction';
 
 export async function extractReceiptData(imageUri: string): Promise<OcrResult> {
   const lines = await extractTextFromImage(imageUri);
-  return parseReceiptText(lines);
+  console.log('[OCR] raw lines:', JSON.stringify(lines, null, 2));
+  const result = parseReceiptText(lines);
+  console.log('[OCR] result:', JSON.stringify(result));
+  return result;
 }
 
 // ─── Parsing ────────────────────────────────────────────────────────────────
@@ -25,6 +28,7 @@ function parseReceiptText(lines: string[]): OcrResult {
 const EXPENSE_WORDS = [
   'debited', 'debit', ' dr ', 'dr.', 'paid to', 'you paid',
   'payment', 'purchase', 'sent to', 'transferred to', 'withdrawn', 'charged',
+  'to:', ' to ', 'money sent', 'paid',
 ];
 const INCOME_WORDS = [
   'credited', 'credit', ' cr ', 'cr.', 'received from', 'you received',
@@ -45,18 +49,34 @@ function extractAmount(lines: string[]): number | null {
 
   // Priority 1: currency symbol before number — ₹1,234.56 / Rs. 1234 / INR 500
   const before = text.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  console.log('[OCR] amount P1 (symbol before):', before?.[0] ?? 'no match');
   if (before) return toNumber(before[1]);
 
   // Priority 2: currency symbol after number — 1234.56₹
   const after = text.match(/([\d,]+(?:\.\d{2}))\s*(?:₹|Rs\.?|INR)/i);
+  console.log('[OCR] amount P2 (symbol after):', after?.[0] ?? 'no match');
   if (after) return toNumber(after[1]);
 
-  // Priority 3: standalone line that is purely a currency amount
+  // Priority 3: standalone line that is purely a currency amount (with decimals)
   for (const line of lines) {
     const m = line.match(/^₹?\s*([\d,]+\.\d{2})$/);
-    if (m) return toNumber(m[1]);
+    if (m) {
+      console.log('[OCR] amount P3 (standalone decimal line):', line);
+      return toNumber(m[1]);
+    }
   }
 
+  // Priority 4: standalone line with Indian comma-grouped integer — e.g. "1,100" or "12,345"
+  // Matches X,XX / X,XXX / X,XX,XXX patterns (no other characters)
+  for (const line of lines) {
+    const m = line.match(/^(\d{1,3}(?:,\d{2,3})+)$/);
+    if (m) {
+      console.log('[OCR] amount P4 (standalone grouped integer):', line);
+      return toNumber(m[1]);
+    }
+  }
+
+  console.log('[OCR] amount: no match. full text:', text);
   return null;
 }
 
@@ -141,6 +161,16 @@ function extractDate(lines: string[]): string | null {
     const month = MONTH_MAP[mon.slice(0, 3).toLowerCase()];
     const year = y.length === 2 ? `20${y}` : y;
     return `${year}-${month}-${d.padStart(2, '0')}`;
+  }
+
+  // Month DD, YYYY — e.g. "February 17, 2022" (GPay format)
+  const mdy = text.match(
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i
+  );
+  if (mdy) {
+    const [, mon, d, y] = mdy;
+    const month = MONTH_MAP[mon.slice(0, 3).toLowerCase()];
+    return `${y}-${month}-${d.padStart(2, '0')}`;
   }
 
   // DD/MM/YY or DD-MM-YY

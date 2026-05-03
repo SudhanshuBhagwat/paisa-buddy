@@ -149,6 +149,7 @@ export default function NewTransaction() {
       ref={sheetRef}
       snapPoints={snapPoints}
       index={0}
+      enableDynamicSizing={false}
       onChange={handleSheetChange}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
