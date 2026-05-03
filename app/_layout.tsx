@@ -1,9 +1,11 @@
 import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColors } from '@/utils/colors';
 
 export default function RootLayout() {
   const Colors = useColors();
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -19,11 +21,10 @@ export default function RootLayout() {
       <Stack.Screen
         name="transaction/new"
         options={{
-          presentation: 'formSheet',
-          sheetGrabberVisible: true,
-          sheetAllowedDetents: [0.78, 1.0],
+          presentation: 'transparentModal',
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.surface },
+          animation: 'none',
+          contentStyle: { backgroundColor: 'transparent' },
         }}
       />
       <Stack.Screen
@@ -37,5 +38,6 @@ export default function RootLayout() {
         }}
       />
     </Stack>
+    </GestureHandlerRootView>
   );
 }
