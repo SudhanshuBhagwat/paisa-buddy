@@ -34,7 +34,14 @@
       "WebFetch(domain:gifted-charts.web.app)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
-      "PowerShell(node -e \"console.log\\(require\\('./node_modules/react-native-gifted-charts/package.json'\\).version\\)\" 2>&1; Get-ChildItem \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\react-native-svg\\\\lib\\\\\" | Select-Object -First 5 Name)"
+      "PowerShell(node -e \"console.log\\(require\\('./node_modules/react-native-gifted-charts/package.json'\\).version\\)\" 2>&1; Get-ChildItem \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\react-native-svg\\\\lib\\\\\" | Select-Object -First 5 Name)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\paisa-buddy\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(grep -E \"^d.*\\\\s\\(ios|android\\)$\")",
+      "WebSearch",
+      "WebFetch(domain:forums.expo.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:registry.npmjs.org)"
     ]
   }
 }

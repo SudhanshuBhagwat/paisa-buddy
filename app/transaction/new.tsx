@@ -1,6 +1,6 @@
-import { View, Text, Pressable, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Alert, Animated } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/utils/colors';
@@ -11,7 +11,7 @@ import { useCategories } from '@/hooks/use-categories';
 import { saveTransaction } from '@/hooks/use-transactions';
 import { getTransactionById } from '@/db/transactions';
 import { generateId, nowIso } from '@/utils/dates';
-import type { Transaction, TransactionType } from '@/types/transaction';
+import type { Transaction, TransactionType, OcrResult } from '@/types/transaction';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function NewTransaction() {
@@ -29,8 +29,32 @@ export default function NewTransaction() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [originalCreatedAt, setOriginalCreatedAt] = useState<string | null>(null);
+  const [toastKey, setToastKey] = useState(0);
+  const [toastMessage, setToastMessage] = useState('');
 
   const { categories } = useCategories();
+
+  function showToast(msg: string) {
+    setToastMessage(msg);
+    setToastKey((k) => k + 1);
+  }
+
+  function handleExtracted(result: OcrResult) {
+    if (result.type !== null) {
+      setType(result.type);
+      setCategoryId(null); // triggers auto-select for new type
+    }
+    if (result.amountRupees !== null) {
+      setPaise(Math.round(result.amountRupees * 100));
+    }
+    if (result.vendor !== null) {
+      setNote(result.vendor);
+    }
+    if (result.date !== null) {
+      const parsed = new Date(result.date);
+      if (!isNaN(parsed.getTime())) setDate(parsed);
+    }
+  }
 
   useEffect(() => {
     if (params.editId) {
@@ -149,7 +173,12 @@ export default function NewTransaction() {
           ))}
         </View>
 
-        <ReceiptImage uri={imageUri} onChange={setImageUri} />
+        <ReceiptImage
+          uri={imageUri}
+          onChange={setImageUri}
+          onExtracted={handleExtracted}
+          onScanError={(msg) => showToast(`Scan failed: ${msg}`)}
+        />
 
         <AmountInput paise={paise} onChange={setPaise} />
 
@@ -251,6 +280,53 @@ export default function NewTransaction() {
         </View>
       </ScrollView>
 
+      <Toast toastKey={toastKey} message={toastMessage} />
     </View>
+  );
+}
+
+function Toast({ toastKey, message }: { toastKey: number; message: string }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    if (toastKey === 0) return;
+    opacity.setValue(0);
+    translateY.setValue(10);
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]),
+      Animated.delay(1800),
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: -6, duration: 250, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, [toastKey]);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        bottom: 100,
+        alignSelf: 'center',
+        opacity,
+        transform: [{ translateY }],
+        backgroundColor: '#1C1C2E',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 22,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 8,
+      }}
+      pointerEvents="none"
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>{message}</Text>
+    </Animated.View>
   );
 }
