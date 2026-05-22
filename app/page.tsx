@@ -83,10 +83,13 @@ export default function HomePage() {
             {summaryItems.map(({ label, value, color }) => (
               <div
                 key={label}
-                className="rounded-xl px-3 py-3 flex flex-col gap-1"
+                className="rounded-xl px-3 py-3 flex flex-col gap-1 items-center"
                 style={{ background: "var(--bg)" }}
               >
-                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: "var(--muted)" }}
+                >
                   {label}
                 </span>
                 <span
