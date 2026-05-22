@@ -17,7 +17,7 @@ export default function StatsPage() {
         className="md:flex md:items-center md:min-h-16"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <div className="w-full">
+        <div className="w-full py-2">
           <MonthPicker value={month} onChange={setMonth} />
         </div>
       </div>

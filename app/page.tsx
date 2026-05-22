@@ -117,7 +117,7 @@ export default function HomePage() {
         <div className="md:border-r" style={{ borderColor: "var(--border)" }}>
           <div className="max-w-xl mx-auto md:max-w-none">
             {/* Mobile: MonthPicker with tappable label */}
-            <div className="md:hidden">
+            <div className="md:hidden py-2">
               <MonthPicker
                 value={month}
                 onChange={setMonth}
@@ -127,7 +127,7 @@ export default function HomePage() {
 
             {/* Mobile: 2×2 summary strip */}
             <div
-              className="md:hidden grid grid-cols-2 text-center px-4 py-3 gap-2"
+              className="md:hidden grid grid-cols-4 text-center px-4 py-3 gap-2"
               style={{
                 borderBottom: "1px solid var(--border)",
                 borderTop: "1px solid var(--border)",
