@@ -1,6 +1,6 @@
 'use server'
 
-import { updateTag } from 'next/cache'
+import { updateTag, refresh } from 'next/cache'
 import { getSupabaseClient } from '@/lib/db/supabase-client'
 import { getUserSettings } from '@/lib/db/user-settings'
 
@@ -12,6 +12,7 @@ export async function addUpiId(upiId: string): Promise<void> {
     .update({ upi_ids: [...upiIds, upiId] })
     .eq('id', 'default')
   updateTag('user-settings')
+  refresh()
 }
 
 export async function removeUpiId(upiId: string): Promise<void> {
@@ -21,6 +22,7 @@ export async function removeUpiId(upiId: string): Promise<void> {
     .update({ upi_ids: upiIds.filter((id) => id !== upiId) })
     .eq('id', 'default')
   updateTag('user-settings')
+  refresh()
 }
 
 export async function setDisplayName(name: string): Promise<void> {
@@ -29,6 +31,7 @@ export async function setDisplayName(name: string): Promise<void> {
     .update({ display_name: name || null })
     .eq('id', 'default')
   updateTag('user-settings')
+  refresh()
 }
 
 export async function completeSetup(displayName: string, upiIds: string[]): Promise<void> {
@@ -41,4 +44,5 @@ export async function completeSetup(displayName: string, upiIds: string[]): Prom
       setup_completed: true,
     })
   updateTag('user-settings')
+  refresh()
 }

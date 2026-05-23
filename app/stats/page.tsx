@@ -3,12 +3,16 @@ import { getCachedTransactions } from '@/lib/db/cached-queries'
 import { requireSetup } from '@/lib/auth/require-setup'
 import StatsClient from './StatsClient'
 
-export default async function StatsPage() {
+async function StatsContent() {
   await requireSetup()
   const transactions = await getCachedTransactions()
+  return <StatsClient transactions={transactions} />
+}
+
+export default function StatsPage() {
   return (
     <Suspense>
-      <StatsClient transactions={transactions} />
+      <StatsContent />
     </Suspense>
   )
 }

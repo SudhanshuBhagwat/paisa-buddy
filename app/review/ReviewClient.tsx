@@ -1,9 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
-  confirmTransaction,
   rejectTransaction,
   updateAndConfirmTransaction,
 } from '@/app/actions/transactions'
@@ -52,20 +50,9 @@ function getCategoryHint(tx: Transaction): string | null {
 }
 
 export default function ReviewClient({ transactions, categories }: Props) {
-  const router = useRouter()
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
-
-  async function handleConfirm(id: string) {
-    setLoading(id)
-    try {
-      await confirmTransaction(id)
-      router.refresh()
-    } finally {
-      setLoading(null)
-    }
-  }
 
   async function handleReject() {
     if (!rejectingId) return
@@ -73,7 +60,6 @@ export default function ReviewClient({ transactions, categories }: Props) {
     try {
       await rejectTransaction(rejectingId)
       setRejectingId(null)
-      router.refresh()
     } finally {
       setLoading(null)
     }
@@ -84,7 +70,6 @@ export default function ReviewClient({ transactions, categories }: Props) {
     try {
       await updateAndConfirmTransaction(id, updates)
       setEditingTx(null)
-      router.refresh()
     } finally {
       setLoading(null)
     }
@@ -203,20 +188,10 @@ export default function ReviewClient({ transactions, categories }: Props) {
                   type="button"
                   onClick={() => setEditingTx(tx)}
                   disabled={isProcessing}
-                  className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-medium active:opacity-60 disabled:opacity-40 cursor-pointer"
-                  style={{ color: 'var(--text)', touchAction: 'manipulation' }}
-                >
-                  Edit
-                </button>
-                <div aria-hidden className="w-px shrink-0" style={{ background: 'var(--border)' }} />
-                <button
-                  type="button"
-                  onClick={() => handleConfirm(tx.id)}
-                  disabled={isProcessing}
                   className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-semibold active:opacity-60 disabled:opacity-40 cursor-pointer rounded-br-xl"
                   style={{ color: '#16a34a', touchAction: 'manipulation' }}
                 >
-                  {isProcessing ? '…' : 'Confirm'}
+                  {isProcessing ? '…' : 'Edit & Confirm'}
                 </button>
               </div>
             </div>

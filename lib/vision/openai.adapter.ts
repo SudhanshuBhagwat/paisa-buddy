@@ -26,6 +26,11 @@ Rules:
 - credit = money coming in
 - transfer = between own accounts
 - amount must be a number, no currency symbols
+- merchant:
+  • debit → name of the store, service, or person you paid (e.g. "Swiggy", "Amazon")
+  • credit → the sender's full name. Extract from phrases like "received from NAME", "paid by NAME", "from NAME", or any visible sender field. NEVER leave null for credit if a name is visible anywhere in the receipt.
+  • transfer → null
+- description: a short human-readable summary (e.g. "Payment received from Surabhi Nawandar")
 - If a field is unclear or not visible, set it to null
 - Never guess the amount — if unreadable, set confidence to "low"
 - date must be in YYYY-MM-DD format`
@@ -111,13 +116,23 @@ export class OpenAIVisionProvider implements VisionProvider {
     }
 
     const raw = parsed.data
+
+    // Fallback: if credit and merchant still null, extract sender name from description
+    let merchant = raw.merchant
+    if (raw.type === 'credit' && !merchant && raw.description) {
+      const match = raw.description.match(
+        /(?:received from|paid by|payment from|from)\s+([A-Za-z][A-Za-z .'-]+?)(?:\s*(?:via|using|on|at|for|\.|,)|$)/i,
+      )
+      if (match?.[1]) merchant = match[1].trim()
+    }
+
     return {
       type: raw.type,
       amount: Math.round(raw.amount * 100), // rupees → paise
       currency: raw.currency,
       date: raw.date,
       time: raw.time,
-      merchant: raw.merchant,
+      merchant,
       description: raw.description,
       upi_ref: raw.upi_ref,
       bank: raw.bank,

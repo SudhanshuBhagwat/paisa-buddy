@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { formatAmount } from '@/lib/utils'
 import { deleteTransaction } from '@/app/actions/transactions'
 import ConfirmModal from './ConfirmModal'
@@ -24,14 +23,12 @@ interface Props {
 }
 
 export default function TransactionItem({ tx }: Props) {
-  const router = useRouter()
   const color = TYPE_COLORS[tx.type]
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   async function handleConfirmDelete() {
     setConfirmOpen(false)
     await deleteTransaction(tx.id)
-    router.refresh()
   }
 
   return (
@@ -42,8 +39,15 @@ export default function TransactionItem({ tx }: Props) {
       >
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
 
-        <div className="flex-1 min-w-0 text-sm truncate" style={{ color: tx.description ? 'var(--text)' : 'var(--muted)' }}>
-          {tx.description || '—'}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <span className="text-sm truncate" style={{ color: 'var(--text)' }}>
+            {tx.merchant || tx.description || '—'}
+          </span>
+          {tx.merchant && tx.description && (
+            <span className="text-xs truncate" style={{ color: 'var(--muted)' }}>
+              {tx.description}
+            </span>
+          )}
         </div>
 
         <span

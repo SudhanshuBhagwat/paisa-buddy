@@ -5,6 +5,7 @@ import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import TopNav from "@/components/TopNav";
+import PinchZoomBlock from "@/components/PinchZoomBlock";
 import { getCachedPendingTransactions } from "@/lib/db/cached-queries";
 
 const geist = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full">
+        <PinchZoomBlock />
         <StoreProvider>
           <Suspense fallback={<><TopNav /><BottomNav /></>}>
             <NavWithCount />

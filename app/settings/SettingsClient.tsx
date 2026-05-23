@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import { logout } from '@/lib/auth/actions'
@@ -29,7 +28,6 @@ interface Props {
 
 export default function SettingsClient({ email, transactionCount, customCategories, upiIds, displayName }: Props) {
   const { state, dispatch } = useStore()
-  const router = useRouter()
   const [newCat, setNewCat] = useState('')
   const [newUpi, setNewUpi] = useState('')
   const [nameInput, setNameInput] = useState(displayName ?? '')
@@ -41,12 +39,10 @@ export default function SettingsClient({ email, transactionCount, customCategori
     if (!id) return
     await addUpiId(id)
     setNewUpi('')
-    router.refresh()
   }
 
   async function handleRemoveUpiId(id: string) {
     await removeUpiId(id)
-    router.refresh()
   }
 
   async function handleAddCategory() {
@@ -54,7 +50,6 @@ export default function SettingsClient({ email, transactionCount, customCategori
     if (!name) return
     await addCategory(name)
     setNewCat('')
-    router.refresh()
   }
 
   async function handleConfirmRemoveCategory() {
@@ -65,14 +60,12 @@ export default function SettingsClient({ email, transactionCount, customCategori
       await removeCategory(removingCat.name)
     }
     setRemovingCat(null)
-    router.refresh()
   }
 
   async function handleClear() {
     if (confirmClear) {
       await clearAllTransactions()
       setConfirmClear(false)
-      router.refresh()
     } else {
       setConfirmClear(true)
     }
@@ -116,7 +109,6 @@ export default function SettingsClient({ email, transactionCount, customCategori
                 onChange={(e) => setNameInput(e.target.value)}
                 onBlur={async () => {
                   await setDisplayName(nameInput.trim())
-                  router.refresh()
                 }}
                 className="flex-1 text-sm bg-transparent outline-none text-right"
                 style={{ color: 'var(--text)' }}
