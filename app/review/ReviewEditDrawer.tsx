@@ -65,6 +65,20 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
   }
 
   const activeType = TYPES.find((t) => t.value === type)!
+  const merchantLabel = type === 'credit' ? 'SENDER' : type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'
+
+  function formatDisplayAmount(raw: string): string {
+    if (!raw) return ''
+    const [intPart, decPart] = raw.split('.')
+    const formatted = Number(intPart || 0).toLocaleString('en-IN')
+    return decPart !== undefined ? `${formatted}.${decPart}` : formatted
+  }
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const clean = e.target.value.replace(/[^0-9.]/g, '')
+    const parts = clean.split('.')
+    setAmountStr(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : clean)
+  }
 
   // All categories + hint (deduped)
   const allCats = categoryHint && !categories.includes(categoryHint)
@@ -88,8 +102,8 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
             <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
           </div>
 
-          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Edit & Confirm</h2>
+          <div className="px-4 pt-3 pb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Edit & Confirm</h2>
             <button
               type="button"
               onClick={onClose}
@@ -126,14 +140,12 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
                 <span style={{ color: 'var(--muted)' }}>₹</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={amountStr}
-                  onChange={(e) => setAmountStr(e.target.value)}
+                  type="text"
+                  inputMode="decimal"
+                  value={formatDisplayAmount(amountStr)}
+                  onChange={handleAmountChange}
                   className="flex-1 bg-transparent outline-none text-sm font-semibold tabular-nums"
                   style={{ color: activeType.color }}
-                  required
                 />
               </div>
             </div>
@@ -165,7 +177,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
 
             {/* Merchant */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>MERCHANT</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{merchantLabel}</label>
               <input
                 type="text"
                 placeholder="e.g. Swiggy, Amazon"
@@ -176,9 +188,9 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
               />
             </div>
 
-            {/* Description */}
+            {/* Notes */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>DESCRIPTION <span style={{ color: '#dc2626' }}>*</span></label>
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>NOTES <span style={{ color: '#dc2626' }}>*</span></label>
               <input
                 type="text"
                 value={description}
@@ -191,8 +203,9 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
 
             {/* Category */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>CATEGORY</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>CATEGORY <span style={{ color: '#dc2626' }}>*</span></label>
+              <div className="overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              <div className="grid gap-2" style={{ gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column', gridAutoColumns: 'max-content', width: 'max-content' }}>
                 {allCats.map((cat) => {
                   const isHint = cat === categoryHint && !tx.category
                   return (
@@ -214,6 +227,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
                   )
                 })}
               </div>
+              </div>
               {categoryHint && !tx.category && (
                 <p className="text-xs" style={{ color: 'var(--muted)' }}>✦ AI suggested</p>
               )}
@@ -221,23 +235,23 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
 
             {/* Bank + UPI ref */}
             <div className="flex gap-2">
-              <div className="flex flex-col gap-1.5 flex-1">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                 <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>BANK</label>
                 <input
                   type="text"
                   value={bank}
                   onChange={(e) => setBank(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                 />
               </div>
-              <div className="flex flex-col gap-1.5 flex-1">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                 <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>UPI REF</label>
                 <input
                   type="text"
                   value={upiRef}
                   onChange={(e) => setUpiRef(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl text-sm outline-none font-mono"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm outline-none font-mono"
                   style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                 />
               </div>
@@ -245,7 +259,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
 
             <button
               type="submit"
-              disabled={!amountStr || !description.trim() || saving}
+              disabled={!amountStr || !description.trim() || !category || saving}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 mt-1"
               style={{ background: '#16a34a', color: '#fff' }}
             >

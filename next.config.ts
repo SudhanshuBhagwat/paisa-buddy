@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['192.168.*.*'],
   cacheComponents: true,
   experimental: {
     // Prevent the client from caching RSC payloads for static pages.

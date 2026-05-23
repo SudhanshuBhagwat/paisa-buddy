@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { today } from '@/lib/utils'
 import { insertTransaction } from '@/app/actions/transactions'
 import { addCategory } from '@/app/actions/categories'
@@ -20,9 +19,9 @@ const TYPES: { value: TransactionType; label: string; color: string }[] = [
 ]
 
 export default function TransactionModal({ open, onClose, categories }: Props) {
-  const router = useRouter()
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
+  const [merchant, setMerchant] = useState('')
   const [category, setCategory] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(today())
@@ -35,6 +34,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
     if (open) {
       setType('debit')
       setAmountStr('')
+      setMerchant('')
       setCategory('')
       setNotes('')
       setDate(today())
@@ -56,7 +56,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const paise = Math.round(parseFloat(amountStr) * 100)
-    if (!paise || paise <= 0 || !category || !notes.trim()) return
+    if (!paise || paise <= 0 || !merchant.trim() || !category || !notes.trim()) return
     setSubmitting(true)
     try {
       await insertTransaction({
@@ -65,7 +65,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
         currency: 'INR',
         date,
         time: null,
-        merchant: null,
+        merchant: merchant.trim(),
         description: notes.trim(),
         upi_ref: null,
         bank: null,
@@ -75,7 +75,6 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
         confidence: null,
         reviewed: true,
       })
-      router.refresh()
       onClose()
     } finally {
       setSubmitting(false)
@@ -89,12 +88,26 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
     setCategory(name)
     setAddingCat(false)
     setNewCatInput('')
-    router.refresh()
   }
 
   if (!open) return null
 
   const activeType = TYPES.find((t) => t.value === type)!
+  const merchantLabel = type === 'credit' ? 'SENDER' : type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'
+  const merchantPlaceholder = type === 'credit' ? 'Who sent this?' : type === 'transfer' ? 'Which account?' : 'Who did you pay?'
+
+  function formatDisplayAmount(raw: string): string {
+    if (!raw) return ''
+    const [intPart, decPart] = raw.split('.')
+    const formatted = Number(intPart || 0).toLocaleString('en-IN')
+    return decPart !== undefined ? `${formatted}.${decPart}` : formatted
+  }
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const clean = e.target.value.replace(/[^0-9.]/g, '')
+    const parts = clean.split('.')
+    setAmountStr(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : clean)
+  }
 
   return (
     <>
@@ -136,15 +149,13 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
               <span className="text-3xl font-light" style={{ color: 'var(--muted)' }}>₹</span>
               <input
                 ref={amountRef}
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0"
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
+                value={formatDisplayAmount(amountStr)}
+                onChange={handleAmountChange}
                 className="text-4xl font-semibold bg-transparent border-none outline-none w-48 text-center tabular-nums"
                 style={{ color: activeType.color }}
-                required
               />
             </div>
 
@@ -207,6 +218,21 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                {merchantLabel} <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder={merchantPlaceholder}
+                value={merchant}
+                onChange={(e) => setMerchant(e.target.value)}
+                className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
                 NOTES <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <input
@@ -236,7 +262,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
 
             <button
               type="submit"
-              disabled={!amountStr || !category || !notes.trim() || submitting}
+              disabled={!amountStr || !merchant.trim() || !category || !notes.trim() || submitting}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
               style={{ background: activeType.color, color: '#fff' }}
             >

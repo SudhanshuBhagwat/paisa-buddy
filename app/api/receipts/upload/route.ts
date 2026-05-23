@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server'
 import { timingSafeEqual } from 'crypto'
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 import vision from '@/lib/vision'
 import db from '@/lib/db'
 import { getUserSettings } from '@/lib/db/user-settings'
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (queued > 0) updateTag('transactions')
+  if (queued > 0) revalidateTag('transactions')
 
   return Response.json({ queued, errors })
 }
