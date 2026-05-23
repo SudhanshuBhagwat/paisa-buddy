@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import type { Transaction } from '@/lib/types/transaction'
 import {
   toYearMonth,
@@ -156,6 +157,29 @@ export default function HomeClient({ transactions, categories }: Props) {
                 </div>
               ))}
             </div>
+
+            {/* Pending review banner (mobile only) */}
+            {(() => {
+              const pendingCount = transactions.filter((t) => !t.reviewed).length
+              if (pendingCount === 0) return null
+              return (
+                <Link
+                  href="/review"
+                  className="md:hidden flex items-center justify-between px-4 py-3"
+                  style={{ background: '#dc262612', borderBottom: '1px solid #dc262630' }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#dc2626' }} />
+                    <span className="text-sm font-medium" style={{ color: '#dc2626' }}>
+                      {pendingCount} transaction{pendingCount !== 1 ? 's' : ''} pending review
+                    </span>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#dc2626', flexShrink: 0 }}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </Link>
+              )
+            })()}
 
             {/* Search */}
             <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>

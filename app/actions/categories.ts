@@ -23,7 +23,7 @@ export async function removeCategory(name: string): Promise<void> {
 
 export async function removeCategoryAndUnlinkTransactions(name: string): Promise<void> {
   const supabase = getSupabaseClient()
-  await supabase.from('transactions').update({ category: null }).eq('category', name)
+  await supabase.from('transactions').update({ category: null, reviewed: false }).eq('category', name)
   await supabase.from('categories').delete().eq('name', name).eq('is_predefined', false)
   updateTag('categories')
   updateTag('transactions')
