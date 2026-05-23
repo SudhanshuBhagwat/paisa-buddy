@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { regenerateUploadToken } from '@/app/actions/user-settings'
 
 interface Props {
   token: string
@@ -72,8 +73,21 @@ const STEPS = [
 ]
 
 export default function ShortcutClient({ token, uploadUrl }: Props) {
+  const [currentToken, setCurrentToken] = useState(token)
   const [revealed, setRevealed] = useState(false)
-  const maskedToken = '•'.repeat(Math.min(token.length, 24))
+  const [confirmRegen, setConfirmRegen] = useState(false)
+  const maskedToken = '•'.repeat(Math.min(currentToken.length, 24))
+
+  async function handleRegenerate() {
+    if (!confirmRegen) {
+      setConfirmRegen(true)
+      return
+    }
+    const newToken = await regenerateUploadToken()
+    setCurrentToken(newToken)
+    setRevealed(true)
+    setConfirmRegen(false)
+  }
 
   return (
     <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
@@ -108,11 +122,11 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
             </div>
 
             {/* Upload token */}
-            <div className="px-4 py-3 flex flex-col gap-2" style={{ background: 'var(--surface)' }}>
+            <div className="px-4 py-3 flex flex-col gap-2" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
               <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>UPLOAD TOKEN</span>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-mono truncate" style={{ color: 'var(--text)' }}>
-                  {revealed ? token : maskedToken}
+                  {revealed ? currentToken : maskedToken}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -135,8 +149,38 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
                       </svg>
                     )}
                   </button>
-                  <CopyButton text={token} />
+                  <CopyButton text={currentToken} />
                 </div>
+              </div>
+            </div>
+
+            {/* Regenerate */}
+            <div className="px-4 py-3 flex items-center justify-between gap-3" style={{ background: 'var(--surface)' }}>
+              <span className="text-sm" style={{ color: confirmRegen ? '#dc2626' : 'var(--muted)' }}>
+                {confirmRegen ? 'Old token stops working immediately.' : 'Rotate token'}
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {confirmRegen && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRegen(false)}
+                    className="text-xs"
+                    style={{ color: 'var(--muted)' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  className="shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-all"
+                  style={confirmRegen
+                    ? { background: '#dc2626', color: '#fff' }
+                    : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                  }
+                >
+                  {confirmRegen ? 'Confirm rotate' : 'Regenerate'}
+                </button>
               </div>
             </div>
           </div>
