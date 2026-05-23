@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (queued > 0) revalidateTag('transactions')
+  if (queued > 0) revalidateTag('transactions', { expire: 0 })
 
   return Response.json({ queued, errors })
 }
