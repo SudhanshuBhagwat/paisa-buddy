@@ -62,7 +62,7 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
     },
   ]
 
-  const tabs = allTabs.filter((t) => t.href !== '/review' || pendingCount > 0)
+  const tabs = allTabs.filter((t) => t.href !== '/review')
 
   return (
     <nav

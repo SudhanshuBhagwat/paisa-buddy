@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   rejectTransaction,
   updateAndConfirmTransaction,
@@ -91,7 +92,18 @@ export default function ReviewClient({ transactions, categories }: Props) {
   return (
     <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
       <div className="py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Review</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="md:hidden p-1 -ml-1 rounded-lg"
+            style={{ color: 'var(--muted)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </Link>
+          <h1 className="text-lg font-semibold">Review</h1>
+        </div>
         <span className="text-sm px-2 py-0.5 rounded-full font-medium" style={{ background: '#dc2626', color: '#fff' }}>
           {transactions.length}
         </span>

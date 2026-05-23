@@ -53,7 +53,7 @@ export default function TopNav({ pendingCount = 0 }: Props) {
               {badge != null && (
                 <span
                   className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
-                  style={{ background: active ? '#fff' : '#dc2626', color: active ? '#dc2626' : '#fff' }}
+                  style={{ background: active ? '#fff' : '#dc2626', color: active ? '#dc2626' : '#fff', border: active ? '1.5px solid #dc2626' : 'none' }}
                 >
                   {badge > 99 ? '99+' : badge}
                 </span>

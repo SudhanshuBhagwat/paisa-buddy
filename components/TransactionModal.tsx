@@ -159,6 +159,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
                 className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
                 style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '2.25rem' }}
               />
+              <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '2.25rem' }}>₹</span>
             </div>
 
             <div className="flex flex-col gap-2">
