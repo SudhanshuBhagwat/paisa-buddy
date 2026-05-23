@@ -1,7 +1,7 @@
 'use client'
 
 import { groupByDate, formatDateLabel } from '@/lib/utils'
-import type { Transaction } from '@/lib/types'
+import type { Transaction } from '@/lib/types/transaction'
 import TransactionItem from './TransactionItem'
 
 interface Props {

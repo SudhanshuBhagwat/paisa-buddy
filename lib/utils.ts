@@ -1,4 +1,4 @@
-import type { Transaction } from './types'
+import type { Transaction } from './types/transaction'
 
 const fmt = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -78,7 +78,8 @@ export function groupByCategory(txs: Transaction[], type: 'credit' | 'debit' | '
   const map = new Map<string, number>()
   for (const tx of txs) {
     if (tx.type === type) {
-      map.set(tx.category, (map.get(tx.category) ?? 0) + tx.amount)
+      const cat = tx.category ?? 'Uncategorized'
+      map.set(cat, (map.get(cat) ?? 0) + tx.amount)
     }
   }
   return Array.from(map.entries())
