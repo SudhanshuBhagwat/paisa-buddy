@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { Transaction, TransactionType } from "@/lib/types/transaction";
-import { useScrollLock } from "@/lib/hooks/useScrollLock";
 
 interface Props {
   transaction: Transaction;
@@ -39,7 +38,6 @@ export default function ReviewEditDrawer({
   saving,
   mode = "review",
 }: Props) {
-  useScrollLock(true);
   const categoryHint = getCategoryHint(tx);
   const defaultCategory = tx.category ?? categoryHint ?? "";
 

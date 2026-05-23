@@ -51,7 +51,7 @@ export default function HomeClient({ transactions, categories }: Props) {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editSaving, setEditSaving] = useState(false)
 
-  useScrollLock(calSheetOpen)
+  useScrollLock(calSheetOpen || editingTx !== null)
 
   async function handleEditSave(updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
     if (!editingTx) return
