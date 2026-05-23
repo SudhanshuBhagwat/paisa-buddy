@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import { logout } from '@/lib/auth/actions'
@@ -265,6 +266,21 @@ export default function SettingsClient({ email, transactionCount, customCategori
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
             Above categories are built-in and cannot be removed.
           </p>
+        </section>
+
+        {/* Apple Shortcut */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-medium" style={{ color: 'var(--muted)' }}>APPLE SHORTCUT</h2>
+          <Link
+            href="/settings/shortcut"
+            className="flex items-center justify-between px-4 py-3 rounded-xl"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <span className="text-sm">Setup instructions & credentials</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
         </section>
 
         {/* Data */}

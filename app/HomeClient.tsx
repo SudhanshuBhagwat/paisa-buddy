@@ -9,6 +9,7 @@ import {
   formatAmount,
   formatDateLabel,
 } from '@/lib/utils'
+import type { TransactionType } from '@/lib/types/transaction'
 import MonthPicker from '@/components/MonthPicker'
 import TransactionList from '@/components/TransactionList'
 import TransactionModal from '@/components/TransactionModal'
@@ -39,19 +40,26 @@ export default function HomeClient({ transactions, categories }: Props) {
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [calSheetOpen, setCalSheetOpen] = useState(false)
 
   useEffect(() => {
     setSelectedDate(null)
     setSelectedCategory(null)
+    setSelectedType(null)
+    setSearchQuery('')
   }, [month])
 
   const txs = getMonthTransactions(transactions, month)
+  const q = searchQuery.trim().toLowerCase()
   const filteredTxs = txs.filter(
     (t) =>
       (!selectedDate || t.date === selectedDate) &&
-      (!selectedCategory || t.category === selectedCategory),
+      (!selectedCategory || t.category === selectedCategory) &&
+      (!selectedType || t.type === selectedType) &&
+      (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
   )
   const { income, expense, balance, transfer } = calcSummary(txs)
   const summaryItems = SUMMARY_ITEMS(income, expense, balance, transfer)
@@ -69,7 +77,7 @@ export default function HomeClient({ transactions, categories }: Props) {
   )
 
   return (
-    <main className="w-full pb-20 md:pb-0 md:pt-14 min-h-dvh">
+    <main className="w-full pb-36 md:pb-0 md:pt-14 min-h-dvh">
       <div className="md:max-w-5xl md:mx-auto md:grid md:grid-cols-[1fr_320px]">
         {/* ── Cell 1: Desktop summary (top-left) ── */}
         <div
@@ -134,32 +142,70 @@ export default function HomeClient({ transactions, categories }: Props) {
               ))}
             </div>
 
+            {/* Search */}
+            <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)', shrink: 0 }}>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by name or notes…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  style={{ color: 'var(--text)' }}
+                />
+                {searchQuery && (
+                  <button type="button" onClick={() => setSearchQuery('')} style={{ color: 'var(--muted)' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Type filter */}
+            {txs.length > 0 && (
+              <div
+                className="flex items-center gap-2 px-4 py-3 overflow-x-auto"
+                style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}
+              >
+                <span className="shrink-0 text-sm font-bold pr-1" style={{ color: 'var(--muted)' }}>Filter by Type:</span>
+                {(['debit', 'credit', 'transfer'] as TransactionType[]).map((type) => {
+                  const COLOR: Record<TransactionType, string> = { debit: '#dc2626', credit: '#16a34a', transfer: '#2563eb' }
+                  const active = selectedType === type
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setSelectedType(active ? null : type)}
+                      className="shrink-0 px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors"
+                      style={active
+                        ? { background: COLOR[type], color: '#fff' }
+                        : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {type}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Category filter */}
             {monthCategories.length > 0 && (
               <div
                 className="flex items-center gap-2 px-4 py-3 overflow-x-auto"
-                style={{ borderBottom: '1px solid var(--border)' }}
+                style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}
               >
-                <span
-                  className="shrink-0 text-sm font-bold pr-1"
-                  style={{ color: 'var(--muted)' }}
-                >
-                  Filter by:
-                </span>
+                <span className="shrink-0 text-sm font-bold pr-1" style={{ color: 'var(--muted)' }}>Filter by Category:</span>
                 {monthCategories.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() =>
-                      setSelectedCategory(selectedCategory === cat ? null : cat)
-                    }
+                    onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
                     className="shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={
-                      selectedCategory === cat
-                        ? { background: '#dc2626', color: '#fff' }
-                        : {
-                            background: 'var(--bg)',
-                            color: 'var(--text)',
-                            border: '1px solid var(--border)',
-                          }
+                    style={selectedCategory === cat
+                      ? { background: '#dc2626', color: '#fff' }
+                      : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
                     }
                   >
                     {cat}
