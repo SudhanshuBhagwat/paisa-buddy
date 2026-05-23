@@ -1,7 +1,7 @@
 'use client'
 
 import { groupByCategory, formatAmount } from '@/lib/utils'
-import type { Transaction } from '@/lib/types'
+import type { Transaction } from '@/lib/types/transaction'
 
 interface Props {
   transactions: Transaction[]

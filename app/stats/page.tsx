@@ -1,27 +1,14 @@
-"use client";
+import { Suspense } from 'react'
+import { getCachedTransactions } from '@/lib/db/cached-queries'
+import { requireSetup } from '@/lib/auth/require-setup'
+import StatsClient from './StatsClient'
 
-import { useState } from "react";
-import { useStore } from "@/lib/store";
-import { toYearMonth, getMonthTransactions } from "@/lib/utils";
-import MonthPicker from "@/components/MonthPicker";
-import StatsView from "@/components/StatsView";
-
-export default function StatsPage() {
-  const { state } = useStore();
-  const [month, setMonth] = useState(() => toYearMonth(new Date()));
-  const txs = getMonthTransactions(state.transactions, month);
-
+export default async function StatsPage() {
+  await requireSetup()
+  const transactions = await getCachedTransactions()
   return (
-    <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14">
-      <div
-        className="md:flex md:items-center md:min-h-16"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <div className="w-full py-2">
-          <MonthPicker value={month} onChange={setMonth} />
-        </div>
-      </div>
-      <StatsView transactions={txs} />
-    </main>
-  );
+    <Suspense>
+      <StatsClient transactions={transactions} />
+    </Suspense>
+  )
 }

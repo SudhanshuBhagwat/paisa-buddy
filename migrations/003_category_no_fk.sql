@@ -1,0 +1,2 @@
+-- (reverted) FK constraint on transactions.category is kept
+-- No schema change needed here

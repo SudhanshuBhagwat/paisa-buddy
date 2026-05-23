@@ -6,7 +6,23 @@
       "Bash(Format-Table -AutoSize)",
       "PowerShell(Get-ChildItem -Path \"D:\\\\Projects\\\\paisa-buddy\" -Force | Where-Object { $_.PSIsContainer } | Select-Object Name)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "PowerShell(Get-ChildItem -Recurse -Depth 3 | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.next|\\\\.git' } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(cd D:\\\\Projects\\\\paisa-buddy; $proc = Start-Process -FilePath \"npm\" -ArgumentList \"run\",\"dev\" -PassThru -RedirectStandardOutput \"C:\\\\Temp\\\\nextdev.log\" -NoNewWindow; Start-Sleep -Seconds 6; Get-Content \"C:\\\\Temp\\\\nextdev.log\" -ErrorAction SilentlyContinue | Select-Object -First 10; $proc.Kill\\(\\))",
+      "PowerShell(psql *)",
+      "Bash(npx supabase *)",
+      "Bash(psql \"postgresql://postgres:oaYRAkqt7tejk0zH@db.tlikpobtfisttqncnhum.supabase.co:5432/postgres\" -c \"ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_category_fkey;\")",
+      "Bash(psql \"postgresql://postgres:oaYRAkqt7tejk0zH@db.tlikpobtfisttqncnhum.supabase.co:5432/postgres\" -c \"ALTER TABLE transactions ADD CONSTRAINT transactions_category_fkey FOREIGN KEY \\(category\\) REFERENCES categories\\(name\\) ON UPDATE CASCADE;\")",
+      "Bash(psql *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "Bash(node -e \"const n = require\\('next/cache'\\); console.log\\(Object.keys\\(n\\)\\)\")",
+      "Bash(node -e \"const {revalidateTag} = require\\('next/cache'\\); console.log\\(revalidateTag.toString\\(\\).slice\\(0,200\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).scripts\\)\")",
+      "Bash(ipconfig)",
+      "Bash(findstr /i \"IPv4\")",
+      "Bash(node *)",
+      "Bash(npx next *)",
+      "Bash(del *)"
     ]
   }
 }

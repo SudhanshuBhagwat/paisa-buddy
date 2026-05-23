@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import TopNav from "@/components/TopNav";
+import { getCachedPendingTransactions } from "@/lib/db/cached-queries";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -22,6 +24,17 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+async function NavWithCount() {
+  const pending = await getCachedPendingTransactions();
+  const count = pending.length;
+  return (
+    <>
+      <TopNav pendingCount={count} />
+      <BottomNav pendingCount={count} />
+    </>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,9 +44,10 @@ export default function RootLayout({
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full">
         <StoreProvider>
-          <TopNav />
+          <Suspense fallback={<><TopNav /><BottomNav /></>}>
+            <NavWithCount />
+          </Suspense>
           {children}
-          <BottomNav />
         </StoreProvider>
       </body>
     </html>

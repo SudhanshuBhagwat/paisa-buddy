@@ -2,19 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { logout } from "@/lib/auth/actions";
+
+const HIDDEN_PATHS = ['/login', '/setup'];
 
 const tabs = [
   { href: "/", label: "Home" },
+  { href: "/review", label: "Review", showBadge: true },
   { href: "/stats", label: "Stats" },
   { href: "/settings", label: "Settings" },
 ];
 
 interface Props {
-  onAdd?: () => void;
+  pendingCount?: number;
 }
 
-export default function TopNav({ onAdd }: Props) {
+export default function TopNav({ pendingCount = 0 }: Props) {
   const pathname = usePathname();
+
+  if (HIDDEN_PATHS.includes(pathname)) return null;
 
   return (
     <nav
@@ -28,14 +34,15 @@ export default function TopNav({ onAdd }: Props) {
         Paisa Buddy
       </span>
 
-      <div className="flex items-center gap-3 flex-1">
+      <div className="flex items-center gap-1 flex-1">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
+          const badge = tab.showBadge && pendingCount > 0 ? pendingCount : null;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+              className="relative px-3 py-1.5 rounded-lg text-sm transition-colors"
               style={
                 active
                   ? { background: "#dc2626", color: "#fff", fontWeight: 500 }
@@ -43,33 +50,28 @@ export default function TopNav({ onAdd }: Props) {
               }
             >
               {tab.label}
+              {badge != null && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
+                  style={{ background: active ? '#fff' : '#dc2626', color: active ? '#dc2626' : '#fff' }}
+                >
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
             </Link>
           );
         })}
       </div>
 
-      {onAdd && (
+      <form action={logout}>
         <button
-          onClick={onAdd}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
-          style={{ background: "#dc2626", color: "#fff" }}
+          type="submit"
+          className="px-3 py-1.5 rounded-lg text-sm transition-opacity hover:opacity-70"
+          style={{ color: "var(--muted)" }}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add
+          Sign out
         </button>
-      )}
+      </form>
     </nav>
   );
 }
