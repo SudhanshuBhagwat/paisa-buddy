@@ -121,7 +121,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
 
       <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
         <div
-          className="w-full max-w-xl md:max-w-md rounded-t-2xl md:rounded-2xl pointer-events-auto"
+          className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
           style={{ background: 'var(--surface)', maxHeight: '90dvh', overflowY: 'auto' }}
         >
           <div className="flex justify-center pt-3 pb-1 md:hidden">
@@ -148,7 +148,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
             </div>
 
             <div className="flex items-center justify-center gap-2">
-              <span className="text-3xl font-light" style={{ color: 'var(--muted)' }}>₹</span>
+              <span className="font-light" style={{ color: activeType.color, fontSize: '2.25rem' }}>₹</span>
               <input
                 ref={amountRef}
                 type="text"
@@ -156,8 +156,8 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
                 placeholder="0"
                 value={formatDisplayAmount(amountStr)}
                 onChange={handleAmountChange}
-                className="text-4xl font-semibold bg-transparent border-none outline-none w-48 text-center tabular-nums"
-                style={{ color: activeType.color }}
+                className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
+                style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '2.25rem' }}
               />
             </div>
 

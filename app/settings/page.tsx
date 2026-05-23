@@ -5,6 +5,7 @@ import { getCachedTransactions } from '@/lib/db/cached-queries'
 import { getCustomCategories } from '@/lib/db/categories'
 import { getUserSettings } from '@/lib/db/user-settings'
 import { requireSetup } from '@/lib/auth/require-setup'
+import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import SettingsClient from './SettingsClient'
 
 async function SettingsData({ email }: { email: string | null }) {
@@ -20,9 +21,16 @@ async function SettingsData({ email }: { email: string | null }) {
     getUserSettings(),
   ])
 
+  const countFor = (name: string) => transactions.filter((t) => t.category === name).length
+
   const customCategories = customCategoryNames.map((name) => ({
     name,
-    transactionCount: transactions.filter((t) => t.category === name).length,
+    transactionCount: countFor(name),
+  }))
+
+  const predefinedCategories = PREDEFINED_CATEGORIES.map((name) => ({
+    name,
+    transactionCount: countFor(name),
   }))
 
   return (
@@ -30,6 +38,7 @@ async function SettingsData({ email }: { email: string | null }) {
       email={email}
       transactionCount={transactions.length}
       customCategories={customCategories}
+      predefinedCategories={predefinedCategories}
       upiIds={upiIds}
       displayName={displayName}
     />

@@ -109,7 +109,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
 
       <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
         <div
-          className="w-full max-w-xl md:max-w-md rounded-t-2xl md:rounded-2xl pointer-events-auto"
+          className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
           style={{ background: 'var(--surface)', maxHeight: '92dvh', overflowY: 'auto' }}
         >
           <div className="flex justify-center pt-3 pb-1 md:hidden">
@@ -149,41 +149,38 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
             </div>
 
             {/* Amount */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>AMOUNT</label>
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--muted)' }}>₹</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={formatDisplayAmount(amountStr)}
-                  onChange={handleAmountChange}
-                  className="flex-1 bg-transparent outline-none text-sm font-semibold tabular-nums"
-                  style={{ color: activeType.color }}
-                />
-              </div>
+            <div className="flex items-center justify-center gap-2 py-2">
+              <span className="font-light" style={{ color: activeType.color, fontSize: '2.25rem' }}>₹</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={formatDisplayAmount(amountStr)}
+                onChange={handleAmountChange}
+                className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
+                style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '2.25rem' }}
+              />
             </div>
 
             {/* Date + Time */}
-            <div className="flex gap-2">
-              <div className="flex flex-col gap-1.5 flex-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>DATE</label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                  className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
                   style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                   required
                 />
               </div>
-              <div className="flex flex-col gap-1.5 w-28">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>TIME</label>
                 <input
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                  className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
                   style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                 />
               </div>
@@ -295,7 +292,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
               type="submit"
               disabled={!amountStr || !description.trim() || !category || saving}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 mt-1"
-              style={{ background: '#16a34a', color: '#fff' }}
+              style={{ background: activeType.color, color: '#fff' }}
             >
               {saving ? 'Saving…' : mode === 'edit' ? 'Save' : 'Confirm & Save'}
             </button>
