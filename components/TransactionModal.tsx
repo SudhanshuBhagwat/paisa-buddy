@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { today } from '@/lib/utils'
 import { insertTransaction } from '@/app/actions/transactions'
 import { addCategory } from '@/app/actions/categories'
@@ -19,6 +20,7 @@ const TYPES: { value: TransactionType; label: string; color: string }[] = [
 ]
 
 export default function TransactionModal({ open, onClose, categories }: Props) {
+  useScrollLock(open)
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
   const [merchant, setMerchant] = useState('')

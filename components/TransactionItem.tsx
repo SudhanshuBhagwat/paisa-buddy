@@ -20,9 +20,10 @@ const TYPE_PREFIX: Record<string, string> = {
 
 interface Props {
   tx: Transaction
+  onEdit?: (tx: Transaction) => void
 }
 
-export default function TransactionItem({ tx }: Props) {
+export default function TransactionItem({ tx, onEdit }: Props) {
   const color = TYPE_COLORS[tx.type]
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -35,7 +36,8 @@ export default function TransactionItem({ tx }: Props) {
     <>
       <div
         className="flex items-center gap-3 px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border)' }}
+        style={{ borderBottom: '1px solid var(--border)', cursor: onEdit ? 'pointer' : undefined }}
+        onClick={onEdit ? () => onEdit(tx) : undefined}
       >
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
 
@@ -63,7 +65,7 @@ export default function TransactionItem({ tx }: Props) {
         </div>
 
         <button
-          onClick={() => setConfirmOpen(true)}
+          onClick={(e) => { e.stopPropagation(); setConfirmOpen(true) }}
           className="shrink-0 p-1 rounded transition-opacity hover:opacity-60"
           style={{ color: 'var(--muted)' }}
           aria-label="Delete transaction"
