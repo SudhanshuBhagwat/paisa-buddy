@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Transaction, TransactionType } from '@/lib/types/transaction'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
 
 interface Props {
   transaction: Transaction
@@ -9,6 +10,7 @@ interface Props {
   onSave: (updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) => void
   onClose: () => void
   saving: boolean
+  mode?: 'review' | 'edit'
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
@@ -27,7 +29,8 @@ function getCategoryHint(tx: Transaction): string | null {
   }
 }
 
-export default function ReviewEditDrawer({ transaction: tx, categories, onSave, onClose, saving }: Props) {
+export default function ReviewEditDrawer({ transaction: tx, categories, onSave, onClose, saving, mode = 'review' }: Props) {
+  useScrollLock(true)
   const categoryHint = getCategoryHint(tx)
   const defaultCategory = tx.category ?? categoryHint ?? ''
 
@@ -40,6 +43,8 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
   const [category, setCategory] = useState(defaultCategory)
   const [bank, setBank] = useState(tx.bank ?? '')
   const [upiRef, setUpiRef] = useState(tx.upi_ref ?? '')
+  const [newCatInput, setNewCatInput] = useState('')
+  const [extraCats, setExtraCats] = useState<string[]>([])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -80,10 +85,19 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
     setAmountStr(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : clean)
   }
 
-  // All categories + hint (deduped)
-  const allCats = categoryHint && !categories.includes(categoryHint)
+  // All categories + hint + any newly added (deduped)
+  const baseCats = categoryHint && !categories.includes(categoryHint)
     ? [...categories, categoryHint]
     : categories
+  const allCats = [...baseCats, ...extraCats.filter((c) => !baseCats.includes(c))]
+
+  function handleAddCat() {
+    const name = newCatInput.trim()
+    if (!name || allCats.includes(name)) return
+    setExtraCats((prev) => [...prev, name])
+    setCategory(name)
+    setNewCatInput('')
+  }
 
   return (
     <>
@@ -103,7 +117,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
           </div>
 
           <div className="px-4 pt-3 pb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Edit & Confirm</h2>
+            <h2 className="text-xl font-semibold">{mode === 'edit' ? 'Edit Transaction' : 'Edit & Confirm'}</h2>
             <button
               type="button"
               onClick={onClose}
@@ -231,6 +245,26 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
               {categoryHint && !tx.category && (
                 <p className="text-xs" style={{ color: 'var(--muted)' }}>✦ AI suggested</p>
               )}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <input
+                  type="text"
+                  placeholder="New category…"
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCat() } }}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  style={{ color: 'var(--text)' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCat}
+                  disabled={!newCatInput.trim()}
+                  className="text-xs font-medium disabled:opacity-40"
+                  style={{ color: 'var(--text)' }}
+                >
+                  Add
+                </button>
+              </div>
             </div>
 
             {/* Bank + UPI ref */}
@@ -263,7 +297,7 @@ export default function ReviewEditDrawer({ transaction: tx, categories, onSave, 
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 mt-1"
               style={{ background: '#16a34a', color: '#fff' }}
             >
-              {saving ? 'Saving…' : 'Confirm & Save'}
+              {saving ? 'Saving…' : mode === 'edit' ? 'Save' : 'Confirm & Save'}
             </button>
           </form>
         </div>

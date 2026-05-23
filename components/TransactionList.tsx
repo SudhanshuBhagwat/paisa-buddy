@@ -6,9 +6,10 @@ import TransactionItem from './TransactionItem'
 
 interface Props {
   transactions: Transaction[]
+  onEdit?: (tx: Transaction) => void
 }
 
-export default function TransactionList({ transactions }: Props) {
+export default function TransactionList({ transactions, onEdit }: Props) {
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ color: 'var(--muted)' }}>
@@ -35,7 +36,7 @@ export default function TransactionList({ transactions }: Props) {
             {formatDateLabel(date)}
           </div>
           {grouped.get(date)!.map((tx) => (
-            <TransactionItem key={tx.id} tx={tx} />
+            <TransactionItem key={tx.id} tx={tx} onEdit={onEdit} />
           ))}
         </div>
       ))}

@@ -14,6 +14,9 @@ import MonthPicker from '@/components/MonthPicker'
 import TransactionList from '@/components/TransactionList'
 import TransactionModal from '@/components/TransactionModal'
 import CalendarView from '@/components/CalendarView'
+import ReviewEditDrawer from '@/app/review/ReviewEditDrawer'
+import { updateTransaction } from '@/app/actions/transactions'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
 
 const SUMMARY_ITEMS = (
   income: number,
@@ -44,6 +47,18 @@ export default function HomeClient({ transactions, categories }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [calSheetOpen, setCalSheetOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+
+  useScrollLock(calSheetOpen)
+
+  async function handleEditSave(updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
+    if (!editingTx) return
+    setEditSaving(true)
+    await updateTransaction(editingTx.id, updates)
+    setEditSaving(false)
+    setEditingTx(null)
+  }
 
   useEffect(() => {
     setSelectedDate(null)
@@ -235,7 +250,7 @@ export default function HomeClient({ transactions, categories }: Props) {
               </div>
             )}
 
-            <TransactionList transactions={filteredTxs} />
+            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} />
           </div>
         </div>
 
@@ -293,6 +308,17 @@ export default function HomeClient({ transactions, categories }: Props) {
       </button>
 
       <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} />
+
+      {editingTx && (
+        <ReviewEditDrawer
+          transaction={editingTx}
+          categories={categories}
+          onSave={handleEditSave}
+          onClose={() => setEditingTx(null)}
+          saving={editSaving}
+          mode="edit"
+        />
+      )}
 
       {/* ── Mobile calendar bottom sheet ── */}
       {calSheetOpen && (

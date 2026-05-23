@@ -49,3 +49,17 @@ export async function updateAndConfirmTransaction(
   updateTag('transactions')
   refresh()
 }
+
+export async function updateTransaction(
+  id: string,
+  updates: Partial<Omit<Transaction, 'id' | 'created_at'>>,
+): Promise<void> {
+  if (updates.category) {
+    await getSupabaseClient()
+      .from('categories')
+      .upsert({ name: updates.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+  }
+  await db.update(id, updates)
+  updateTag('transactions')
+  refresh()
+}

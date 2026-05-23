@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
 
 interface Props {
   open: boolean
@@ -21,6 +22,8 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
+  useScrollLock(open)
+
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
