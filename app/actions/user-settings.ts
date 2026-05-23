@@ -53,6 +53,17 @@ export async function ensureUploadToken(): Promise<string> {
   return token
 }
 
+export async function regenerateUploadToken(): Promise<string> {
+  const token = randomBytes(32).toString('hex')
+  await getSupabaseClient()
+    .from('user_settings')
+    .update({ upload_token: token })
+    .eq('id', 'default')
+  updateTag('user-settings')
+  refresh()
+  return token
+}
+
 export async function completeSetup(displayName: string, upiIds: string[]): Promise<void> {
   await getSupabaseClient()
     .from('user_settings')
