@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import {
   rejectTransaction,
   updateAndConfirmTransaction,
@@ -51,9 +53,21 @@ function getCategoryHint(tx: Transaction): string | null {
 }
 
 export default function ReviewClient({ transactions, categories }: Props) {
+  const router = useRouter()
+  const prevLengthRef = useRef(transactions.length)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
+  useScrollLock(editingTx !== null)
+
+  useEffect(() => {
+    const prev = prevLengthRef.current
+    prevLengthRef.current = transactions.length
+    if (transactions.length === 0 && prev > 0) {
+      const t = setTimeout(() => router.push('/'), 1500)
+      return () => clearTimeout(t)
+    }
+  }, [transactions.length, router])
 
   async function handleReject() {
     if (!rejectingId) return
