@@ -124,7 +124,7 @@ export default function HomeClient({ transactions, categories }: Props) {
           style={{ borderColor: 'var(--border)' }}
         >
           <div className="w-full">
-            <MonthPicker value={month} onChange={setMonth} />
+            <MonthPicker value={month} onChange={setMonth} txCount={txs.length} />
           </div>
         </div>
 
@@ -136,6 +136,7 @@ export default function HomeClient({ transactions, categories }: Props) {
                 value={month}
                 onChange={setMonth}
                 onLabelClick={() => setCalSheetOpen(true)}
+                txCount={txs.length}
               />
             </div>
 
