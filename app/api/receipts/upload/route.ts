@@ -1,24 +1,11 @@
 import { type NextRequest } from 'next/server'
-import { timingSafeEqual } from 'crypto'
 import { revalidateTag } from 'next/cache'
 import vision from '@/lib/vision'
 import db from '@/lib/db'
-import { getUserSettings } from '@/lib/db/user-settings'
+import { getOwnerByUploadToken } from '@/lib/db/user-settings'
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10MB
-
-function isAuthorized(req: NextRequest): boolean {
-  const token = req.headers.get('x-upload-token')
-  const secret = process.env.UPLOAD_SECRET
-  if (!token || !secret) return false
-  // timingSafeEqual requires same-length buffers — catch throws as failure
-  try {
-    return timingSafeEqual(Buffer.from(token), Buffer.from(secret))
-  } catch {
-    return false
-  }
-}
 
 async function processFile(file: File, owner: { displayName: string | null; upiIds: string[] }): Promise<string> {
   if (!ALLOWED_TYPES.has(file.type)) {
@@ -56,7 +43,9 @@ async function processFile(file: File, owner: { displayName: string | null; upiI
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  const token = req.headers.get('x-upload-token') ?? ''
+  const owner = await getOwnerByUploadToken(token)
+  if (!owner) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -72,8 +61,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'No files provided' }, { status: 400 })
   }
 
-  const { displayName, upiIds } = await getUserSettings()
-  const results = await Promise.allSettled(files.map((f) => processFile(f, { displayName, upiIds })))
+  const results = await Promise.allSettled(files.map((f) => processFile(f, owner)))
 
   let queued = 0
   const errors: string[] = []

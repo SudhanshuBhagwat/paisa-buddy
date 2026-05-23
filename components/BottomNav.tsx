@@ -14,7 +14,7 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
 
   if (HIDDEN_PATHS.includes(pathname)) return null
 
-  const tabs = [
+  const allTabs = [
     {
       href: '/',
       label: 'Home',
@@ -61,6 +61,8 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
       ),
     },
   ]
+
+  const tabs = allTabs.filter((t) => t.href !== '/review' || pendingCount > 0)
 
   return (
     <nav

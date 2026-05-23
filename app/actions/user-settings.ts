@@ -1,5 +1,6 @@
 'use server'
 
+import { randomBytes } from 'crypto'
 import { updateTag, refresh } from 'next/cache'
 import { getSupabaseClient } from '@/lib/db/supabase-client'
 import { getUserSettings } from '@/lib/db/user-settings'
@@ -32,6 +33,24 @@ export async function setDisplayName(name: string): Promise<void> {
     .eq('id', 'default')
   updateTag('user-settings')
   refresh()
+}
+
+export async function ensureUploadToken(): Promise<string> {
+  // Direct DB read (bypasses cache) so we always see the current value
+  const { data } = await getSupabaseClient()
+    .from('user_settings')
+    .select('upload_token')
+    .eq('id', 'default')
+    .single()
+  if (data?.upload_token) return data.upload_token as string
+
+  const token = randomBytes(32).toString('hex')
+  await getSupabaseClient()
+    .from('user_settings')
+    .update({ upload_token: token })
+    .eq('id', 'default')
+  updateTag('user-settings')
+  return token
 }
 
 export async function completeSetup(displayName: string, upiIds: string[]): Promise<void> {

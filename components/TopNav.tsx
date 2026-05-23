@@ -6,7 +6,7 @@ import { logout } from "@/lib/auth/actions";
 
 const HIDDEN_PATHS = ['/login', '/setup'];
 
-const tabs = [
+const ALL_TABS = [
   { href: "/", label: "Home" },
   { href: "/review", label: "Review", showBadge: true },
   { href: "/stats", label: "Stats" },
@@ -35,7 +35,7 @@ export default function TopNav({ pendingCount = 0 }: Props) {
       </span>
 
       <div className="flex items-center gap-1 flex-1">
-        {tabs.map((tab) => {
+        {ALL_TABS.filter((t) => t.href !== '/review' || pendingCount > 0).map((tab) => {
           const active = pathname === tab.href;
           const badge = tab.showBadge && pendingCount > 0 ? pendingCount : null;
           return (
