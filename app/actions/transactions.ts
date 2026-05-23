@@ -12,6 +12,7 @@ export async function insertTransaction(
     await getSupabaseClient()
       .from('categories')
       .upsert({ name: tx.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    updateTag('categories')
   }
   await db.insert(tx)
   updateTag('transactions')
@@ -44,6 +45,7 @@ export async function updateAndConfirmTransaction(
     await getSupabaseClient()
       .from('categories')
       .upsert({ name: updates.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    updateTag('categories')
   }
   await db.update(id, { ...updates, reviewed: true })
   updateTag('transactions')
@@ -58,6 +60,7 @@ export async function updateTransaction(
     await getSupabaseClient()
       .from('categories')
       .upsert({ name: updates.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    updateTag('categories')
   }
   await db.update(id, updates)
   updateTag('transactions')

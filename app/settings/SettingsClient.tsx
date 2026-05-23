@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
-import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import { logout } from '@/lib/auth/actions'
 import {
   addCategory,
@@ -23,11 +22,12 @@ interface Props {
   email: string | null
   transactionCount: number
   customCategories: CategoryWithCount[]
+  predefinedCategories: CategoryWithCount[]
   upiIds: string[]
   displayName: string | null
 }
 
-export default function SettingsClient({ email, transactionCount, customCategories, upiIds, displayName }: Props) {
+export default function SettingsClient({ email, transactionCount, customCategories, predefinedCategories, upiIds, displayName }: Props) {
   const { state, dispatch } = useStore()
   const [newCat, setNewCat] = useState('')
   const [newUpi, setNewUpi] = useState('')
@@ -102,7 +102,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
               className="flex items-center justify-between px-4 py-3 gap-3"
               style={{ background: 'var(--surface)' }}
             >
-              <span className="text-sm shrink-0">Name</span>
+              <span className="text-sm shrink-0" style={{ color: 'var(--muted)' }}>Name</span>
               <input
                 type="text"
                 placeholder="As it appears on receipts"
@@ -253,13 +253,16 @@ export default function SettingsClient({ email, transactionCount, customCategori
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {PREDEFINED_CATEGORIES.map((cat) => (
+            {predefinedCategories.map(({ name, transactionCount: count }) => (
               <span
-                key={cat}
-                className="px-3 py-1 rounded-full text-xs"
+                key={name}
+                className="px-3 py-1 rounded-full text-xs flex items-center gap-1.5"
                 style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}
               >
-                {cat}
+                {name}
+                {count > 0 && (
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>{count}</span>
+                )}
               </span>
             ))}
           </div>
