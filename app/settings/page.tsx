@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { cacheTag } from 'next/cache'
 import { auth } from '@/auth'
 import { getCachedTransactions } from '@/lib/db/cached-queries'
 import { getCustomCategories } from '@/lib/db/categories'
@@ -6,10 +7,14 @@ import { getUserSettings } from '@/lib/db/user-settings'
 import { requireSetup } from '@/lib/auth/require-setup'
 import SettingsClient from './SettingsClient'
 
-async function SettingsContent() {
+async function SettingsData({ email }: { email: string | null }) {
+  'use cache'
+  cacheTag('transactions')
+  cacheTag('categories')
+  cacheTag('user-settings')
+
   await requireSetup()
-  const [session, transactions, customCategoryNames, { upiIds, displayName }] = await Promise.all([
-    auth(),
+  const [transactions, customCategoryNames, { upiIds, displayName }] = await Promise.all([
     getCachedTransactions(),
     getCustomCategories(),
     getUserSettings(),
@@ -22,13 +27,18 @@ async function SettingsContent() {
 
   return (
     <SettingsClient
-      email={session?.user?.email ?? null}
+      email={email}
       transactionCount={transactions.length}
       customCategories={customCategories}
       upiIds={upiIds}
       displayName={displayName}
     />
   )
+}
+
+async function SettingsContent() {
+  const session = await auth()
+  return <SettingsData email={session?.user?.email ?? null} />
 }
 
 export default function SettingsPage() {
