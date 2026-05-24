@@ -4,36 +4,22 @@ import { z } from 'zod'
 import type { VisionProvider, OwnerContext } from './types'
 import type { ParsedReceipt } from '../types/receipt'
 
-const PROMPT = `You are a financial receipt parser for an Indian user.
-Analyze this image and respond ONLY with a valid JSON object, no markdown, no explanation.
+const PROMPT = `Parse this Indian payment receipt. Reply ONLY with JSON, no markdown.
 
-{
-  "type": "debit" | "credit" | "transfer",
-  "amount": number,
-  "currency": "INR",
-  "date": "YYYY-MM-DD",
-  "time": "HH:MM" | null,
-  "merchant": string | null,
-  "description": string,
-  "upi_ref": string | null,
-  "bank": string | null,
-  "category_hint": string | null,
-  "confidence": "high" | "medium" | "low"
-}
+{"type":"debit|credit|transfer","amount":number,"currency":"INR","date":"YYYY-MM-DD","time":"HH:MM|null","merchant":string|null,"description":string,"upi_ref":string|null,"bank":string|null,"category_hint":string|null,"confidence":"high|medium|low"}
 
 Rules:
-- debit = money leaving the account
-- credit = money coming in
-- transfer = between own accounts
-- amount must be a number, no currency symbols
-- merchant:
-  • debit → name of the store, service, or person you paid (e.g. "Swiggy", "Amazon")
-  • credit → the sender's full name. Extract from phrases like "received from NAME", "paid by NAME", "from NAME", or any visible sender field. NEVER leave null for credit if a name is visible anywhere in the receipt.
-  • transfer → null
-- description: a short human-readable summary (e.g. "Payment received from Surabhi Nawandar")
-- If a field is unclear or not visible, set it to null
-- Never guess the amount — if unreadable, set confidence to "low"
-- date must be in YYYY-MM-DD format`
+- debit=money leaving account (purchases, payments, withdrawals)
+- credit=money received (incoming transfers, refunds, salary)
+- transfer=between own accounts
+- amount: number in rupees, no symbols (e.g. 120.50)
+- merchant: debit→store/service/person paid (e.g. "Swiggy", "Amazon"); credit→sender full name, extract from "received from", "paid by", "from" fields, never null if a name is visible; transfer→null
+- description: concise human-readable summary (e.g. "Paid to Swiggy", "Payment received from Rahul Sharma")
+- upi_ref: transaction/reference ID if visible
+- bank: bank or wallet name if visible (e.g. "HDFC", "PhonePe")
+- category_hint: best-guess category (e.g. "Food", "Travel", "Shopping", "Utilities")
+- date: YYYY-MM-DD; time: HH:MM 24h
+- Set null if unclear; confidence=low if amount unreadable`
 
 // AI returns amounts in rupees (e.g. 120.50); we store paise (12050)
 const RawAIResponseSchema = z.object({
@@ -91,12 +77,12 @@ export class OpenAIVisionProvider implements VisionProvider {
             { type: 'text', text: prompt },
             {
               type: 'image_url',
-              image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+              image_url: { url: `data:${mimeType};base64,${imageBase64}`, detail: 'low' },
             },
           ],
         },
       ],
-      max_tokens: 512,
+      max_tokens: 300,
       temperature: 0,
     })
 
