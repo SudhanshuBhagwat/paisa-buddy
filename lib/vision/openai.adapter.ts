@@ -18,7 +18,8 @@ Rules:
 - upi_ref: transaction/reference ID if visible
 - bank: bank or wallet name if visible (e.g. "HDFC", "PhonePe")
 - category_hint: best-guess category (e.g. "Food", "Travel", "Shopping", "Utilities")
-- date: YYYY-MM-DD; time: HH:MM 24h
+- date: ALWAYS output as YYYY-MM-DD regardless of how it appears in the receipt (e.g. "17th May'26" → "2026-05-17", "17/05/26" → "2026-05-17"); 2-digit years assume 2000s
+- time: HH:MM 24h
 - Set null if unclear; confidence=low if amount unreadable`
 
 // AI returns amounts in rupees (e.g. 120.50); we store paise (12050)
