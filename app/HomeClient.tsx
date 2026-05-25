@@ -47,7 +47,8 @@ export default function HomeClient({ transactions, categories }: Props) {
   async function handleEditSave(updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
     if (!editingTx) return
     setEditSaving(true)
-    await updateTransaction(editingTx.id, updates)
+    const finalUpdates = !editingTx.reviewed ? { ...updates, reviewed: true } : updates
+    await updateTransaction(editingTx.id, finalUpdates)
     setEditSaving(false)
     setEditingTx(null)
   }
@@ -129,7 +130,14 @@ export default function HomeClient({ transactions, categories }: Props) {
               <>
                 <div style={{ borderTop: '1px solid var(--border)' }} />
                 <div className="pl-3 pr-5 pt-4 pb-4 flex flex-col gap-3">
-                  <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>FILTERS</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>FILTERS</p>
+                    {(selectedType || selectedCategory) && (
+                      <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={selectedType ?? ''}
                     onChange={(e) => setSelectedType((e.target.value as TransactionType) || null)}
@@ -157,6 +165,39 @@ export default function HomeClient({ transactions, categories }: Props) {
                 </div>
               </>
             )}
+
+            {/* Filtered summary */}
+            {(selectedType || selectedCategory) && (() => {
+              const { income, expense, transfer } = calcSummary(filteredTxs)
+              const filteredRows = [
+                { label: 'INCOME', value: income, color: '#16a34a' },
+                { label: 'SPENT', value: expense, color: '#dc2626' },
+                { label: 'TRANSFERS', value: transfer, color: '#2563eb' },
+              ].filter(({ value }) => value > 0)
+              return (
+                <>
+                  <div style={{ borderTop: '1px solid var(--border)' }} />
+                  <div className="pl-3 pr-5 pt-4 pb-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>SELECTION</p>
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}>{filteredTxs.length} txn{filteredTxs.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    {filteredRows.length > 0 ? (
+                      <div className="flex flex-col gap-1.5">
+                        {filteredRows.map(({ label, value, color }) => (
+                          <div key={label} className="flex items-center justify-between">
+                            <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{label}</span>
+                            <span className="text-xs font-semibold tabular-nums" style={{ color }}>{formatAmount(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs" style={{ color: 'var(--muted)' }}>No transactions</p>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </aside>
 
