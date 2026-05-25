@@ -33,6 +33,8 @@ async function processFile(file: File, owner: { displayName: string | null; upiI
     bank: parsed.bank,
     // category set to null — AI hint is advisory; reviewer sets it in /review
     category: null,
+    account_id: null,
+    to_account_id: null,
     source: 'receipt_ocr',
     raw_ai_response: JSON.stringify(parsed), // includes category_hint for review UI
     confidence: parsed.confidence,
