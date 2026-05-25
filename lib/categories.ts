@@ -9,5 +9,6 @@ export const PREDEFINED_CATEGORIES = [
   'Returns',
   'Investment',
   'Transfer',
+  'Settlement',
   'Other',
 ] as const

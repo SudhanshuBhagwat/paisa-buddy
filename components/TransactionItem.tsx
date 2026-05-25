@@ -64,6 +64,14 @@ export default function TransactionItem({ tx, onEdit }: Props) {
           <span>{formatAmount(tx.amount)}</span>
         </div>
 
+        {tx.account_id === null && (
+          <div
+            className="shrink-0 w-1.5 h-1.5 rounded-full"
+            title="No account assigned"
+            style={{ background: '#f97316' }}
+          />
+        )}
+
         <button
           onClick={(e) => { e.stopPropagation(); setConfirmOpen(true) }}
           className="shrink-0 p-1 rounded transition-opacity hover:opacity-60"

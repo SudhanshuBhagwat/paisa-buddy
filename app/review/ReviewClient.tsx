@@ -11,10 +11,12 @@ import {
 import ConfirmModal from '@/components/ConfirmModal'
 import ReviewEditDrawer from './ReviewEditDrawer'
 import type { Transaction } from '@/lib/types/transaction'
+import type { Account } from '@/lib/types/account'
 
 interface Props {
   transactions: Transaction[]
   categories: string[]
+  accounts: Account[]
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -52,7 +54,7 @@ function getCategoryHint(tx: Transaction): string | null {
   }
 }
 
-export default function ReviewClient({ transactions, categories }: Props) {
+export default function ReviewClient({ transactions, categories, accounts }: Props) {
   const router = useRouter()
   const prevLengthRef = useRef(transactions.length)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -239,6 +241,7 @@ export default function ReviewClient({ transactions, categories }: Props) {
         <ReviewEditDrawer
           transaction={editingTx}
           categories={categories}
+          accounts={accounts}
           onSave={(updates) => handleSaveEdit(editingTx.id, updates)}
           onClose={() => setEditingTx(null)}
           saving={loading === editingTx.id}
