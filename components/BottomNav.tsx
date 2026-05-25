@@ -75,14 +75,6 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
             >
               <span className="relative">
                 {tab.icon}
-                {'badge' in tab && tab.badge != null && (
-                  <span
-                    className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
-                    style={{ background: '#dc2626', color: '#fff' }}
-                  >
-                    {tab.badge > 99 ? '99+' : tab.badge}
-                  </span>
-                )}
               </span>
               <span>{tab.label}</span>
             </Link>
