@@ -16,6 +16,8 @@ async function main() {
     upi_ref: 'UPI123456789',
     bank: 'HDFC',
     category: 'Food',
+    account_id: null,
+    to_account_id: null,
     source: 'manual',
     raw_ai_response: null,
     confidence: 'high',
