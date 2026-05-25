@@ -11,6 +11,7 @@ import {
   formatDateLabel,
 } from '@/lib/utils'
 import type { TransactionType } from '@/lib/types/transaction'
+import type { AccountWithBalance } from '@/lib/types/account'
 import MonthPicker from '@/components/MonthPicker'
 import TransactionList from '@/components/TransactionList'
 import TransactionModal from '@/components/TransactionModal'
@@ -28,13 +29,15 @@ const TYPE_COLOR: Record<TransactionType, string> = {
 interface Props {
   transactions: Transaction[]
   categories: string[]
+  accounts: AccountWithBalance[]
 }
 
-export default function HomeClient({ transactions, categories }: Props) {
+export default function HomeClient({ transactions, categories, accounts }: Props) {
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [calSheetOpen, setCalSheetOpen] = useState(false)
@@ -57,6 +60,7 @@ export default function HomeClient({ transactions, categories }: Props) {
     setSelectedDate(null)
     setSelectedCategory(null)
     setSelectedType(null)
+    setSelectedAccount(null)
     setSearchQuery('')
   }, [month])
 
@@ -67,6 +71,7 @@ export default function HomeClient({ transactions, categories }: Props) {
       (!selectedDate || t.date === selectedDate) &&
       (!selectedCategory || t.category === selectedCategory) &&
       (!selectedType || t.type === selectedType) &&
+      (!selectedAccount || t.account_id === selectedAccount) &&
       (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
   )
   const { income, expense, balance, transfer } = calcSummary(txs)
@@ -125,6 +130,33 @@ export default function HomeClient({ transactions, categories }: Props) {
               </div>
             </div>
 
+            {/* Accounts */}
+            {accounts.length > 0 && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border)' }} />
+                <div className="pl-3 pr-5 pt-4 pb-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>ACCOUNTS</p>
+                    <Link href="/accounts" className="text-xs" style={{ color: 'var(--muted)' }}>Manage</Link>
+                  </div>
+                  {accounts.map((acc) => {
+                    const balColor = acc.current_balance >= 0 ? '#16a34a' : '#dc2626'
+                    return (
+                      <div key={acc.id} className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-medium truncate">{acc.name}</span>
+                          {acc.bank && <span className="text-xs truncate" style={{ color: 'var(--muted)' }}>{acc.bank}</span>}
+                        </div>
+                        <span className="text-xs font-semibold tabular-nums shrink-0" style={{ color: balColor }}>
+                          {formatAmount(acc.current_balance)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
             {/* Filters */}
             {(txs.length > 0 || monthCategories.length > 0) && (
               <>
@@ -132,8 +164,8 @@ export default function HomeClient({ transactions, categories }: Props) {
                 <div className="pl-3 pr-5 pt-4 pb-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>FILTERS</p>
-                    {(selectedType || selectedCategory) && (
-                      <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
+                    {(selectedType || selectedCategory || selectedAccount) && (
+                      <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
                         Clear
                       </button>
                     )}
@@ -162,12 +194,25 @@ export default function HomeClient({ transactions, categories }: Props) {
                       ))}
                     </select>
                   )}
+                  {accounts.length > 0 && (
+                    <select
+                      value={selectedAccount ?? ''}
+                      onChange={(e) => setSelectedAccount(e.target.value || null)}
+                      className="px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                    >
+                      <option value="">All accounts</option>
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </>
             )}
 
             {/* Filtered summary */}
-            {(selectedType || selectedCategory) && (() => {
+            {(selectedType || selectedCategory || selectedAccount) && (() => {
               const { income, expense, transfer } = calcSummary(filteredTxs)
               const filteredRows = [
                 { label: 'INCOME', value: income, color: '#16a34a' },
@@ -412,12 +457,13 @@ export default function HomeClient({ transactions, categories }: Props) {
         </svg>
       </button>
 
-      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} />
+      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} />
 
       {editingTx && (
         <ReviewEditDrawer
           transaction={editingTx}
           categories={categories}
+          accounts={accounts}
           onSave={handleEditSave}
           onClose={() => setEditingTx(null)}
           saving={editSaving}
@@ -436,8 +482,8 @@ export default function HomeClient({ transactions, categories }: Props) {
             <div className="px-4 pt-2 pb-8 flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold">Filters</h3>
-                {(selectedType || selectedCategory) && (
-                  <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
+                {(selectedType || selectedCategory || selectedAccount) && (
+                  <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
                     Clear all
                   </button>
                 )}
@@ -462,6 +508,18 @@ export default function HomeClient({ transactions, categories }: Props) {
                     {monthCategories.map((cat) => (
                       <button key={cat} type="button" onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)} className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors" style={selectedCategory === cat ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                         {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {accounts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>ACCOUNT</span>
+                  <div className="flex gap-2 flex-wrap">
+                    {accounts.map((acc) => (
+                      <button key={acc.id} type="button" onClick={() => setSelectedAccount(selectedAccount === acc.id ? null : acc.id)} className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors" style={selectedAccount === acc.id ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                        {acc.name}
                       </button>
                     ))}
                   </div>

@@ -5,12 +5,16 @@ import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { today } from '@/lib/utils'
 import { insertTransaction } from '@/app/actions/transactions'
 import { addCategory } from '@/app/actions/categories'
+import { createAccount } from '@/app/actions/accounts'
 import type { TransactionType } from '@/lib/types/transaction'
+import type { Account, AccountType } from '@/lib/types/account'
+import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 
 interface Props {
   open: boolean
   onClose: () => void
   categories: string[]
+  accounts: Account[]
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
@@ -19,18 +23,30 @@ const TYPES: { value: TransactionType; label: string; color: string }[] = [
   { value: 'transfer', label: 'Transfer', color: '#2563eb' },
 ]
 
-export default function TransactionModal({ open, onClose, categories }: Props) {
+export default function TransactionModal({ open, onClose, categories, accounts }: Props) {
   useScrollLock(open)
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
   const [merchant, setMerchant] = useState('')
   const [category, setCategory] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [toAccountId, setToAccountId] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(today())
   const [addingCat, setAddingCat] = useState(false)
   const [newCatInput, setNewCatInput] = useState('')
+  const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
+  const [addingAccount, setAddingAccount] = useState(false)
+  const [newAccName, setNewAccName] = useState('')
+  const [newAccType, setNewAccType] = useState<AccountType>('savings')
+  const [addingAccSaving, setAddingAccSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const amountRef = useRef<HTMLInputElement>(null)
+
+  const allAccounts = [
+    ...accounts,
+    ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id)),
+  ]
 
   useEffect(() => {
     if (open) {
@@ -38,10 +54,15 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
       setAmountStr('')
       setMerchant('')
       setCategory('')
+      setAccountId('')
+      setToAccountId('')
       setNotes('')
       setDate(today())
       setAddingCat(false)
       setNewCatInput('')
+      setAddingAccount(false)
+      setNewAccName('')
+      setNewAccType('savings')
       setTimeout(() => amountRef.current?.focus(), 100)
     }
   }, [open])
@@ -55,10 +76,31 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  useEffect(() => {
+    if (category === 'Settlement') {
+      setType('transfer')
+      setNotes('Credit Card Settlement')
+      const fromAcc = allAccounts.find((a) => a.id === accountId)
+      const toAcc = allAccounts.find((a) => a.id === toAccountId)
+      if (fromAcc?.type === 'credit') setAccountId('')
+      if (toAcc?.type !== 'credit') setToAccountId('')
+    }
+  }, [category])
+
+  useEffect(() => {
+    if (type === 'transfer' && toAccountId) {
+      const acc = allAccounts.find((a) => a.id === toAccountId)
+      if (acc) setMerchant(acc.name)
+    } else if (type === 'transfer') {
+      setMerchant('')
+    }
+  }, [toAccountId, type, allAccounts])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const paise = Math.round(parseFloat(amountStr) * 100)
-    if (!paise || paise <= 0 || !merchant.trim() || !category || !notes.trim()) return
+    const needsToAccount = type === 'transfer'
+    if (!paise || paise <= 0 || !merchant.trim() || !category || !notes.trim() || !accountId || (needsToAccount && !toAccountId)) return
     setSubmitting(true)
     try {
       await insertTransaction({
@@ -72,6 +114,8 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
         upi_ref: null,
         bank: null,
         category,
+        account_id: accountId,
+        to_account_id: needsToAccount ? toAccountId : null,
         source: 'manual',
         raw_ai_response: null,
         confidence: null,
@@ -80,6 +124,22 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
       onClose()
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleAddAccount() {
+    const name = newAccName.trim()
+    if (!name) return
+    setAddingAccSaving(true)
+    try {
+      const newAcc = await createAccount({ name, type: newAccType, bank: null, currency: 'INR', opening_balance: 0 })
+      setExtraAccounts((prev) => [...prev, newAcc])
+      setAccountId(newAcc.id)
+      setAddingAccount(false)
+      setNewAccName('')
+      setNewAccType('savings')
+    } finally {
+      setAddingAccSaving(false)
     }
   }
 
@@ -93,6 +153,12 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
   }
 
   if (!open) return null
+
+  const isSettlement = category === 'Settlement'
+  const fromAccounts = isSettlement ? allAccounts.filter((a) => a.type !== 'credit') : allAccounts
+  const toAccounts = isSettlement
+    ? allAccounts.filter((a) => a.type === 'credit' && a.id !== accountId)
+    : allAccounts.filter((a) => a.id !== accountId)
 
   const activeType = TYPES.find((t) => t.value === type)!
   const merchantLabel = type === 'credit' ? 'SENDER' : type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'
@@ -219,6 +285,102 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
               </div>
             </div>
 
+            {/* Account */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                ACCOUNT <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              {fromAccounts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {fromAccounts.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setAccountId(acc.id === accountId ? '' : acc.id)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        accountId === acc.id
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {acc.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {addingAccount ? (
+                <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Account name"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setAddingAccount(false) }}
+                    className="px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['savings', 'current', 'credit', 'wallet', 'other'] as AccountType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNewAccType(t)}
+                        className="px-2.5 py-1 rounded-full text-xs transition-all"
+                        style={newAccType === t ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                      >
+                        {ACCOUNT_TYPE_LABELS[t]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                      Cancel
+                    </button>
+                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: 'var(--text)', color: 'var(--bg)' }}>
+                      {addingAccSaving ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingAccount(true)}
+                  className="self-start px-3 py-1.5 rounded-full text-sm"
+                  style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}
+                >
+                  + Add account
+                </button>
+              )}
+            </div>
+
+            {/* To Account (transfers only) */}
+            {type === 'transfer' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                  TO ACCOUNT <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {toAccounts.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setToAccountId(acc.id === toAccountId ? '' : acc.id)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        toAccountId === acc.id
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {acc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
                 {merchantLabel} <span style={{ color: '#dc2626' }}>*</span>
@@ -228,8 +390,14 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
                 placeholder={merchantPlaceholder}
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
+                readOnly={type === 'transfer' && !!toAccountId}
                 className="px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: type === 'transfer' && toAccountId ? 'var(--bg)' : 'var(--bg)',
+                  color: type === 'transfer' && toAccountId ? 'var(--muted)' : 'var(--text)',
+                  border: '1px solid var(--border)',
+                  cursor: type === 'transfer' && toAccountId ? 'default' : undefined,
+                }}
                 required
               />
             </div>
@@ -265,7 +433,7 @@ export default function TransactionModal({ open, onClose, categories }: Props) {
 
             <button
               type="submit"
-              disabled={!amountStr || !merchant.trim() || !category || !notes.trim() || submitting}
+              disabled={!amountStr || !merchant.trim() || !category || !notes.trim() || !accountId || (type === 'transfer' && !toAccountId) || submitting}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
               style={{ background: activeType.color, color: '#fff' }}
             >

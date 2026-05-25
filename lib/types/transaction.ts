@@ -3,6 +3,8 @@ export type Confidence = 'high' | 'medium' | 'low'
 
 export type Transaction = {
   id: string
+  account_id: string | null
+  to_account_id: string | null
   type: TransactionType
   amount: number // paise (integer), e.g. ₹120.50 = 12050
   currency: string

@@ -10,6 +10,7 @@ const ALL_TABS = [
   { href: "/", label: "Home" },
   { href: "/review", label: "Review", showBadge: true },
   { href: "/stats", label: "Stats" },
+  { href: "/accounts", label: "Accounts" },
   { href: "/settings", label: "Settings" },
 ];
 
