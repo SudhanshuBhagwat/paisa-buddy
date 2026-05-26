@@ -22,6 +22,8 @@ async function main() {
     raw_ai_response: null,
     confidence: 'high',
     reviewed: false,
+    is_recurring: false,
+    recurrence_group: null,
   })
   console.log('Inserted:', tx)
 

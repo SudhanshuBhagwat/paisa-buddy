@@ -19,6 +19,8 @@ export type Transaction = {
   raw_ai_response: string | null
   confidence: Confidence | null
   reviewed: boolean
+  is_recurring: boolean
+  recurrence_group: string | null
   created_at: string
 }
 

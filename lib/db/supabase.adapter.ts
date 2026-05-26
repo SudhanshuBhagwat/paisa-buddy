@@ -2,6 +2,7 @@ import 'server-only'
 import type { TransactionRepository } from './types'
 import type { Transaction, TransactionFilters } from '../types/transaction'
 import { getSupabaseClient } from './supabase-client'
+import { detectRecurringGroups } from '../recurring'
 
 type DbRow = Omit<Transaction, 'description'> & { description: string | null }
 
@@ -63,5 +64,33 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   async delete(id: string): Promise<void> {
     const { error } = await getSupabaseClient().from('transactions').delete().eq('id', id)
     if (error) throw new Error(error.message)
+  }
+
+  async detectRecurring(): Promise<void> {
+    const { data, error } = await getSupabaseClient()
+      .from('transactions')
+      .select()
+      .eq('reviewed', true)
+      .not('merchant', 'is', null)
+    if (error) throw new Error(error.message)
+
+    const txs = (data ?? []).map((r) => rowToTransaction(r as DbRow))
+    const updates = detectRecurringGroups(txs)
+    if (updates.length === 0) return
+
+    const byGroup = new Map<string, string[]>()
+    for (const u of updates) {
+      if (!byGroup.has(u.recurrence_group)) byGroup.set(u.recurrence_group, [])
+      byGroup.get(u.recurrence_group)!.push(u.id)
+    }
+
+    await Promise.all(
+      Array.from(byGroup.entries()).map(([groupId, ids]) =>
+        getSupabaseClient()
+          .from('transactions')
+          .update({ is_recurring: true, recurrence_group: groupId })
+          .in('id', ids),
+      ),
+    )
   }
 }

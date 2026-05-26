@@ -38,6 +38,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
+  const [recurringOnly, setRecurringOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [calSheetOpen, setCalSheetOpen] = useState(false)
@@ -61,6 +62,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
     setSelectedCategory(null)
     setSelectedType(null)
     setSelectedAccount(null)
+    setRecurringOnly(false)
     setSearchQuery('')
   }, [month])
 
@@ -72,6 +74,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
       (!selectedCategory || t.category === selectedCategory) &&
       (!selectedType || t.type === selectedType) &&
       (!selectedAccount || t.account_id === selectedAccount) &&
+      (!recurringOnly || t.is_recurring) &&
       (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
   )
   const { income, expense, balance, transfer } = calcSummary(txs)
@@ -164,8 +167,8 @@ export default function HomeClient({ transactions, categories, accounts }: Props
                 <div className="pl-3 pr-5 pt-4 pb-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>FILTERS</p>
-                    {(selectedType || selectedCategory || selectedAccount) && (
-                      <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
+                    {(selectedType || selectedCategory || selectedAccount || recurringOnly) && (
+                      <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null); setRecurringOnly(false) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
                         Clear
                       </button>
                     )}
@@ -207,12 +210,21 @@ export default function HomeClient({ transactions, categories, accounts }: Props
                       ))}
                     </select>
                   )}
+                  <select
+                    value={recurringOnly ? 'recurring' : ''}
+                    onChange={(e) => setRecurringOnly(e.target.value === 'recurring')}
+                    className="px-3 py-2 rounded-lg text-xs outline-none"
+                    style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                  >
+                    <option value="">All transactions</option>
+                    <option value="recurring">Recurring only</option>
+                  </select>
                 </div>
               </>
             )}
 
             {/* Filtered summary */}
-            {(selectedType || selectedCategory || selectedAccount) && (() => {
+            {(selectedType || selectedCategory || selectedAccount || recurringOnly) && (() => {
               const { income, expense, transfer } = calcSummary(filteredTxs)
               const filteredRows = [
                 { label: 'INCOME', value: income, color: '#16a34a' },
@@ -353,9 +365,9 @@ export default function HomeClient({ transactions, categories, accounts }: Props
                   onClick={() => setFilterSheetOpen(true)}
                   className="md:hidden relative shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
                   style={{
-                    background: (selectedType || selectedCategory) ? 'var(--text)' : 'var(--bg)',
+                    background: (selectedType || selectedCategory || recurringOnly) ? 'var(--text)' : 'var(--bg)',
                     border: '1px solid var(--border)',
-                    color: (selectedType || selectedCategory) ? 'var(--bg)' : 'var(--muted)',
+                    color: (selectedType || selectedCategory || recurringOnly) ? 'var(--bg)' : 'var(--muted)',
                   }}
                   aria-label="Open filters"
                 >
@@ -482,8 +494,8 @@ export default function HomeClient({ transactions, categories, accounts }: Props
             <div className="px-4 pt-2 pb-8 flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold">Filters</h3>
-                {(selectedType || selectedCategory || selectedAccount) && (
-                  <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
+                {(selectedType || selectedCategory || selectedAccount || recurringOnly) && (
+                  <button type="button" onClick={() => { setSelectedType(null); setSelectedCategory(null); setSelectedAccount(null); setRecurringOnly(false) }} className="text-xs font-medium" style={{ color: '#dc2626' }}>
                     Clear all
                   </button>
                 )}
@@ -525,6 +537,14 @@ export default function HomeClient({ transactions, categories, accounts }: Props
                   </div>
                 </div>
               )}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>RECURRING</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setRecurringOnly((v) => !v)} className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors" style={recurringOnly ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    ↻ Recurring only
+                  </button>
+                </div>
+              </div>
               <button type="button" onClick={() => setFilterSheetOpen(false)} className="w-full py-3 rounded-xl text-sm font-semibold mt-1" style={{ background: 'var(--text)', color: 'var(--bg)' }}>
                 Done
               </button>

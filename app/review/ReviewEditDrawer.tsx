@@ -57,6 +57,7 @@ export default function ReviewEditDrawer({
   const [toAccountId, setToAccountId] = useState(tx.to_account_id ?? "");
   const [bank, setBank] = useState(tx.bank ?? "");
   const [upiRef, setUpiRef] = useState(tx.upi_ref ?? "");
+  const [isRecurring, setIsRecurring] = useState(tx.is_recurring);
   const [newCatInput, setNewCatInput] = useState("");
   const [extraCats, setExtraCats] = useState<string[]>([]);
   const [extraAccounts, setExtraAccounts] = useState<Account[]>([]);
@@ -90,6 +91,7 @@ export default function ReviewEditDrawer({
       to_account_id: needsToAccount ? toAccountId : null,
       bank: bank.trim() || null,
       upi_ref: upiRef.trim() || null,
+      is_recurring: isRecurring,
     });
   }
 
@@ -566,6 +568,23 @@ export default function ReviewEditDrawer({
                   }}
                 />
               </div>
+            </div>
+
+            {/* Recurring toggle */}
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+              <span className="text-sm" style={{ color: "var(--text)" }}>Recurring transaction</span>
+              <button
+                type="button"
+                onClick={() => setIsRecurring((v) => !v)}
+                className="relative w-10 h-6 rounded-full transition-colors shrink-0"
+                style={{ background: isRecurring ? "#16a34a" : "var(--border)" }}
+                aria-pressed={isRecurring}
+              >
+                <span
+                  className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform"
+                  style={{ transform: isRecurring ? "translateX(16px)" : "translateX(0)" }}
+                />
+              </button>
             </div>
 
             <button
