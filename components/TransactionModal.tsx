@@ -120,6 +120,8 @@ export default function TransactionModal({ open, onClose, categories, accounts }
         raw_ai_response: null,
         confidence: null,
         reviewed: true,
+        is_recurring: false,
+        recurrence_group: null,
       })
       onClose()
     } finally {

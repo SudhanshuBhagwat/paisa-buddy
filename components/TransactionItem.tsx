@@ -52,6 +52,16 @@ export default function TransactionItem({ tx, onEdit }: Props) {
           )}
         </div>
 
+        {tx.is_recurring && (
+          <span
+            className="shrink-0 text-xs font-semibold"
+            title="Recurring"
+            style={{ color: 'var(--muted)' }}
+          >
+            ↻
+          </span>
+        )}
+
         <span
           className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
           style={{ border: `1px solid ${color}`, color, background: 'transparent' }}

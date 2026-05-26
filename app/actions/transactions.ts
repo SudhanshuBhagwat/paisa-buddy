@@ -15,6 +15,7 @@ export async function insertTransaction(
     updateTag('categories')
   }
   await db.insert(tx)
+  await db.detectRecurring()
   updateTag('transactions')
   refresh()
 }
@@ -27,6 +28,7 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 export async function confirmTransaction(id: string): Promise<void> {
   await db.update(id, { reviewed: true })
+  await db.detectRecurring()
   updateTag('transactions')
   refresh()
 }
@@ -48,6 +50,7 @@ export async function updateAndConfirmTransaction(
     updateTag('categories')
   }
   await db.update(id, { ...updates, reviewed: true })
+  await db.detectRecurring()
   updateTag('transactions')
   refresh()
 }

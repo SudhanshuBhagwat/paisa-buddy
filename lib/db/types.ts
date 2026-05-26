@@ -7,6 +7,7 @@ export interface TransactionRepository {
   getAll(filters?: TransactionFilters): Promise<Transaction[]>
   update(id: string, data: Partial<Transaction>): Promise<Transaction>
   delete(id: string): Promise<void>
+  detectRecurring(): Promise<void>
 }
 
 export interface AccountRepository {

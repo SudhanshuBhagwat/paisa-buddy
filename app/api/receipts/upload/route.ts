@@ -39,6 +39,8 @@ async function processFile(file: File, owner: { displayName: string | null; upiI
     raw_ai_response: JSON.stringify(parsed), // includes category_hint for review UI
     confidence: parsed.confidence,
     reviewed: false,
+    is_recurring: false,
+    recurrence_group: null,
   })
 
   return tx.id
