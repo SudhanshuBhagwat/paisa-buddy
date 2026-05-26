@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
@@ -8,6 +8,7 @@ import {
   rejectTransaction,
   updateAndConfirmTransaction,
 } from '@/app/actions/transactions'
+import { formatMonthLabel } from '@/lib/utils'
 import ConfirmModal from '@/components/ConfirmModal'
 import ReviewEditDrawer from './ReviewEditDrawer'
 import type { Transaction } from '@/lib/types/transaction'
@@ -58,6 +59,18 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
   const router = useRouter()
   const prevLengthRef = useRef(transactions.length)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Transaction[]>()
+    for (const tx of transactions) {
+      const key = tx.date.slice(0, 7)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(tx)
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([month, txs]) => ({ month, txs }))
+  }, [transactions])
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   useScrollLock(editingTx !== null)
@@ -106,7 +119,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
   }
 
   return (
-    <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
+    <main className="max-w-xl md:max-w-5xl lg:max-w-6xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
       <div className="py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
@@ -125,106 +138,120 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
         </span>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {transactions.map((tx) => {
-          const categoryHint = getCategoryHint(tx)
-          const typeColor = TYPE_COLOR[tx.type] ?? 'var(--text)'
-          const isProcessing = loading === tx.id
-
-          return (
-            <div
-              key={tx.id}
-              className="rounded-xl"
-              style={{ border: '1px solid var(--border)', background: 'var(--surface)', opacity: isProcessing ? 0.6 : 1 }}
-            >
-              {/* Card header */}
-              <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                      style={{ background: `${typeColor}18`, color: typeColor }}
-                    >
-                      {tx.type}
-                    </span>
-                    {tx.confidence && tx.confidence !== 'high' && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: `${CONFIDENCE_COLOR[tx.confidence]}18`, color: CONFIDENCE_COLOR[tx.confidence] }}
-                      >
-                        {CONFIDENCE_LABEL[tx.confidence]}
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className="text-2xl font-semibold tabular-nums"
-                    style={{ color: typeColor }}
-                  >
-                    ₹{formatAmount(tx.amount)}
-                  </span>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                  {tx.time && (
-                    <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{tx.time}</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="px-4 pb-3 flex flex-col gap-1">
-                {tx.merchant && (
-                  <p className="text-sm font-medium truncate">{tx.merchant}</p>
-                )}
-                <p className="text-sm truncate" style={{ color: tx.merchant ? 'var(--muted)' : 'var(--text)' }}>
-                  {tx.description}
-                </p>
-                <div className="flex items-center gap-2 flex-wrap mt-1">
-                  {tx.bank && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-                      {tx.bank}
-                    </span>
-                  )}
-                  {categoryHint && !tx.category && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}>
-                      AI: {categoryHint}
-                    </span>
-                  )}
-                  {tx.category && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-                      {tx.category}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex border-t" style={{ borderColor: 'var(--border)' }}>
-                <button
-                  type="button"
-                  onClick={() => setRejectingId(tx.id)}
-                  disabled={isProcessing}
-                  className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-medium active:opacity-60 disabled:opacity-40 cursor-pointer rounded-bl-xl"
-                  style={{ color: '#dc2626', touchAction: 'manipulation' }}
-                >
-                  Reject
-                </button>
-                <div aria-hidden className="w-px shrink-0" style={{ background: 'var(--border)' }} />
-                <button
-                  type="button"
-                  onClick={() => setEditingTx(tx)}
-                  disabled={isProcessing}
-                  className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-semibold active:opacity-60 disabled:opacity-40 cursor-pointer rounded-br-xl"
-                  style={{ color: '#16a34a', touchAction: 'manipulation' }}
-                >
-                  {isProcessing ? '…' : 'Edit & Confirm'}
-                </button>
-              </div>
+      <div className="flex flex-col gap-6">
+        {grouped.map(({ month, txs }) => (
+          <div key={month} className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>
+                {formatMonthLabel(month)}
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#dc262618', color: '#dc2626' }}>
+                {txs.length}
+              </span>
             </div>
-          )
-        })}
+            <div className="md:grid md:grid-cols-3 md:gap-3 flex flex-col gap-3">
+            {txs.map((tx) => {
+              const categoryHint = getCategoryHint(tx)
+              const typeColor = TYPE_COLOR[tx.type] ?? 'var(--text)'
+              const isProcessing = loading === tx.id
+
+              return (
+                <div
+                  key={tx.id}
+                  className="rounded-xl"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', opacity: isProcessing ? 0.6 : 1 }}
+                >
+                  {/* Card header */}
+                  <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                          style={{ background: `${typeColor}18`, color: typeColor }}
+                        >
+                          {tx.type}
+                        </span>
+                        {tx.confidence && tx.confidence !== 'high' && (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{ background: `${CONFIDENCE_COLOR[tx.confidence]}18`, color: CONFIDENCE_COLOR[tx.confidence] }}
+                          >
+                            {CONFIDENCE_LABEL[tx.confidence]}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className="text-2xl font-semibold tabular-nums"
+                        style={{ color: typeColor }}
+                      >
+                        ₹{formatAmount(tx.amount)}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xs" style={{ color: 'var(--muted)' }}>
+                        {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                      {tx.time && (
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{tx.time}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="px-4 pb-3 flex flex-col gap-1">
+                    {tx.merchant && (
+                      <p className="text-sm font-medium truncate">{tx.merchant}</p>
+                    )}
+                    <p className="text-sm truncate" style={{ color: tx.merchant ? 'var(--muted)' : 'var(--text)' }}>
+                      {tx.description}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      {tx.bank && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                          {tx.bank}
+                        </span>
+                      )}
+                      {categoryHint && !tx.category && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}>
+                          AI: {categoryHint}
+                        </span>
+                      )}
+                      {tx.category && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                          {tx.category}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex border-t" style={{ borderColor: 'var(--border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setRejectingId(tx.id)}
+                      disabled={isProcessing}
+                      className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-medium active:opacity-60 disabled:opacity-40 cursor-pointer rounded-bl-xl"
+                      style={{ color: '#dc2626', touchAction: 'manipulation' }}
+                    >
+                      Reject
+                    </button>
+                    <div aria-hidden className="w-px shrink-0" style={{ background: 'var(--border)' }} />
+                    <button
+                      type="button"
+                      onClick={() => setEditingTx(tx)}
+                      disabled={isProcessing}
+                      className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-semibold active:opacity-60 disabled:opacity-40 cursor-pointer rounded-br-xl"
+                      style={{ color: '#16a34a', touchAction: 'manipulation' }}
+                    >
+                      {isProcessing ? '…' : 'Edit & Confirm'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+            </div>
+          </div>
+        ))}
       </div>
 
       <ConfirmModal
