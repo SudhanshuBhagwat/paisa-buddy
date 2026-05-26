@@ -76,21 +76,35 @@ export class SupabaseTransactionRepository implements TransactionRepository {
 
     const txs = (data ?? []).map((r) => rowToTransaction(r as DbRow))
     const updates = detectRecurringGroups(txs)
-    if (updates.length === 0) return
+    const validIds = new Set(updates.map((u) => u.id))
 
-    const byGroup = new Map<string, string[]>()
-    for (const u of updates) {
-      if (!byGroup.has(u.recurrence_group)) byGroup.set(u.recurrence_group, [])
-      byGroup.get(u.recurrence_group)!.push(u.id)
+    // Flag newly detected recurring transactions
+    if (updates.length > 0) {
+      const byGroup = new Map<string, string[]>()
+      for (const u of updates) {
+        if (!byGroup.has(u.recurrence_group)) byGroup.set(u.recurrence_group, [])
+        byGroup.get(u.recurrence_group)!.push(u.id)
+      }
+      await Promise.all(
+        Array.from(byGroup.entries()).map(([groupId, ids]) =>
+          getSupabaseClient()
+            .from('transactions')
+            .update({ is_recurring: true, recurrence_group: groupId })
+            .in('id', ids),
+        ),
+      )
     }
 
-    await Promise.all(
-      Array.from(byGroup.entries()).map(([groupId, ids]) =>
-        getSupabaseClient()
-          .from('transactions')
-          .update({ is_recurring: true, recurrence_group: groupId })
-          .in('id', ids),
-      ),
+    // Clear transactions whose group no longer has 3+ members
+    // Only touches auto-detected ones (recurrence_group set) — leaves manually-toggled ones alone
+    const toUnflag = txs.filter(
+      (tx) => tx.is_recurring && tx.recurrence_group !== null && !validIds.has(tx.id),
     )
+    if (toUnflag.length > 0) {
+      await getSupabaseClient()
+        .from('transactions')
+        .update({ is_recurring: false, recurrence_group: null })
+        .in('id', toUnflag.map((tx) => tx.id))
+    }
   }
 }

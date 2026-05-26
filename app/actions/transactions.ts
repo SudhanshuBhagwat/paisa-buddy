@@ -22,6 +22,7 @@ export async function insertTransaction(
 
 export async function deleteTransaction(id: string): Promise<void> {
   await db.delete(id)
+  await db.detectRecurring()
   updateTag('transactions')
   refresh()
 }

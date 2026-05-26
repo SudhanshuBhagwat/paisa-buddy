@@ -15,6 +15,7 @@ interface Props {
   onClose: () => void
   categories: string[]
   accounts: Account[]
+  month?: string // YYYY-MM — defaults to current month
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
@@ -23,7 +24,13 @@ const TYPES: { value: TransactionType; label: string; color: string }[] = [
   { value: 'transfer', label: 'Transfer', color: '#2563eb' },
 ]
 
-export default function TransactionModal({ open, onClose, categories, accounts }: Props) {
+function defaultDateForMonth(month?: string): string {
+  const current = today()
+  if (!month || current.startsWith(month)) return current
+  return `${month}-01`
+}
+
+export default function TransactionModal({ open, onClose, categories, accounts, month }: Props) {
   useScrollLock(open)
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
@@ -57,7 +64,7 @@ export default function TransactionModal({ open, onClose, categories, accounts }
       setAccountId('')
       setToAccountId('')
       setNotes('')
-      setDate(today())
+      setDate(defaultDateForMonth(month))
       setAddingCat(false)
       setNewCatInput('')
       setAddingAccount(false)

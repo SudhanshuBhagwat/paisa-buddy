@@ -2,17 +2,17 @@ import type { Transaction } from './types/transaction'
 import type { AccountWithBalance, Account } from './types/account'
 
 export function calcAccountBalance(account: Account, transactions: Transaction[]): number {
+  const accountDate = account.created_at.slice(0, 10)
   let balance = account.opening_balance
   for (const tx of transactions) {
     if (!tx.reviewed) continue
-    // Only count transactions created after the account was set up
-    if (new Date(tx.created_at) <= new Date(account.created_at)) continue
+    if (tx.date <= accountDate) continue
     if (tx.account_id === account.id) {
       if (tx.type === 'credit') balance += tx.amount
       else if (tx.type === 'debit') balance -= tx.amount
-      else if (tx.type === 'transfer') balance -= tx.amount // money leaves source
+      else if (tx.type === 'transfer') balance -= tx.amount
     } else if (tx.to_account_id === account.id && tx.type === 'transfer') {
-      balance += tx.amount // money arrives at destination
+      balance += tx.amount
     }
   }
   return balance
