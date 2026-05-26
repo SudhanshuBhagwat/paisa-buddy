@@ -158,7 +158,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
               return (
                 <div
                   key={tx.id}
-                  className="rounded-xl"
+                  className="rounded-xl flex flex-col"
                   style={{ border: '1px solid var(--border)', background: 'var(--surface)', opacity: isProcessing ? 0.6 : 1 }}
                 >
                   {/* Card header */}
@@ -199,19 +199,14 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
 
                   {/* Details */}
                   <div className="px-4 pb-3 flex flex-col gap-1">
-                    {tx.merchant && (
-                      <p className="text-sm font-medium truncate">{tx.merchant}</p>
-                    )}
-                    <p className="text-sm truncate" style={{ color: tx.merchant ? 'var(--muted)' : 'var(--text)' }}>
+                    <p className="text-sm font-medium truncate" style={{ color: tx.merchant ? 'var(--text)' : 'var(--muted)' }}>
+                      {tx.merchant ?? 'No recipient'}
+                    </p>
+                    <p className="text-sm truncate" style={{ color: 'var(--muted)' }}>
                       {tx.description}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap mt-1">
-                      {tx.bank && (
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-                          {tx.bank}
-                        </span>
-                      )}
-                      {categoryHint && !tx.category && (
+{categoryHint && !tx.category && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}>
                           AI: {categoryHint}
                         </span>
@@ -225,7 +220,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
                   </div>
 
                   {/* Actions */}
-                  <div className="flex border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex border-t mt-auto" style={{ borderColor: 'var(--border)' }}>
                     <button
                       type="button"
                       onClick={() => setRejectingId(tx.id)}

@@ -37,8 +37,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return true
       }
 
-      // /api/receipts/upload uses its own UPLOAD_SECRET auth — skip session check
+      // Token-authenticated API routes — skip session check
       if (path.startsWith('/api/receipts/upload')) return true
+      if (path.startsWith('/api/transactions/quick')) return true
 
       if (!isLoggedIn) return Response.redirect(new URL('/login', request.nextUrl))
       return true
