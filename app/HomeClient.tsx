@@ -173,52 +173,64 @@ export default function HomeClient({ transactions, categories, accounts }: Props
                       </button>
                     )}
                   </div>
-                  <select
-                    value={selectedType ?? ''}
-                    onChange={(e) => setSelectedType((e.target.value as TransactionType) || null)}
-                    className="px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
-                  >
-                    <option value="">All types</option>
-                    <option value="debit">Debit</option>
-                    <option value="credit">Credit</option>
-                    <option value="transfer">Transfer</option>
-                  </select>
-                  {monthCategories.length > 0 && (
+                  <div className="relative">
                     <select
-                      value={selectedCategory ?? ''}
-                      onChange={(e) => setSelectedCategory(e.target.value || null)}
-                      className="px-3 py-2 rounded-lg text-xs outline-none"
+                      value={selectedType ?? ''}
+                      onChange={(e) => setSelectedType((e.target.value as TransactionType) || null)}
+                      className="w-full pl-3 pr-7 py-2 rounded-lg text-xs outline-none appearance-none"
                       style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                     >
-                      <option value="">All categories</option>
-                      {monthCategories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
+                      <option value="">All types</option>
+                      <option value="debit">Debit</option>
+                      <option value="credit">Credit</option>
+                      <option value="transfer">Transfer</option>
                     </select>
+                    <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+                  {monthCategories.length > 0 && (
+                    <div className="relative">
+                      <select
+                        value={selectedCategory ?? ''}
+                        onChange={(e) => setSelectedCategory(e.target.value || null)}
+                        className="w-full pl-3 pr-7 py-2 rounded-lg text-xs outline-none appearance-none"
+                        style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                      >
+                        <option value="">All categories</option>
+                        {monthCategories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
                   )}
                   {accounts.length > 0 && (
+                    <div className="relative">
+                      <select
+                        value={selectedAccount ?? ''}
+                        onChange={(e) => setSelectedAccount(e.target.value || null)}
+                        className="w-full pl-3 pr-7 py-2 rounded-lg text-xs outline-none appearance-none"
+                        style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                      >
+                        <option value="">All accounts</option>
+                        {accounts.map((acc) => (
+                          <option key={acc.id} value={acc.id}>{acc.name}</option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                  )}
+                  <div className="relative">
                     <select
-                      value={selectedAccount ?? ''}
-                      onChange={(e) => setSelectedAccount(e.target.value || null)}
-                      className="px-3 py-2 rounded-lg text-xs outline-none"
+                      value={recurringOnly ? 'recurring' : ''}
+                      onChange={(e) => setRecurringOnly(e.target.value === 'recurring')}
+                      className="w-full pl-3 pr-7 py-2 rounded-lg text-xs outline-none appearance-none"
                       style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
                     >
-                      <option value="">All accounts</option>
-                      {accounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>{acc.name}</option>
-                      ))}
+                      <option value="">All transactions</option>
+                      <option value="recurring">Recurring only</option>
                     </select>
-                  )}
-                  <select
-                    value={recurringOnly ? 'recurring' : ''}
-                    onChange={(e) => setRecurringOnly(e.target.value === 'recurring')}
-                    className="px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
-                  >
-                    <option value="">All transactions</option>
-                    <option value="recurring">Recurring only</option>
-                  </select>
+                    <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
                 </div>
               </>
             )}
@@ -469,7 +481,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
         </svg>
       </button>
 
-      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} />
+      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} month={month} />
 
       {editingTx && (
         <ReviewEditDrawer

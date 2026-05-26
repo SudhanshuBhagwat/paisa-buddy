@@ -255,7 +255,7 @@ export default function AccountsClient({ accounts }: Props) {
                 {/* Opening balance */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                    {form.type === 'credit' ? 'AMOUNT TO BE SETTLED' : 'CURRENT BALANCE'}
+                    {form.type === 'credit' ? 'AMOUNT TO BE SETTLED' : 'OPENING BALANCE'}
                   </label>
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
                     <span className="text-sm font-medium" style={{ color: 'var(--muted)' }}>₹</span>
