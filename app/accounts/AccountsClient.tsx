@@ -145,7 +145,7 @@ export default function AccountsClient({ accounts }: Props) {
                       <span className="text-base font-semibold">{balInt}</span>
                       {balDec && <span className="text-xs font-semibold">.{balDec}</span>}
                     </div>
-                    <span className="text-xs" style={{ color: 'var(--muted)' }}>balance</span>
+                    <span className="text-xs" style={{ color: 'var(--muted)' }}>Current Balance</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
