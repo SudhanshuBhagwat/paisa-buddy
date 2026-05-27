@@ -1,24 +1,22 @@
 import { Suspense } from 'react'
 import { cacheTag } from 'next/cache'
-import { auth } from '@/auth'
 import { getCachedTransactions } from '@/lib/db/cached-queries'
-import { getCustomCategories } from '@/lib/db/categories'
-import { getUserSettings } from '@/lib/db/user-settings'
+import { categoriesDb, settingsDb } from '@/lib/db'
+import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import SettingsClient from './SettingsClient'
 
-async function SettingsData({ email }: { email: string | null }) {
+async function SettingsData({ userId }: { userId: string }) {
   'use cache'
   cacheTag('transactions')
   cacheTag('categories')
   cacheTag('user-settings')
 
-  await requireSetup()
   const [transactions, customCategoryNames, { upiIds, displayName }] = await Promise.all([
-    getCachedTransactions(),
-    getCustomCategories(),
-    getUserSettings(),
+    getCachedTransactions(userId),
+    categoriesDb.getCustom(),
+    settingsDb.get(userId),
   ])
 
   const countFor = (name: string) => transactions.filter((t) => t.category === name).length
@@ -35,7 +33,7 @@ async function SettingsData({ email }: { email: string | null }) {
 
   return (
     <SettingsClient
-      email={email}
+      email={userId}
       transactionCount={transactions.length}
       customCategories={customCategories}
       predefinedCategories={predefinedCategories}
@@ -46,8 +44,9 @@ async function SettingsData({ email }: { email: string | null }) {
 }
 
 async function SettingsContent() {
-  const session = await auth()
-  return <SettingsData email={session?.user?.email ?? null} />
+  const userId = await getRequiredUserId()
+  await requireSetup(userId)
+  return <SettingsData userId={userId} />
 }
 
 export default function SettingsPage() {

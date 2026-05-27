@@ -1,6 +1,6 @@
 import 'server-only'
 import { Resend } from 'resend'
-import { getSupabaseClient } from '@/lib/db/supabase-client'
+import { getSupabaseClient } from '@/lib/db/supabase/client'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 

@@ -2,6 +2,7 @@ export type AccountType = 'savings' | 'current' | 'credit' | 'wallet' | 'other'
 
 export type Account = {
   id: string
+  user_id: string
   name: string
   type: AccountType
   bank: string | null

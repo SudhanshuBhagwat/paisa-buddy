@@ -2,10 +2,15 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { z } from 'zod'
 
-// Imported dynamically inside authorize to avoid server-only import at build time
+// Imported dynamically inside authorize to avoid server-only imports at build time
 async function verifyToken(email: string, token: string): Promise<boolean> {
   const { verifyOTP } = await import('@/lib/auth/otp')
   return verifyOTP(email, token)
+}
+
+async function resolveUserId(email: string): Promise<string> {
+  const { getOrCreateUserId } = await import('@/lib/auth/users')
+  return getOrCreateUserId(email)
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -21,7 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await verifyToken(parsed.data.email, parsed.data.token)
         if (!valid) return null
 
-        return { id: parsed.data.email, email: parsed.data.email, name: null }
+        const userId = await resolveUserId(parsed.data.email)
+        return { id: userId, email: parsed.data.email, name: null }
       },
     }),
   ],

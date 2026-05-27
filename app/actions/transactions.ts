@@ -1,72 +1,72 @@
 'use server'
 
 import { updateTag, refresh } from 'next/cache'
-import db from '@/lib/db'
-import { getSupabaseClient } from '@/lib/db/supabase-client'
+import { db, categoriesDb } from '@/lib/db'
+import { getRequiredUserId } from '@/lib/auth/require-user'
 import type { Transaction } from '@/lib/types/transaction'
 
 export async function insertTransaction(
-  tx: Omit<Transaction, 'id' | 'created_at'>,
+  tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
 ): Promise<void> {
+  const userId = await getRequiredUserId()
   if (tx.category) {
-    await getSupabaseClient()
-      .from('categories')
-      .upsert({ name: tx.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    await categoriesDb.upsertCustom(tx.category)
     updateTag('categories')
   }
-  await db.insert(tx)
-  await db.detectRecurring()
+  await db.insert(userId, tx)
+  await db.detectRecurring(userId)
   updateTag('transactions')
   refresh()
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  await db.delete(id)
-  await db.detectRecurring()
+  const userId = await getRequiredUserId()
+  await db.delete(userId, id)
+  await db.detectRecurring(userId)
   updateTag('transactions')
   refresh()
 }
 
 export async function confirmTransaction(id: string): Promise<void> {
-  await db.update(id, { reviewed: true })
-  await db.detectRecurring()
+  const userId = await getRequiredUserId()
+  await db.update(userId, id, { reviewed: true })
+  await db.detectRecurring(userId)
   updateTag('transactions')
   refresh()
 }
 
 export async function rejectTransaction(id: string): Promise<void> {
-  await db.delete(id)
+  const userId = await getRequiredUserId()
+  await db.delete(userId, id)
   updateTag('transactions')
   refresh()
 }
 
 export async function updateAndConfirmTransaction(
   id: string,
-  updates: Partial<Omit<Transaction, 'id' | 'created_at'>>,
+  updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,
 ): Promise<void> {
+  const userId = await getRequiredUserId()
   if (updates.category) {
-    await getSupabaseClient()
-      .from('categories')
-      .upsert({ name: updates.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    await categoriesDb.upsertCustom(updates.category)
     updateTag('categories')
   }
-  await db.update(id, { ...updates, reviewed: true })
-  await db.detectRecurring()
+  await db.update(userId, id, { ...updates, reviewed: true })
+  await db.detectRecurring(userId)
   updateTag('transactions')
   refresh()
 }
 
 export async function updateTransaction(
   id: string,
-  updates: Partial<Omit<Transaction, 'id' | 'created_at'>>,
+  updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,
 ): Promise<void> {
+  const userId = await getRequiredUserId()
   if (updates.category) {
-    await getSupabaseClient()
-      .from('categories')
-      .upsert({ name: updates.category, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+    await categoriesDb.upsertCustom(updates.category)
     updateTag('categories')
   }
-  await db.update(id, updates)
+  await db.update(userId, id, updates)
   updateTag('transactions')
   refresh()
 }
