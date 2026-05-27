@@ -12,9 +12,7 @@ function rowToAccount(row: Record<string, unknown>): Account {
     bank: (row.bank as string | null) ?? null,
     currency: row.currency as string,
     opening_balance: Number(row.opening_balance),
-    created_at: (row.created_at instanceof Date
-      ? row.created_at.toISOString()
-      : row.created_at) as string,
+    created_at: row.created_at as string,
   }
 }
 
