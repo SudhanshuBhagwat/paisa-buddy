@@ -7,6 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import TopNav from "@/components/TopNav";
 import PinchZoomBlock from "@/components/PinchZoomBlock";
 import { getCachedPendingTransactions } from "@/lib/db/cached-queries";
+import { auth } from "@/auth";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -26,8 +27,10 @@ export const viewport: Viewport = {
 };
 
 async function NavWithCount() {
-  const pending = await getCachedPendingTransactions();
-  const count = pending.length;
+  const session = await auth();
+  const userId = session?.user?.email;
+  // No session (e.g. /login page) — render nav without count.
+  const count = userId ? (await getCachedPendingTransactions(userId)).length : 0;
   return (
     <>
       <TopNav pendingCount={count} />

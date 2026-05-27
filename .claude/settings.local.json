@@ -22,7 +22,18 @@
       "Bash(findstr /i \"IPv4\")",
       "Bash(node *)",
       "Bash(npx next *)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(pnpm build *)",
+      "Bash(Get-ChildItem \"D:\\\\Projects\\\\paisa-buddy\\\\node_modules\\\\next\\\\dist\\\\docs\\\\\" -ErrorAction SilentlyContinue | Select-Object Name *)",
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\paisa-buddy\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\paisa-buddy\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"auth\\\\|session\")",
+      "Bash(xargs grep -l \"db\\\\.\\\\|accountsDb\\\\|getUserSettings\\\\|getAll\\\\|insert\\\\|update\\\\|delete\")"
     ]
   }
 }

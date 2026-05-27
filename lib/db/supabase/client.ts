@@ -2,6 +2,9 @@ import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// This is the ONLY file in the codebase that imports @supabase/supabase-js.
+// All other DB code goes through the repository interfaces in lib/db/types.ts.
+
 let _client: SupabaseClient | null = null
 
 export function getSupabaseClient(): SupabaseClient {

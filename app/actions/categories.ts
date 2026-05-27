@@ -1,37 +1,32 @@
 'use server'
 
 import { updateTag, refresh } from 'next/cache'
-import { getSupabaseClient } from '@/lib/db/supabase-client'
+import { categoriesDb, db } from '@/lib/db'
+import { getRequiredUserId } from '@/lib/auth/require-user'
 
 export async function addCategory(name: string): Promise<void> {
-  await getSupabaseClient()
-    .from('categories')
-    .upsert({ name, is_predefined: false }, { onConflict: 'name', ignoreDuplicates: true })
+  await categoriesDb.upsertCustom(name)
   updateTag('categories')
   refresh()
 }
 
 export async function removeCategory(name: string): Promise<void> {
-  await getSupabaseClient()
-    .from('categories')
-    .delete()
-    .eq('name', name)
-    .eq('is_predefined', false)
+  await categoriesDb.deleteCustom(name)
   updateTag('categories')
   refresh()
 }
 
 export async function removeCategoryAndUnlinkTransactions(name: string): Promise<void> {
-  const supabase = getSupabaseClient()
-  await supabase.from('transactions').update({ category: null, reviewed: false }).eq('category', name)
-  await supabase.from('categories').delete().eq('name', name).eq('is_predefined', false)
+  const userId = await getRequiredUserId()
+  await categoriesDb.deleteCustomAndUnlinkTransactions(userId, name)
   updateTag('categories')
   updateTag('transactions')
   refresh()
 }
 
 export async function clearAllTransactions(): Promise<void> {
-  await getSupabaseClient().from('transactions').delete().neq('id', '')
+  const userId = await getRequiredUserId()
+  await db.deleteAll(userId)
   updateTag('transactions')
   refresh()
 }

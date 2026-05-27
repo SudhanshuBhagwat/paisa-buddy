@@ -3,6 +3,7 @@ export type Confidence = 'high' | 'medium' | 'low'
 
 export type Transaction = {
   id: string
+  user_id: string
   account_id: string | null
   to_account_id: string | null
   type: TransactionType

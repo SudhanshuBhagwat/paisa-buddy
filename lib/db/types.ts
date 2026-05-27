@@ -1,18 +1,93 @@
 import type { Transaction, TransactionFilters } from '../types/transaction'
 import type { Account } from '../types/account'
 
+// ---------------------------------------------------------------------------
+// Domain types
+// ---------------------------------------------------------------------------
+
+export interface UserSettings {
+  upiIds: string[]
+  displayName: string | null
+  setupCompleted: boolean
+  uploadToken: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Repository interfaces
+// All Supabase (or any other DB) details live behind these contracts.
+// To swap providers: implement the interfaces in a new adapter file and
+// update lib/db/index.ts — nothing else changes.
+// ---------------------------------------------------------------------------
+
 export interface TransactionRepository {
-  insert(tx: Omit<Transaction, 'id' | 'created_at'>): Promise<Transaction>
-  getPending(): Promise<Transaction[]>
-  getAll(filters?: TransactionFilters): Promise<Transaction[]>
-  update(id: string, data: Partial<Transaction>): Promise<Transaction>
-  delete(id: string): Promise<void>
-  detectRecurring(): Promise<void>
+  /** Insert a new transaction scoped to userId. */
+  insert(
+    userId: string,
+    tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
+  ): Promise<Transaction>
+
+  /** All unreviewed transactions for the user, newest first. */
+  getPending(userId: string): Promise<Transaction[]>
+
+  /** All transactions for the user, with optional filters. */
+  getAll(userId: string, filters?: TransactionFilters): Promise<Transaction[]>
+
+  /** Partial update — only mutates the user's own transaction. */
+  update(
+    userId: string,
+    id: string,
+    data: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,
+  ): Promise<Transaction>
+
+  /** Delete a single transaction owned by the user. */
+  delete(userId: string, id: string): Promise<void>
+
+  /** Delete ALL transactions for the user (e.g. dev reset). */
+  deleteAll(userId: string): Promise<void>
+
+  /** Re-run recurring detection over the user's reviewed transactions. */
+  detectRecurring(userId: string): Promise<void>
 }
 
 export interface AccountRepository {
-  getAll(): Promise<Account[]>
-  insert(account: Omit<Account, 'id' | 'created_at'>): Promise<Account>
-  update(id: string, data: Partial<Omit<Account, 'id' | 'created_at'>>): Promise<Account>
-  delete(id: string): Promise<void>
+  getAll(userId: string): Promise<Account[]>
+  insert(
+    userId: string,
+    account: Omit<Account, 'id' | 'created_at' | 'user_id'>,
+  ): Promise<Account>
+  update(
+    userId: string,
+    id: string,
+    data: Partial<Omit<Account, 'id' | 'created_at' | 'user_id'>>,
+  ): Promise<Account>
+  delete(userId: string, id: string): Promise<void>
+}
+
+/** Categories are global (predefined + custom shared namespace). No user scoping needed
+ *  for reads. deleteCustomAndUnlinkTransactions scopes the transaction update by userId. */
+export interface CategoryRepository {
+  getAll(): Promise<string[]>
+  getCustom(): Promise<string[]>
+  upsertCustom(name: string): Promise<void>
+  deleteCustom(name: string): Promise<void>
+  deleteCustomAndUnlinkTransactions(userId: string, name: string): Promise<void>
+}
+
+export interface UserSettingsRepository {
+  /** Returns settings for userId; returns safe defaults if no row exists yet. */
+  get(userId: string): Promise<UserSettings>
+
+  /**
+   * Partial upsert — creates row on first call, updates individual fields thereafter.
+   * Fields not included in `data` are left untouched on UPDATE.
+   */
+  upsert(
+    userId: string,
+    data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken'>>,
+  ): Promise<void>
+
+  /** Look up owner by upload token for token-authenticated API routes. */
+  getByUploadToken(
+    token: string,
+  ): Promise<{ userId: string; displayName: string | null; upiIds: string[] } | null>
 }

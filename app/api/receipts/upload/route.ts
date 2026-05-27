@@ -1,13 +1,15 @@
 import { type NextRequest } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import vision from '@/lib/vision'
-import db from '@/lib/db'
-import { getOwnerByUploadToken } from '@/lib/db/user-settings'
+import { db, settingsDb } from '@/lib/db'
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10MB
 
-async function processFile(file: File, owner: { displayName: string | null; upiIds: string[] }): Promise<string> {
+async function processFile(
+  file: File,
+  owner: { userId: string; displayName: string | null; upiIds: string[] },
+): Promise<string> {
   if (!ALLOWED_TYPES.has(file.type)) {
     throw new Error(`Unsupported type: ${file.type}`)
   }
@@ -21,7 +23,7 @@ async function processFile(file: File, owner: { displayName: string | null; upiI
     upiIds: owner.upiIds,
   })
 
-  const tx = await db.insert({
+  const tx = await db.insert(owner.userId, {
     type: parsed.type,
     amount: parsed.amount,
     currency: parsed.currency,
@@ -48,7 +50,7 @@ async function processFile(file: File, owner: { displayName: string | null; upiI
 
 export async function POST(req: NextRequest) {
   const token = req.headers.get('x-upload-token') ?? ''
-  const owner = await getOwnerByUploadToken(token)
+  const owner = await settingsDb.getByUploadToken(token)
   if (!owner) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
