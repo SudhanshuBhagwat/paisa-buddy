@@ -31,9 +31,7 @@ function rowToTransaction(row: Record<string, unknown>): Transaction {
     reviewed: row.reviewed as boolean,
     is_recurring: row.is_recurring as boolean,
     recurrence_group: (row.recurrence_group as string | null) ?? null,
-    created_at: (row.created_at instanceof Date
-      ? row.created_at.toISOString()
-      : row.created_at) as string,
+    created_at: row.created_at as string,
   }
 }
 
