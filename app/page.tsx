@@ -4,6 +4,9 @@ import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { toAccountsWithBalance } from '@/lib/utils'
 import HomeClient from './HomeClient'
+import PageSkeleton from '@/components/PageSkeleton'
+
+export const unstable_instant = { prefetch: 'static' }
 
 async function HomeContent() {
   const userId = await getRequiredUserId()
@@ -24,7 +27,7 @@ async function HomeContent() {
 
 export default function HomePage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageSkeleton />}>
       <HomeContent />
     </Suspense>
   )

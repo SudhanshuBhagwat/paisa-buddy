@@ -58,8 +58,7 @@ export async function withUserContext<T>(
   fn: (db: postgres.TransactionSql) => Promise<T>,
 ): Promise<T> {
   return sql.begin(async (db) => {
-    await db`SET LOCAL ROLE authenticated`
-    await db`SELECT set_config('app.user_id', ${userId}, true)`
+    await db`SELECT set_user_context(${userId})`
     return fn(db)
   }) as Promise<T>
 }

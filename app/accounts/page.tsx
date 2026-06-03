@@ -4,6 +4,9 @@ import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { toAccountsWithBalance } from '@/lib/utils'
 import AccountsClient from './AccountsClient'
+import PageSkeleton from '@/components/PageSkeleton'
+
+export const unstable_instant = { prefetch: 'static' }
 
 async function AccountsContent() {
   const userId = await getRequiredUserId()
@@ -17,7 +20,7 @@ async function AccountsContent() {
 
 export default function AccountsPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageSkeleton />}>
       <AccountsContent />
     </Suspense>
   )
