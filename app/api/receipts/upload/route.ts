@@ -49,39 +49,47 @@ async function processFile(
 }
 
 export async function POST(req: NextRequest) {
-  const token = req.headers.get('x-upload-token') ?? ''
-  const owner = await settingsDb.getByUploadToken(token)
-  if (!owner) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let formData: FormData
   try {
-    formData = await req.formData()
-  } catch {
-    return Response.json({ error: 'Invalid request body' }, { status: 400 })
-  }
-
-  const files = formData.getAll('file') as File[]
-  if (files.length === 0) {
-    return Response.json({ error: 'No files provided' }, { status: 400 })
-  }
-
-  const results = await Promise.allSettled(files.map((f) => processFile(f, owner)))
-
-  let queued = 0
-  const errors: string[] = []
-
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      queued++
-    } else {
-      console.error('[receipts/upload] Image processing failed:', result.reason)
-      errors.push('One image could not be processed')
+    const token = req.headers.get('x-upload-token') ?? ''
+    const owner = await settingsDb.getByUploadToken(token)
+    if (!owner) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    let formData: FormData
+    try {
+      formData = await req.formData()
+    } catch {
+      return Response.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+
+    const files = formData.getAll('file') as File[]
+    if (files.length === 0) {
+      return Response.json({ error: 'No files provided' }, { status: 400 })
+    }
+
+    const results = await Promise.allSettled(files.map((f) => processFile(f, owner)))
+
+    let queued = 0
+    const errors: string[] = []
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        queued++
+      } else {
+        console.error('[receipts/upload] Image processing failed:', result.reason)
+        errors.push('One image could not be processed')
+      }
+    }
+
+    if (queued > 0) revalidateTag('transactions', { expire: 0 })
+
+    return Response.json({ queued, errors })
+  } catch (err) {
+    console.error('[receipts/upload] Unhandled error:', err)
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Internal server error' },
+      { status: 500 },
+    )
   }
-
-  if (queued > 0) revalidateTag('transactions', { expire: 0 })
-
-  return Response.json({ queued, errors })
 }
