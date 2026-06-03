@@ -5,8 +5,6 @@ import { requireSetup } from '@/lib/auth/require-setup'
 import ReviewClient from './ReviewClient'
 import PageSkeleton from '@/components/PageSkeleton'
 
-export const unstable_instant = { prefetch: 'static' }
-
 async function ReviewContent() {
   const userId = await getRequiredUserId()
   await requireSetup(userId)

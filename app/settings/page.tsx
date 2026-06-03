@@ -1,8 +1,6 @@
 import { Suspense } from 'react'
 import { cacheTag } from 'next/cache'
 import PageSkeleton from '@/components/PageSkeleton'
-
-export const unstable_instant = { prefetch: 'static' }
 import { getCachedTransactions } from '@/lib/db/cached-queries'
 import { categoriesDb, settingsDb } from '@/lib/db'
 import { getRequiredUserId } from '@/lib/auth/require-user'

@@ -5,8 +5,6 @@ import { requireSetup } from '@/lib/auth/require-setup'
 import StatsClient from './StatsClient'
 import PageSkeleton from '@/components/PageSkeleton'
 
-export const unstable_instant = { prefetch: 'static' }
-
 async function StatsContent() {
   const userId = await getRequiredUserId()
   await requireSetup(userId)

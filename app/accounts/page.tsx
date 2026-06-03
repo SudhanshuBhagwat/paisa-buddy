@@ -6,8 +6,6 @@ import { toAccountsWithBalance } from '@/lib/utils'
 import AccountsClient from './AccountsClient'
 import PageSkeleton from '@/components/PageSkeleton'
 
-export const unstable_instant = { prefetch: 'static' }
-
 async function AccountsContent() {
   const userId = await getRequiredUserId()
   await requireSetup(userId)
