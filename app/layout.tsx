@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 
 async function NavWithCount() {
   const session = await auth();
-  const userId = session?.user?.email;
+  const userId = session?.user?.id;
   // No session (e.g. /login page) — render nav without count.
   const count = userId ? (await getCachedPendingTransactions(userId)).length : 0;
   return (
