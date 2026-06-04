@@ -1,4 +1,5 @@
 {
+  "regions": ["bom1"],
   "functions": {
     "app/api/receipts/upload/route.ts": {
       "maxDuration": 60
