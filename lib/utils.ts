@@ -1,9 +1,4 @@
 import type { Transaction } from './types/transaction'
-import type { Account } from './types/account'
-
-export function toAccountsWithBalance(accounts: Account[]): AccountWithBalance[] {
-  return accounts
-}
 
 const fmt = new Intl.NumberFormat('en-IN', {
   style: 'currency',
