@@ -55,17 +55,23 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
   async getByUploadToken(
     token: string,
   ): Promise<{ userId: string; displayName: string | null; upiIds: string[] } | null> {
-    // Token lookup: no session, no user context yet — runs as admin.
-    const [row] = await sql`
-      SELECT user_id, display_name, upi_ids
-      FROM user_settings
-      WHERE upload_token = ${token}
-    `
-    if (!row) return null
-    return {
-      userId: row.user_id as string,
-      displayName: (row.display_name as string | null) ?? null,
-      upiIds: (row.upi_ids as string[]) ?? [],
-    }
+    // Token lookup runs as admin (no user context). RESET ROLE ensures the query
+    // runs as postgres (superuser, bypasses RLS) even if the backend connection
+    // was left in `authenticated` role by a prior withUserContext call.
+    // Both statements share the same backend connection via sql.begin().
+    return sql.begin(async (db) => {
+      await db`RESET ROLE`
+      const [row] = await db`
+        SELECT user_id, display_name, upi_ids
+        FROM user_settings
+        WHERE upload_token = ${token}
+      `
+      if (!row) return null
+      return {
+        userId: row.user_id as string,
+        displayName: (row.display_name as string | null) ?? null,
+        upiIds: (row.upi_ids as string[]) ?? [],
+      }
+    })
   }
 }
