@@ -76,11 +76,11 @@ function DonutChart({
     <div className="flex flex-col gap-4">
       <h3 className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{label}</h3>
 
-      {/* Donut */}
+      {/* Donut — full width, capped so it doesn't get huge on tablet/desktop */}
       <div className="flex justify-center">
         <svg
           viewBox="0 0 200 200"
-          className="w-44 h-44"
+          className="w-full max-w-[280px]"
           style={{ display: 'block' }}
         >
           {slices.length === 1 ? (
@@ -139,13 +139,13 @@ function DonutChart({
         </svg>
       </div>
 
-      {/* Legend — horizontal scroll chips */}
+      {/* Legend — wrapping pills */}
       <div className="flex flex-wrap gap-2">
         {slices.map((s, i) => (
           <button
             key={i}
             type="button"
-            className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium truncate"
             style={{
               background: active === i ? s.color : 'var(--surface)',
               color: active === i ? '#fff' : 'var(--text)',
@@ -157,10 +157,10 @@ function DonutChart({
             onClick={() => setActive(active === i ? null : i)}
           >
             <span
-              className="w-2 h-2 rounded-full shrink-0"
+              className="shrink-0 w-2 h-2 rounded-full"
               style={{ background: active === i ? '#fff' : s.color }}
             />
-            {s.category}
+            <span className="truncate">{s.category}</span>
           </button>
         ))}
       </div>
