@@ -6,7 +6,7 @@ import { getRequiredUserId } from '@/lib/auth/require-user'
 import type { Account } from '@/lib/types/account'
 
 export async function createAccount(
-  data: Omit<Account, 'id' | 'created_at' | 'user_id'>,
+  data: Omit<Account, 'id' | 'created_at' | 'user_id' | 'current_balance'>,
 ): Promise<Account> {
   const userId = await getRequiredUserId()
   const account = await accountsDb.insert(userId, data)

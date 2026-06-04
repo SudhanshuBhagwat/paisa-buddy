@@ -12,6 +12,7 @@ function rowToAccount(row: Record<string, unknown>): Account {
     bank: (row.bank as string | null) ?? null,
     currency: row.currency as string,
     opening_balance: Number(row.opening_balance),
+    current_balance: Number(row.current_balance),
     created_at: row.created_at as string,
   }
 }
@@ -30,11 +31,11 @@ export class PostgresAccountRepository implements AccountRepository {
 
   async insert(
     userId: string,
-    data: Omit<Account, 'id' | 'created_at' | 'user_id'>,
+    data: Omit<Account, 'id' | 'created_at' | 'user_id' | 'current_balance'>,
   ): Promise<Account> {
     return withUserContext(userId, async (db) => {
       const [row] = await db`
-        INSERT INTO accounts ${db({ user_id: userId, ...data })}
+        INSERT INTO accounts ${db({ user_id: userId, current_balance: data.opening_balance, ...data })}
         RETURNING *
       `
       return rowToAccount(row)
@@ -44,7 +45,7 @@ export class PostgresAccountRepository implements AccountRepository {
   async update(
     userId: string,
     id: string,
-    data: Partial<Omit<Account, 'id' | 'created_at' | 'user_id'>>,
+    data: Partial<Omit<Account, 'id' | 'created_at' | 'user_id' | 'current_balance'>>,
   ): Promise<Account> {
     return withUserContext(userId, async (db) => {
       const [row] = await db`
@@ -62,4 +63,5 @@ export class PostgresAccountRepository implements AccountRepository {
       await db`DELETE FROM accounts WHERE id = ${id} AND user_id = ${userId}`
     })
   }
+
 }

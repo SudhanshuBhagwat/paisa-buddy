@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Transaction } from '@/lib/types/transaction'
 import {
-  toYearMonth,
-  getMonthTransactions,
   calcSummary,
   formatAmount,
   formatDateLabel,
@@ -30,10 +29,14 @@ interface Props {
   transactions: Transaction[]
   categories: string[]
   accounts: AccountWithBalance[]
+  month: string
+  pendingCount: number
 }
 
-export default function HomeClient({ transactions, categories, accounts }: Props) {
-  const [month, setMonth] = useState(() => toYearMonth(new Date()))
+export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount }: Props) {
+  const router = useRouter()
+  const [month, setMonth] = useState(initialMonth)
+  useEffect(() => { setMonth(initialMonth) }, [initialMonth])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
@@ -66,7 +69,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
     setSearchQuery('')
   }, [month])
 
-  const txs = getMonthTransactions(transactions, month)
+  const txs = transactions
   const q = searchQuery.trim().toLowerCase()
   const filteredTxs = txs.filter(
     (t) =>
@@ -278,7 +281,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
             <div className="md:hidden py-2">
               <MonthPicker
                 value={month}
-                onChange={setMonth}
+                onChange={(m) => { setMonth(m); router.push(`/?month=${m}`) }}
                 onLabelClick={() => setCalSheetOpen(true)}
                 txCount={txs.length}
               />
@@ -326,7 +329,6 @@ export default function HomeClient({ transactions, categories, accounts }: Props
 
             {/* Pending review banner (mobile only) */}
             {(() => {
-              const pendingCount = transactions.filter((t) => !t.reviewed).length
               if (pendingCount === 0) return null
               return (
                 <Link
@@ -444,7 +446,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
         <div className="hidden md:block">
           <div className="sticky top-14" style={{ maxHeight: 'calc(100dvh - 3.5rem)', overflowY: 'auto' }}>
             <div className="py-[6px]" style={{ borderBottom: '1px solid var(--border)' }}>
-              <MonthPicker value={month} onChange={setMonth} txCount={txs.length} />
+              <MonthPicker value={month} onChange={(m) => { setMonth(m); router.push(`/?month=${m}`) }} txCount={txs.length} />
             </div>
             <CalendarView
               month={month}
@@ -574,7 +576,7 @@ export default function HomeClient({ transactions, categories, accounts }: Props
               <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
             </div>
             <div className="px-4 pb-2 pt-1">
-              <MonthPicker value={month} onChange={(m) => { setMonth(m); setSelectedDate(null) }} />
+              <MonthPicker value={month} onChange={(m) => { setMonth(m); setSelectedDate(null); router.push(`/?month=${m}`) }} />
             </div>
             <CalendarView
               month={month}

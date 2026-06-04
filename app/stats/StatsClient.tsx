@@ -1,18 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Transaction } from '@/lib/types/transaction'
-import { toYearMonth, getMonthTransactions } from '@/lib/utils'
 import MonthPicker from '@/components/MonthPicker'
 import StatsView from '@/components/StatsView'
 
 interface Props {
   transactions: Transaction[]
+  month: string
 }
 
-export default function StatsClient({ transactions }: Props) {
-  const [month, setMonth] = useState(() => toYearMonth(new Date()))
-  const txs = getMonthTransactions(transactions, month)
+export default function StatsClient({ transactions, month }: Props) {
+  const router = useRouter()
 
   return (
     <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14">
@@ -21,10 +20,13 @@ export default function StatsClient({ transactions }: Props) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="w-full py-2">
-          <MonthPicker value={month} onChange={setMonth} />
+          <MonthPicker
+            value={month}
+            onChange={(m) => router.push(`/stats?month=${m}`)}
+          />
         </div>
       </div>
-      <StatsView transactions={txs} />
+      <StatsView transactions={transactions} />
     </main>
   )
 }

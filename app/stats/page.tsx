@@ -1,23 +1,33 @@
 import { Suspense } from 'react'
-import { getCachedTransactions } from '@/lib/db/cached-queries'
+import { getCachedTransactionsByMonth } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
+import { toYearMonth } from '@/lib/utils'
 import StatsClient from './StatsClient'
 import PageSkeleton from '@/components/PageSkeleton'
 
-async function StatsContent() {
-  const userId = await getRequiredUserId()
-  const [, transactions] = await Promise.all([
-    requireSetup(userId),
-    getCachedTransactions(userId),
-  ])
-  return <StatsClient transactions={transactions} />
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default function StatsPage() {
+async function StatsContent({ searchParams }: Props) {
+  const userId = await getRequiredUserId()
+  const { month: raw } = await searchParams
+  const month =
+    typeof raw === 'string' && /^\d{4}-\d{2}$/.test(raw) ? raw : toYearMonth(new Date())
+
+  const [, transactions] = await Promise.all([
+    requireSetup(userId),
+    getCachedTransactionsByMonth(userId, month),
+  ])
+
+  return <StatsClient transactions={transactions} month={month} />
+}
+
+export default function StatsPage({ searchParams }: Props) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <StatsContent />
+      <StatsContent searchParams={searchParams} />
     </Suspense>
   )
 }

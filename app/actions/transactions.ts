@@ -17,13 +17,13 @@ export async function insertTransaction(
   await db.insert(userId, tx)
   updateTag('transactions')
   refresh()
-  // New transaction is unreviewed — no impact on recurring groups yet.
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
   const userId = await getRequiredUserId()
   await db.delete(userId, id)
   updateTag('transactions')
+  updateTag('accounts')
   refresh()
   after(() => db.detectRecurring(userId).catch(console.error))
 }
@@ -32,6 +32,7 @@ export async function confirmTransaction(id: string): Promise<void> {
   const userId = await getRequiredUserId()
   await db.update(userId, id, { reviewed: true })
   updateTag('transactions')
+  updateTag('accounts')
   refresh()
   after(() => db.detectRecurring(userId).catch(console.error))
 }
@@ -54,6 +55,7 @@ export async function updateAndConfirmTransaction(
   }
   await db.update(userId, id, { ...updates, reviewed: true })
   updateTag('transactions')
+  updateTag('accounts')
   refresh()
   after(() => db.detectRecurring(userId).catch(console.error))
 }
@@ -69,5 +71,6 @@ export async function updateTransaction(
   }
   await db.update(userId, id, updates)
   updateTag('transactions')
+  updateTag('accounts')
   refresh()
 }

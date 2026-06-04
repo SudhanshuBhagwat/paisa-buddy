@@ -40,3 +40,15 @@ export async function getCachedUserSettings(userId: string): Promise<UserSetting
   cacheTag('user-settings')
   return settingsDb.get(userId)
 }
+
+export async function getCachedTransactionsByMonth(
+  userId: string,
+  yearMonth: string, // "YYYY-MM"
+): Promise<Transaction[]> {
+  'use cache'
+  cacheTag('transactions')
+  const [y, m] = yearMonth.split('-')
+  const dateFrom = `${y}-${m}-01`
+  const dateTo = `${y}-${m}-${new Date(Number(y), Number(m), 0).getDate().toString().padStart(2, '0')}`
+  return db.getAll(userId, { dateFrom, dateTo })
+}

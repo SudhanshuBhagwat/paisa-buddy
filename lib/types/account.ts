@@ -7,11 +7,13 @@ export type Account = {
   type: AccountType
   bank: string | null
   currency: string
-  opening_balance: number // paise
+  opening_balance: number  // paise, set at creation
+  current_balance: number  // paise, maintained by app on each confirmed transaction
   created_at: string
 }
 
-export type AccountWithBalance = Account & { current_balance: number }
+// Alias kept for backwards compatibility — Account already carries current_balance.
+export type AccountWithBalance = Account
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   savings: 'Savings',

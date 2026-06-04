@@ -1,19 +1,17 @@
 import { Suspense } from 'react'
-import { getCachedAccounts, getCachedTransactions } from '@/lib/db/cached-queries'
+import { getCachedAccounts } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
-import { toAccountsWithBalance } from '@/lib/utils'
 import AccountsClient from './AccountsClient'
 import PageSkeleton from '@/components/PageSkeleton'
 
 async function AccountsContent() {
   const userId = await getRequiredUserId()
-  const [, accounts, transactions] = await Promise.all([
+  const [, accounts] = await Promise.all([
     requireSetup(userId),
     getCachedAccounts(userId),
-    getCachedTransactions(userId),
   ])
-  return <AccountsClient accounts={toAccountsWithBalance(accounts, transactions)} />
+  return <AccountsClient accounts={accounts} />
 }
 
 export default function AccountsPage() {

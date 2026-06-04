@@ -53,12 +53,12 @@ export interface AccountRepository {
   getAll(userId: string): Promise<Account[]>
   insert(
     userId: string,
-    account: Omit<Account, 'id' | 'created_at' | 'user_id'>,
+    account: Omit<Account, 'id' | 'created_at' | 'user_id' | 'current_balance'>,
   ): Promise<Account>
   update(
     userId: string,
     id: string,
-    data: Partial<Omit<Account, 'id' | 'created_at' | 'user_id'>>,
+    data: Partial<Omit<Account, 'id' | 'created_at' | 'user_id' | 'current_balance'>>,
   ): Promise<Account>
   delete(userId: string, id: string): Promise<void>
 }
