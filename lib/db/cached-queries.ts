@@ -29,6 +29,12 @@ export async function getCachedCategories(): Promise<string[]> {
   return categoriesDb.getAll()
 }
 
+export async function getCachedCustomCategories(): Promise<string[]> {
+  'use cache'
+  cacheTag('categories')
+  return categoriesDb.getCustom()
+}
+
 export async function getCachedUserSettings(userId: string): Promise<UserSettings> {
   'use cache'
   cacheTag('user-settings')

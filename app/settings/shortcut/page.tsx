@@ -6,8 +6,10 @@ import ShortcutClient from './ShortcutClient'
 
 async function ShortcutContent() {
   const userId = await getRequiredUserId()
-  await requireSetup(userId)
-  const token = await ensureUploadToken()
+  const [, token] = await Promise.all([
+    requireSetup(userId),
+    ensureUploadToken(),
+  ])
   const base = (process.env.AUTH_URL ?? '').replace(/\/$/, '')
   const uploadUrl = `${base}/api/receipts/upload`
   return <ShortcutClient token={token} uploadUrl={uploadUrl} />

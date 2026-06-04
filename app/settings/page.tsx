@@ -1,8 +1,7 @@
 import { Suspense } from 'react'
 import { cacheTag } from 'next/cache'
 import PageSkeleton from '@/components/PageSkeleton'
-import { getCachedTransactions } from '@/lib/db/cached-queries'
-import { categoriesDb, settingsDb } from '@/lib/db'
+import { getCachedTransactions, getCachedCustomCategories, getCachedUserSettings } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
@@ -16,8 +15,8 @@ async function SettingsData({ userId }: { userId: string }) {
 
   const [transactions, customCategoryNames, { upiIds, displayName }] = await Promise.all([
     getCachedTransactions(userId),
-    categoriesDb.getCustom(),
-    settingsDb.get(userId),
+    getCachedCustomCategories(),
+    getCachedUserSettings(userId),
   ])
 
   const countFor = (name: string) => transactions.filter((t) => t.category === name).length

@@ -7,8 +7,8 @@ import PageSkeleton from '@/components/PageSkeleton'
 
 async function ReviewContent() {
   const userId = await getRequiredUserId()
-  await requireSetup(userId)
-  const [pending, categories, accounts] = await Promise.all([
+  const [, pending, categories, accounts] = await Promise.all([
+    requireSetup(userId),
     getCachedPendingTransactions(userId),
     getCachedCategories(),
     getCachedAccounts(userId),

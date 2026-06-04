@@ -8,8 +8,8 @@ import PageSkeleton from '@/components/PageSkeleton'
 
 async function HomeContent() {
   const userId = await getRequiredUserId()
-  await requireSetup(userId)
-  const [transactions, categories, accounts] = await Promise.all([
+  const [, transactions, categories, accounts] = await Promise.all([
+    requireSetup(userId),
     getCachedTransactions(userId),
     getCachedCategories(),
     getCachedAccounts(userId),

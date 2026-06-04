@@ -7,8 +7,10 @@ import PageSkeleton from '@/components/PageSkeleton'
 
 async function StatsContent() {
   const userId = await getRequiredUserId()
-  await requireSetup(userId)
-  const transactions = await getCachedTransactions(userId)
+  const [, transactions] = await Promise.all([
+    requireSetup(userId),
+    getCachedTransactions(userId),
+  ])
   return <StatsClient transactions={transactions} />
 }
 
