@@ -7,9 +7,10 @@ import TransactionItem from './TransactionItem'
 interface Props {
   transactions: Transaction[]
   onEdit?: (tx: Transaction) => void
+  compact?: boolean
 }
 
-export default function TransactionList({ transactions, onEdit }: Props) {
+export default function TransactionList({ transactions, onEdit, compact }: Props) {
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ color: 'var(--muted)' }}>
@@ -31,7 +32,7 @@ export default function TransactionList({ transactions, onEdit }: Props) {
         <div key={date}>
           <div
             className="px-4 py-2 text-xs font-medium"
-            style={{ color: 'var(--muted)', background: 'var(--bg)' }}
+            style={{ color: 'var(--muted)', background: compact ? 'transparent' : 'var(--bg)' }}
           >
             {formatDateLabel(date)}
           </div>

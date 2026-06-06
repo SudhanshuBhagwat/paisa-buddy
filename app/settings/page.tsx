@@ -5,9 +5,10 @@ import { getCachedTransactions, getCachedCustomCategories, getCachedUserSettings
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
+import { auth } from '@/auth'
 import SettingsClient from './SettingsClient'
 
-async function SettingsData({ userId }: { userId: string }) {
+async function SettingsData({ userId, email }: { userId: string; email: string | null }) {
   'use cache'
   cacheTag('transactions')
   cacheTag('categories')
@@ -33,7 +34,7 @@ async function SettingsData({ userId }: { userId: string }) {
 
   return (
     <SettingsClient
-      email={userId}
+      email={email}
       transactionCount={transactions.length}
       customCategories={customCategories}
       predefinedCategories={predefinedCategories}
@@ -44,9 +45,9 @@ async function SettingsData({ userId }: { userId: string }) {
 }
 
 async function SettingsContent() {
-  const userId = await getRequiredUserId()
+  const [userId, session] = await Promise.all([getRequiredUserId(), auth()])
   await requireSetup(userId)
-  return <SettingsData userId={userId} />
+  return <SettingsData userId={userId} email={session?.user?.email ?? null} />
 }
 
 export default function SettingsPage() {

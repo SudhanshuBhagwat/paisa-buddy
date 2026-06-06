@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { parseYearMonth, today } from '@/lib/utils'
 
@@ -55,9 +55,9 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
           const dots = dotCount(transactionCounts.get(ds) ?? 0)
 
           let circleBg = 'transparent'
-          let circleColor = 'var(--text)'
-          if (isSelected) { circleBg = 'var(--text)'; circleColor = 'var(--bg)' }
-          else if (isToday) { circleBg = '#dc2626'; circleColor = '#fff' }
+          let circleColor = 'var(--pb-ink)'
+          if (isSelected) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
+          else if (isToday) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
 
           return (
             <button
@@ -80,7 +80,7 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
                     style={{
                       width: '3px',
                       height: '3px',
-                      background: isSelected ? 'var(--bg)' : 'var(--muted)',
+                      background: isSelected ? '#fff' : 'var(--pb-brand)',
                     }}
                   />
                 ))}
@@ -92,3 +92,4 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
     </div>
   )
 }
+

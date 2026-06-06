@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import type { Transaction, TransactionType } from "@/lib/types/transaction";
@@ -17,9 +17,9 @@ interface Props {
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
-  { value: "credit", label: "Credit", color: "#16a34a" },
-  { value: "debit", label: "Debit", color: "#dc2626" },
-  { value: "transfer", label: "Transfer", color: "#2563eb" },
+  { value: "credit", label: "Credit", color: "var(--pb-pos)" },
+  { value: "debit", label: "Debit", color: "var(--pb-neg)" },
+  { value: "transfer", label: "Transfer", color: "var(--pb-transfer)" },
 ];
 
 function getCategoryHint(tx: Transaction): string | null {
@@ -326,7 +326,7 @@ export default function ReviewEditDrawer({
                 className="text-xs font-medium"
                 style={{ color: "var(--muted)" }}
               >
-                NOTES <span style={{ color: "#dc2626" }}>*</span>
+                NOTES <span style={{ color: "var(--pb-neg)" }}>*</span>
               </label>
               <input
                 type="text"
@@ -348,7 +348,7 @@ export default function ReviewEditDrawer({
                 className="text-xs font-medium"
                 style={{ color: "var(--muted)" }}
               >
-                CATEGORY <span style={{ color: "#dc2626" }}>*</span>
+                CATEGORY <span style={{ color: "var(--pb-neg)" }}>*</span>
               </label>
               <div
                 className="overflow-x-auto pb-1"
@@ -425,7 +425,7 @@ export default function ReviewEditDrawer({
                   onClick={handleAddCat}
                   disabled={!newCatInput.trim()}
                   className="text-xs font-medium disabled:opacity-40"
-                  style={{ color: "var(--text)" }}
+                  style={{ color: "var(--pb-brand)", fontWeight: 700 }}
                 >
                   Add
                 </button>
@@ -435,7 +435,7 @@ export default function ReviewEditDrawer({
             {/* Account */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                ACCOUNT <span style={{ color: "#dc2626" }}>*</span>
+                ACCOUNT <span style={{ color: "var(--pb-neg)" }}>*</span>
               </label>
               {allAccounts.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -475,7 +475,7 @@ export default function ReviewEditDrawer({
                         type="button"
                         onClick={() => setNewAccType(t)}
                         className="px-2.5 py-1 rounded-full text-xs transition-all"
-                        style={newAccType === t ? { background: "var(--text)", color: "var(--bg)" } : { background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)" }}
+                        style={newAccType === t ? { background: "var(--pb-brand)", color: "#fff" } : { background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)" }}
                       >
                         {ACCOUNT_TYPE_LABELS[t]}
                       </button>
@@ -485,7 +485,7 @@ export default function ReviewEditDrawer({
                     <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>
                       Cancel
                     </button>
-                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: "var(--text)", color: "var(--bg)" }}>
+                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: "var(--pb-brand)", color: "#fff" }}>
                       {addingAccSaving ? "Adding…" : "Add"}
                     </button>
                   </div>
@@ -506,7 +506,7 @@ export default function ReviewEditDrawer({
             {type === "transfer" && (
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                  TO ACCOUNT <span style={{ color: "#dc2626" }}>*</span>
+                  TO ACCOUNT <span style={{ color: "var(--pb-neg)" }}>*</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {allAccounts.filter((a) => a.id !== accountId).map((acc) => (
@@ -577,7 +577,7 @@ export default function ReviewEditDrawer({
                 type="button"
                 onClick={() => setIsRecurring((v) => !v)}
                 className="relative w-10 h-6 rounded-full transition-colors shrink-0"
-                style={{ background: isRecurring ? "#16a34a" : "var(--border)" }}
+                style={{ background: isRecurring ? "var(--pb-pos)" : "var(--border)" }}
                 aria-pressed={isRecurring}
               >
                 <span
@@ -604,3 +604,4 @@ export default function ReviewEditDrawer({
     </>
   );
 }
+

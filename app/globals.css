@@ -3,24 +3,53 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --border: #e4e4e7;
-  --text: #09090b;
-  --muted: #71717a;
+  /* Paisa Buddy design system */
+  --pb-bg: #F4F6F2;
+  --pb-surface: #FFFFFF;
+  --pb-ink: #16201A;
+  --pb-ink-2: #5C6B62;
+  --pb-ink-3: #94A199;
+  --pb-line: #E7ECE5;
+  --pb-brand: #1A936F;
+  --pb-brand-deep: #0F5132;
+  --pb-brand-pale: #E4F1EA;
+  --pb-pos: #157F4C;
+  --pb-neg: #DB5A4B;
+  --pb-transfer: #3B82C4;
+  --pb-gold: #E0A33C;
+  --pb-radius: 14px;
+  --pb-card-shadow: 0 2px 16px rgba(20,40,30,0.06);
+  --pb-row-pad: 11px;
+
+  /* Mapped to legacy var names still used in components */
+  --bg: #F4F6F2;
+  --surface: #FFFFFF;
+  --border: #E7ECE5;
+  --text: #16201A;
+  --muted: #94A199;
 }
 
 .dark {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --border: #27272a;
-  --text: #fafafa;
-  --muted: #52525b;
+  --pb-bg: #111A14;
+  --pb-surface: #1B2B21;
+  --pb-ink: #E8F0EA;
+  --pb-ink-2: #8AA090;
+  --pb-ink-3: #5C7065;
+  --pb-line: #243329;
+  --pb-brand: #1A936F;
+  --pb-brand-deep: #4DD3A0;
+  --pb-brand-pale: #1A3028;
+
+  --bg: #111A14;
+  --surface: #1B2B21;
+  --border: #243329;
+  --text: #E8F0EA;
+  --muted: #5C7065;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plus-jakarta);
+  --font-mono: var(--font-space-mono);
 }
 
 * {
@@ -28,15 +57,15 @@
 }
 
 html {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  background: var(--pb-bg);
+  color: var(--pb-ink);
+  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--pb-bg);
+  color: var(--pb-ink);
   min-height: 100dvh;
 }
 
@@ -45,7 +74,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
-/* Prevent iOS Safari auto-zoom: triggered when font-size < 16px on focused inputs */
+/* Prevent iOS Safari auto-zoom on focused inputs */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 select,
 textarea {

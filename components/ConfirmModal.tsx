@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
@@ -18,7 +18,7 @@ export default function ConfirmModal({
   title,
   message,
   confirmLabel = 'Delete',
-  confirmColor = '#dc2626',
+  confirmColor = 'var(--pb-neg)',
   onConfirm,
   onCancel,
 }: Props) {
@@ -72,3 +72,4 @@ export default function ConfirmModal({
     </>
   )
 }
+

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -35,7 +35,7 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-all"
       style={copied
-        ? { background: '#16a34a', color: '#fff' }
+        ? { background: 'var(--pb-pos)', color: '#fff' }
         : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
       }
     >
@@ -167,7 +167,7 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
 
             {/* Regenerate */}
             <div className="px-4 py-3 flex items-center justify-between gap-3" style={{ background: 'var(--surface)' }}>
-              <span className="text-sm" style={{ color: confirmRegen ? '#dc2626' : 'var(--muted)' }}>
+              <span className="text-sm" style={{ color: confirmRegen ? 'var(--pb-neg)' : 'var(--muted)' }}>
                 {confirmRegen ? 'Old token stops working immediately.' : 'Rotate token'}
               </span>
               <div className="flex items-center gap-2 shrink-0">
@@ -186,7 +186,7 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
                   onClick={handleRegenerate}
                   className="shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-all"
                   style={confirmRegen
-                    ? { background: '#dc2626', color: '#fff' }
+                    ? { background: 'var(--pb-neg)', color: '#fff' }
                     : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
                   }
                 >
@@ -251,3 +251,4 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
     </main>
   )
 }
+

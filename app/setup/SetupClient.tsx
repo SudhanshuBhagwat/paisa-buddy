@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -71,7 +71,7 @@ export default function SetupClient() {
                 <button
                   onClick={() => setUpiIds((prev) => prev.filter((u) => u !== id))}
                   className="text-xs transition-opacity hover:opacity-60"
-                  style={{ color: '#dc2626' }}
+                  style={{ color: 'var(--pb-neg)' }}
                 >
                   Remove
                 </button>
@@ -106,7 +106,7 @@ export default function SetupClient() {
           onClick={handleContinue}
           disabled={!displayName.trim() || saving}
           className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
-          style={{ background: '#dc2626', color: '#fff' }}
+          style={{ background: 'var(--pb-neg)', color: '#fff' }}
         >
           {saving ? 'Saving…' : 'Continue'}
         </button>
@@ -114,3 +114,4 @@ export default function SetupClient() {
     </main>
   )
 }
+

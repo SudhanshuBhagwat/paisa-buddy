@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -21,9 +21,9 @@ interface Props {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  debit: '#dc2626',
-  credit: '#16a34a',
-  transfer: '#2563eb',
+  debit: 'var(--pb-neg)',
+  credit: 'var(--pb-pos)',
+  transfer: 'var(--pb-transfer)',
 }
 
 const CONFIDENCE_LABEL: Record<string, string> = {
@@ -33,9 +33,9 @@ const CONFIDENCE_LABEL: Record<string, string> = {
 }
 
 const CONFIDENCE_COLOR: Record<string, string> = {
-  high: '#16a34a',
+  high: 'var(--pb-pos)',
   medium: '#d97706',
-  low: '#dc2626',
+  low: 'var(--pb-neg)',
 }
 
 function formatAmount(paise: number): string {
@@ -107,7 +107,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
 
   if (transactions.length === 0) {
     return (
-      <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4 flex flex-col items-center justify-center gap-3">
+      <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 lg:pt-[66px] px-4 flex flex-col items-center justify-center gap-3">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}>
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <polyline points="22 4 12 14.01 9 11.01" />
@@ -119,8 +119,17 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
   }
 
   return (
-    <main className="max-w-xl md:max-w-5xl lg:max-w-6xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
-      <div className="py-4 flex items-center justify-between">
+    <main className="max-w-xl md:max-w-5xl lg:max-w-none mx-auto w-full min-h-dvh pb-20 md:pt-14 lg:pt-[66px] px-4 lg:px-[30px]">
+      {/* Desktop header */}
+      <div className="hidden lg:flex items-center justify-between" style={{ padding: '26px 0 18px' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--pb-ink)', margin: 0 }}>Review</h1>
+        <span style={{ background: 'var(--pb-neg)', color: '#fff', fontSize: 13, fontWeight: 700, width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {transactions.length}
+        </span>
+      </div>
+
+      {/* Mobile + Tablet header */}
+      <div className="lg:hidden py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/"
@@ -133,7 +142,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
           </Link>
           <h1 className="text-lg font-semibold">Review</h1>
         </div>
-        <span className="text-sm px-2 py-0.5 rounded-full font-medium" style={{ background: '#dc2626', color: '#fff' }}>
+        <span style={{ background: 'var(--pb-neg)', color: '#fff', fontSize: 13, fontWeight: 700, width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           {transactions.length}
         </span>
       </div>
@@ -145,7 +154,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
               <span className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>
                 {formatMonthLabel(month)}
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#dc262618', color: '#dc2626' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--pb-neg)18', color: 'var(--pb-neg)' }}>
                 {txs.length}
               </span>
             </div>
@@ -158,8 +167,8 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
               return (
                 <div
                   key={tx.id}
-                  className="rounded-xl flex flex-col"
-                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', opacity: isProcessing ? 0.6 : 1 }}
+                  className="flex flex-col"
+                  style={{ border: '1px solid var(--pb-line)', background: 'var(--pb-surface)', borderRadius: 'var(--pb-radius)', boxShadow: 'var(--pb-card-shadow)', opacity: isProcessing ? 0.6 : 1 }}
                 >
                   {/* Card header */}
                   <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
@@ -181,8 +190,8 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
                         )}
                       </div>
                       <span
-                        className="text-2xl font-semibold tabular-nums"
-                        style={{ color: typeColor }}
+                        className="text-2xl font-bold tabular-nums"
+                        style={{ color: typeColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}
                       >
                         ₹{formatAmount(tx.amount)}
                       </span>
@@ -226,7 +235,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
                       onClick={() => setRejectingId(tx.id)}
                       disabled={isProcessing}
                       className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-medium active:opacity-60 disabled:opacity-40 cursor-pointer rounded-bl-xl"
-                      style={{ color: '#dc2626', touchAction: 'manipulation' }}
+                      style={{ color: 'var(--pb-neg)', touchAction: 'manipulation' }}
                     >
                       Reject
                     </button>
@@ -236,7 +245,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
                       onClick={() => setEditingTx(tx)}
                       disabled={isProcessing}
                       className="flex-1 flex items-center justify-center min-h-[52px] text-sm font-semibold active:opacity-60 disabled:opacity-40 cursor-pointer rounded-br-xl"
-                      style={{ color: '#16a34a', touchAction: 'manipulation' }}
+                      style={{ color: 'var(--pb-pos)', touchAction: 'manipulation' }}
                     >
                       {isProcessing ? '…' : 'Edit & Confirm'}
                     </button>
@@ -254,7 +263,7 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
         title="Reject this transaction?"
         message="The receipt data will be permanently deleted."
         confirmLabel="Reject"
-        confirmColor="#dc2626"
+        confirmColor="var(--pb-neg)"
         onConfirm={handleReject}
         onCancel={() => setRejectingId(null)}
       />
@@ -272,3 +281,4 @@ export default function ReviewClient({ transactions, categories, accounts }: Pro
     </main>
   )
 }
+

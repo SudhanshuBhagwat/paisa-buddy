@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
@@ -19,9 +19,9 @@ interface Props {
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
-  { value: 'credit', label: 'Credit', color: '#16a34a' },
-  { value: 'debit', label: 'Debit', color: '#dc2626' },
-  { value: 'transfer', label: 'Transfer', color: '#2563eb' },
+  { value: 'credit', label: 'Credit', color: 'var(--pb-pos)' },
+  { value: 'debit', label: 'Debit', color: 'var(--pb-neg)' },
+  { value: 'transfer', label: 'Transfer', color: 'var(--pb-transfer)' },
 ]
 
 function defaultDateForMonth(month?: string): string {
@@ -297,7 +297,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
             {/* Account */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                ACCOUNT <span style={{ color: '#dc2626' }}>*</span>
+                ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span>
               </label>
               {fromAccounts.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -337,7 +337,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                         type="button"
                         onClick={() => setNewAccType(t)}
                         className="px-2.5 py-1 rounded-full text-xs transition-all"
-                        style={newAccType === t ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                        style={newAccType === t ? { background: 'var(--pb-brand)', color: '#fff' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
                       >
                         {ACCOUNT_TYPE_LABELS[t]}
                       </button>
@@ -347,7 +347,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                     <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
                       Cancel
                     </button>
-                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: 'var(--text)', color: 'var(--bg)' }}>
+                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff' }}>
                       {addingAccSaving ? 'Adding…' : 'Add'}
                     </button>
                   </div>
@@ -368,7 +368,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
             {type === 'transfer' && (
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                  TO ACCOUNT <span style={{ color: '#dc2626' }}>*</span>
+                  TO ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {toAccounts.map((acc) => (
@@ -392,7 +392,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                {merchantLabel} <span style={{ color: '#dc2626' }}>*</span>
+                {merchantLabel} <span style={{ color: 'var(--pb-neg)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -413,7 +413,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                NOTES <span style={{ color: '#dc2626' }}>*</span>
+                NOTES <span style={{ color: 'var(--pb-neg)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -454,3 +454,4 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     </>
   )
 }
+

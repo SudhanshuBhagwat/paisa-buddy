@@ -4,6 +4,7 @@ import {
   getCachedAccounts,
   getCachedCategories,
   getCachedPendingTransactions,
+  getCachedUserSettings,
 } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
@@ -21,12 +22,13 @@ async function HomeContent({ searchParams }: Props) {
   const month =
     typeof raw === 'string' && /^\d{4}-\d{2}$/.test(raw) ? raw : toYearMonth(new Date())
 
-  const [, transactions, categories, accounts, pending] = await Promise.all([
+  const [, transactions, categories, accounts, pending, settings] = await Promise.all([
     requireSetup(userId),
     getCachedTransactionsByMonth(userId, month),
     getCachedCategories(),
     getCachedAccounts(userId),
     getCachedPendingTransactions(userId),
+    getCachedUserSettings(userId),
   ])
 
   return (
@@ -36,6 +38,7 @@ async function HomeContent({ searchParams }: Props) {
       accounts={accounts}
       month={month}
       pendingCount={pending.length}
+      displayName={settings.displayName}
     />
   )
 }

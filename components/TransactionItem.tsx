@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { formatAmount } from '@/lib/utils'
 import { deleteTransaction } from '@/app/actions/transactions'
 import ConfirmModal from './ConfirmModal'
+import { categoryColor } from '@/lib/categories'
 import type { Transaction } from '@/lib/types/transaction'
 
-const TYPE_COLORS: Record<string, string> = {
-  credit: '#16a34a',
-  debit: '#dc2626',
-  transfer: '#2563eb',
+const TYPE_COLOR: Record<string, string> = {
+  credit: 'var(--pb-pos)',
+  debit: 'var(--pb-neg)',
+  transfer: 'var(--pb-transfer)',
 }
 
 const TYPE_PREFIX: Record<string, string> = {
@@ -24,7 +25,8 @@ interface Props {
 }
 
 export default function TransactionItem({ tx, onEdit }: Props) {
-  const color = TYPE_COLORS[tx.type]
+  const typeColor = TYPE_COLOR[tx.type]
+  const catColor = categoryColor(tx.category)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   async function handleConfirmDelete() {
@@ -35,57 +37,69 @@ export default function TransactionItem({ tx, onEdit }: Props) {
   return (
     <>
       <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border)', cursor: onEdit ? 'pointer' : undefined }}
+        className="flex items-center gap-3 px-4"
+        style={{
+          padding: 'var(--pb-row-pad) 16px',
+          borderBottom: '1px solid var(--pb-line)',
+          cursor: onEdit ? 'pointer' : undefined,
+        }}
         onClick={onEdit ? () => onEdit(tx) : undefined}
       >
-        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+        {/* Category dot */}
+        <div
+          className="shrink-0 rounded-full"
+          style={{ width: 10, height: 10, background: catColor }}
+        />
 
         <div className="flex-1 min-w-0 flex flex-col">
-          <span className="text-sm truncate" style={{ color: 'var(--text)' }}>
+          <span
+            className="text-sm truncate"
+            style={{ color: 'var(--pb-ink)', fontWeight: 600 }}
+          >
             {tx.merchant || tx.description || '—'}
           </span>
-          {tx.merchant && tx.description && (
-            <span className="text-xs truncate" style={{ color: 'var(--muted)' }}>
-              {tx.description}
-            </span>
-          )}
+          <span className="text-xs truncate" style={{ color: 'var(--pb-ink-3)', marginTop: 1 }}>
+            {tx.category && (
+              <span style={{ color: catColor, fontWeight: 700 }}>{tx.category}</span>
+            )}
+            {tx.category && tx.description && tx.merchant && ' · '}
+            {tx.merchant ? tx.description : null}
+          </span>
         </div>
 
         {tx.is_recurring && (
           <span
             className="shrink-0 text-xs font-semibold"
             title="Recurring"
-            style={{ color: 'var(--muted)' }}
+            style={{ color: 'var(--pb-ink-3)' }}
           >
             ↻
           </span>
         )}
 
-        <span
-          className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-          style={{ border: `1px solid ${color}`, color, background: 'transparent' }}
-        >
-          {tx.category ?? 'Uncategorized'}
-        </span>
-
-        <div className="flex items-center gap-1 text-sm font-semibold shrink-0 tabular-nums" style={{ color }}>
-          <span>{TYPE_PREFIX[tx.type]}</span>
-          <span>{formatAmount(tx.amount)}</span>
-        </div>
-
         {tx.account_id === null && (
           <div
             className="shrink-0 w-1.5 h-1.5 rounded-full"
             title="No account assigned"
-            style={{ background: '#f97316' }}
+            style={{ background: 'var(--pb-gold)' }}
           />
         )}
+
+        <div
+          className="shrink-0 flex items-center gap-1 text-sm font-bold tabular-nums"
+          style={{
+            color: typeColor,
+            fontFamily: '"Space Mono", var(--font-space-mono, monospace)',
+          }}
+        >
+          <span>{TYPE_PREFIX[tx.type]}</span>
+          <span>{formatAmount(tx.amount)}</span>
+        </div>
 
         <button
           onClick={(e) => { e.stopPropagation(); setConfirmOpen(true) }}
           className="shrink-0 p-1 rounded transition-opacity hover:opacity-60"
-          style={{ color: 'var(--muted)' }}
+          style={{ color: 'var(--pb-ink-3)' }}
           aria-label="Delete transaction"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
