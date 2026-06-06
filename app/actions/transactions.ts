@@ -16,6 +16,7 @@ export async function insertTransaction(
   }
   await db.insert(userId, tx)
   updateTag('transactions')
+  if (tx.reviewed) updateTag('accounts')
   refresh()
 }
 
