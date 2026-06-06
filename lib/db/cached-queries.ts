@@ -3,7 +3,8 @@ import { cacheTag } from 'next/cache'
 import { db, accountsDb, categoriesDb, settingsDb } from './index'
 import type { Transaction } from '../types/transaction'
 import type { Account } from '../types/account'
-import type { UserSettings } from './types'
+import type { UserSettings, CategoryWithColor } from './types'
+import { PREDEFINED_CATEGORIES, CATEGORY_COLORS } from '../categories'
 
 export async function getCachedTransactions(userId: string): Promise<Transaction[]> {
   'use cache'
@@ -23,16 +24,16 @@ export async function getCachedAccounts(userId: string): Promise<Account[]> {
   return accountsDb.getAll(userId)
 }
 
-export async function getCachedCategories(): Promise<string[]> {
+/** Returns predefined categories (from code) + user's custom categories (from DB), each with color. */
+export async function getCachedCategoriesWithColors(userId: string): Promise<CategoryWithColor[]> {
   'use cache'
   cacheTag('categories')
-  return categoriesDb.getAll()
-}
-
-export async function getCachedCustomCategories(): Promise<string[]> {
-  'use cache'
-  cacheTag('categories')
-  return categoriesDb.getCustom()
+  const predefined: CategoryWithColor[] = PREDEFINED_CATEGORIES.map((name) => ({
+    name,
+    color: CATEGORY_COLORS[name] ?? '#7E8A82',
+  }))
+  const custom = await categoriesDb.getCustomWithColors(userId)
+  return [...predefined, ...custom]
 }
 
 export async function getCachedUserSettings(userId: string): Promise<UserSettings> {

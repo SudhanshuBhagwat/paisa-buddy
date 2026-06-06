@@ -63,13 +63,16 @@ export interface AccountRepository {
   delete(userId: string, id: string): Promise<void>
 }
 
-/** Categories are global (predefined + custom shared namespace). No user scoping needed
- *  for reads. deleteCustomAndUnlinkTransactions scopes the transaction update by userId. */
+export interface CategoryWithColor {
+  name: string
+  color: string
+}
+
+/** Custom categories are user-scoped. Predefined categories live in code (lib/categories.ts). */
 export interface CategoryRepository {
-  getAll(): Promise<string[]>
-  getCustom(): Promise<string[]>
-  upsertCustom(name: string): Promise<void>
-  deleteCustom(name: string): Promise<void>
+  getCustomWithColors(userId: string): Promise<CategoryWithColor[]>
+  upsertCustom(userId: string, name: string, color: string): Promise<void>
+  deleteCustom(userId: string, name: string): Promise<void>
   deleteCustomAndUnlinkTransactions(userId: string, name: string): Promise<void>
 }
 

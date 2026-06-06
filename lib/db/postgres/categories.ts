@@ -1,47 +1,34 @@
 import 'server-only'
-import type { CategoryRepository } from '../types'
+import type { CategoryRepository, CategoryWithColor } from '../types'
 import { sql } from './client'
 
-// Categories are global (shared predefined + custom namespace).
-// No user scoping — uses admin connection (bypasses RLS).
-// RLS on categories table only protects against anon-key REST access; our server
-// is always the writer so superuser access here is intentional.
-
 export class PostgresCategoryRepository implements CategoryRepository {
-  async getAll(): Promise<string[]> {
+  async getCustomWithColors(userId: string): Promise<CategoryWithColor[]> {
     const rows = await sql`
-      SELECT name FROM categories
-      ORDER BY is_predefined DESC, name ASC
-    `
-    return rows.map((r) => r.name as string)
-  }
-
-  async getCustom(): Promise<string[]> {
-    const rows = await sql`
-      SELECT name FROM categories
-      WHERE is_predefined = false
+      SELECT name, COALESCE(color, 'hsl(0, 0%, 54%)') AS color
+      FROM categories
+      WHERE user_id = ${userId}
       ORDER BY name ASC
     `
-    return rows.map((r) => r.name as string)
+    return rows.map((r) => ({ name: r.name as string, color: r.color as string }))
   }
 
-  async upsertCustom(name: string): Promise<void> {
+  async upsertCustom(userId: string, name: string, color: string): Promise<void> {
     await sql`
-      INSERT INTO categories (name, is_predefined)
-      VALUES (${name}, false)
-      ON CONFLICT (name) DO NOTHING
+      INSERT INTO categories (user_id, name, color)
+      VALUES (${userId}, ${name}, ${color})
+      ON CONFLICT (user_id, name) DO NOTHING
     `
   }
 
-  async deleteCustom(name: string): Promise<void> {
+  async deleteCustom(userId: string, name: string): Promise<void> {
     await sql`
       DELETE FROM categories
-      WHERE name = ${name} AND is_predefined = false
+      WHERE user_id = ${userId} AND name = ${name}
     `
   }
 
   async deleteCustomAndUnlinkTransactions(userId: string, name: string): Promise<void> {
-    // Transaction unlink is user-scoped; category delete is global.
     await sql`
       UPDATE transactions
       SET category = NULL, reviewed = false
@@ -49,7 +36,7 @@ export class PostgresCategoryRepository implements CategoryRepository {
     `
     await sql`
       DELETE FROM categories
-      WHERE name = ${name} AND is_predefined = false
+      WHERE user_id = ${userId} AND name = ${name}
     `
   }
 }

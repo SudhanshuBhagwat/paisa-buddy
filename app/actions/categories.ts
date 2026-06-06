@@ -3,15 +3,19 @@
 import { updateTag, refresh } from 'next/cache'
 import { categoriesDb, db } from '@/lib/db'
 import { getRequiredUserId } from '@/lib/auth/require-user'
+import { generatePastelColor } from '@/lib/categories'
 
 export async function addCategory(name: string): Promise<void> {
-  await categoriesDb.upsertCustom(name)
+  const userId = await getRequiredUserId()
+  const color = generatePastelColor()
+  await categoriesDb.upsertCustom(userId, name, color)
   updateTag('categories')
   refresh()
 }
 
 export async function removeCategory(name: string): Promise<void> {
-  await categoriesDb.deleteCustom(name)
+  const userId = await getRequiredUserId()
+  await categoriesDb.deleteCustom(userId, name)
   updateTag('categories')
   refresh()
 }

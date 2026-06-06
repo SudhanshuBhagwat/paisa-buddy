@@ -4,6 +4,7 @@ import { after } from 'next/server'
 import { updateTag, refresh } from 'next/cache'
 import { db, categoriesDb } from '@/lib/db'
 import { getRequiredUserId } from '@/lib/auth/require-user'
+import { generatePastelColor } from '@/lib/categories'
 import type { Transaction } from '@/lib/types/transaction'
 
 export async function insertTransaction(
@@ -11,7 +12,7 @@ export async function insertTransaction(
 ): Promise<void> {
   const userId = await getRequiredUserId()
   if (tx.category) {
-    await categoriesDb.upsertCustom(tx.category)
+    await categoriesDb.upsertCustom(userId, tx.category, generatePastelColor())
     updateTag('categories')
   }
   await db.insert(userId, tx)
@@ -51,7 +52,7 @@ export async function updateAndConfirmTransaction(
 ): Promise<void> {
   const userId = await getRequiredUserId()
   if (updates.category) {
-    await categoriesDb.upsertCustom(updates.category)
+    await categoriesDb.upsertCustom(userId, updates.category, generatePastelColor())
     updateTag('categories')
   }
   await db.update(userId, id, { ...updates, reviewed: true })
@@ -67,7 +68,7 @@ export async function updateTransaction(
 ): Promise<void> {
   const userId = await getRequiredUserId()
   if (updates.category) {
-    await categoriesDb.upsertCustom(updates.category)
+    await categoriesDb.upsertCustom(userId, updates.category, generatePastelColor())
     updateTag('categories')
   }
   await db.update(userId, id, updates)

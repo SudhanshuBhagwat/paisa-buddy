@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import {
   getCachedTransactionsByMonth,
   getCachedAccounts,
-  getCachedCategories,
+  getCachedCategoriesWithColors,
   getCachedPendingTransactions,
   getCachedUserSettings,
 } from '@/lib/db/cached-queries'
@@ -22,14 +22,17 @@ async function HomeContent({ searchParams }: Props) {
   const month =
     typeof raw === 'string' && /^\d{4}-\d{2}$/.test(raw) ? raw : toYearMonth(new Date())
 
-  const [, transactions, categories, accounts, pending, settings] = await Promise.all([
+  const [, transactions, allCategories, accounts, pending, settings] = await Promise.all([
     requireSetup(userId),
     getCachedTransactionsByMonth(userId, month),
-    getCachedCategories(),
+    getCachedCategoriesWithColors(userId),
     getCachedAccounts(userId),
     getCachedPendingTransactions(userId),
     getCachedUserSettings(userId),
   ])
+
+  const categories = allCategories.map((c) => c.name)
+  const categoryColorMap = Object.fromEntries(allCategories.map((c) => [c.name, c.color]))
 
   return (
     <HomeClient
@@ -39,6 +42,7 @@ async function HomeContent({ searchParams }: Props) {
       month={month}
       pendingCount={pending.length}
       displayName={settings.displayName}
+      categoryColorMap={categoryColorMap}
     />
   )
 }

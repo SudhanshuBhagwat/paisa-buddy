@@ -10,7 +10,7 @@ import {
 import { addUpiId, removeUpiId, setDisplayName } from '@/app/actions/user-settings'
 import ConfirmModal from '@/components/ConfirmModal'
 
-interface CategoryWithCount { name: string; transactionCount: number }
+interface CategoryWithCount { name: string; color: string; transactionCount: number }
 
 interface Props {
   email: string | null
@@ -186,6 +186,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
           ) : customCategories.map((cat) => (
             <div key={cat.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--pb-line)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 13.5, color: 'var(--pb-ink)' }}>{cat.name}</span>
                 {cat.transactionCount > 0 && (
                   <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 99, background: 'var(--pb-bg)', color: 'var(--pb-ink-3)', border: '1px solid var(--pb-line)', flexShrink: 0 }}>

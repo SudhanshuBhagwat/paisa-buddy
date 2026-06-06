@@ -22,11 +22,12 @@ const TYPE_PREFIX: Record<string, string> = {
 interface Props {
   tx: Transaction
   onEdit?: (tx: Transaction) => void
+  colorMap?: Record<string, string>
 }
 
-export default function TransactionItem({ tx, onEdit }: Props) {
+export default function TransactionItem({ tx, onEdit, colorMap }: Props) {
   const typeColor = TYPE_COLOR[tx.type]
-  const catColor = categoryColor(tx.category)
+  const catColor = categoryColor(tx.category, colorMap)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   async function handleConfirmDelete() {

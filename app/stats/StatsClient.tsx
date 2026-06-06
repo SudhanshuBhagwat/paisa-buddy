@@ -5,12 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Transaction } from '@/lib/types/transaction'
 import { addMonths, formatMonthLabel, calcSummary, groupByCategory, formatAmount } from '@/lib/utils'
 import BuddySVG from '@/components/BuddySVG'
-
-const PALETTE = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
-  '#3b82f6', '#8b5cf6', '#ec4899', '#84cc16', '#06b6d4',
-  '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#6366f1',
-]
+import { categoryColor } from '@/lib/categories'
 
 const CX = 100, CY = 100, R = 82, INNER = 54
 
@@ -38,11 +33,11 @@ interface SliceData {
   startDeg: number; endDeg: number; color: string
 }
 
-function buildSlices(cats: { category: string; total: number }[], total: number): SliceData[] {
+function buildSlices(cats: { category: string; total: number }[], total: number, colorMap?: Record<string, string>): SliceData[] {
   let angle = 0
-  return cats.map((cat, i) => {
+  return cats.map((cat) => {
     const sweep = (cat.total / total) * 360
-    const s: SliceData = { ...cat, pct: (cat.total / total) * 100, startDeg: angle, endDeg: angle + sweep, color: PALETTE[i % PALETTE.length] }
+    const s: SliceData = { ...cat, pct: (cat.total / total) * 100, startDeg: angle, endDeg: angle + sweep, color: categoryColor(cat.category, colorMap) }
     angle += sweep
     return s
   })
@@ -91,12 +86,12 @@ function DonutSVG({ slices, active, onEnter, onLeave, onClick, size = 200 }: {
   )
 }
 
-function DonutChart({ categories, total, label }: {
-  categories: { category: string; total: number }[]; total: number; label: string
+function DonutChart({ categories, total, label, colorMap }: {
+  categories: { category: string; total: number }[]; total: number; label: string; colorMap?: Record<string, string>
 }) {
   const [active, setActive] = useState<number | null>(null)
   if (categories.length === 0) return null
-  const slices = buildSlices(categories, total)
+  const slices = buildSlices(categories, total, colorMap)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--pb-ink-3)', textTransform: 'uppercase', margin: 0 }}>{label}</h3>
@@ -124,12 +119,12 @@ function DonutChart({ categories, total, label }: {
   )
 }
 
-function HorizontalDonut({ categories, total, label }: {
-  categories: { category: string; total: number }[]; total: number; label: string
+function HorizontalDonut({ categories, total, label, colorMap }: {
+  categories: { category: string; total: number }[]; total: number; label: string; colorMap?: Record<string, string>
 }) {
   const [active, setActive] = useState<number | null>(null)
   if (categories.length === 0) return null
-  const slices = buildSlices(categories, total)
+  const slices = buildSlices(categories, total, colorMap)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--pb-ink-3)', textTransform: 'uppercase', margin: 0 }}>{label}</h3>
@@ -177,9 +172,10 @@ function NavBtn({ onClick, dir }: { onClick: () => void; dir: 'prev' | 'next' })
 interface Props {
   transactions: Transaction[]
   month: string
+  categoryColorMap: Record<string, string>
 }
 
-export default function StatsClient({ transactions: txs, month }: Props) {
+export default function StatsClient({ transactions: txs, month, categoryColorMap }: Props) {
   const router = useRouter()
   const { income, expense, balance, transfer } = calcSummary(txs)
   const expenseCats = groupByCategory(txs, 'debit')
@@ -243,13 +239,13 @@ export default function StatsClient({ transactions: txs, month }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
             <div style={{ ...CARD, padding: '20px 22px' }}>
               {expenseCats.length > 0
-                ? <HorizontalDonut categories={expenseCats} total={expense} label="Expenses by Category" />
+                ? <HorizontalDonut categories={expenseCats} total={expense} label="Expenses by Category" colorMap={categoryColorMap} />
                 : <div style={{ color: 'var(--pb-ink-3)', fontSize: 13 }}>No expenses this month</div>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ ...CARD, padding: '20px 22px' }}>
                 {incomeCats.length > 0
-                  ? <HorizontalDonut categories={incomeCats} total={income} label="Income by Category" />
+                  ? <HorizontalDonut categories={incomeCats} total={income} label="Income by Category" colorMap={categoryColorMap} />
                   : <div style={{ color: 'var(--pb-ink-3)', fontSize: 13 }}>No income this month</div>}
               </div>
               <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -307,13 +303,13 @@ export default function StatsClient({ transactions: txs, month }: Props) {
 
             {expenseCats.length > 0 && (
               <div style={{ ...CARD, padding: '18px 18px 16px' }}>
-                <DonutChart categories={expenseCats} total={expense} label="Expenses by Category" />
+                <DonutChart categories={expenseCats} total={expense} label="Expenses by Category" colorMap={categoryColorMap} />
               </div>
             )}
 
             {incomeCats.length > 0 && (
               <div style={{ ...CARD, padding: '18px 18px 16px' }}>
-                <DonutChart categories={incomeCats} total={income} label="Income by Category" />
+                <DonutChart categories={incomeCats} total={income} label="Income by Category" colorMap={categoryColorMap} />
               </div>
             )}
 

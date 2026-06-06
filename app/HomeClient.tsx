@@ -74,9 +74,10 @@ interface Props {
   month: string
   pendingCount: number
   displayName: string | null
+  categoryColorMap: Record<string, string>
 }
 
-export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName }: Props) {
+export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap }: Props) {
   const router = useRouter()
   const [month, setMonth] = useState(initialMonth)
   useEffect(() => { setMonth(initialMonth) }, [initialMonth])
@@ -351,7 +352,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 <button onClick={() => setSelectedDate(null)} className="font-semibold" style={{ color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
               </div>
             )}
-            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact />
+            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact colorMap={categoryColorMap} />
           </div>
         </div>
 
@@ -618,7 +619,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 </div>
               )}
 
-              <TransactionList transactions={filteredTxs} onEdit={setEditingTx} />
+              <TransactionList transactions={filteredTxs} onEdit={setEditingTx} colorMap={categoryColorMap} />
             </div>
           </div>
 

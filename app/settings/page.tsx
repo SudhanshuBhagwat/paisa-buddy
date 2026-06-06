@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { cacheTag } from 'next/cache'
 import PageSkeleton from '@/components/PageSkeleton'
-import { getCachedTransactions, getCachedCustomCategories, getCachedUserSettings } from '@/lib/db/cached-queries'
+import { getCachedTransactions, getCachedCategoriesWithColors, getCachedUserSettings } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { PREDEFINED_CATEGORIES } from '@/lib/categories'
@@ -14,23 +14,22 @@ async function SettingsData({ userId, email }: { userId: string; email: string |
   cacheTag('categories')
   cacheTag('user-settings')
 
-  const [transactions, customCategoryNames, { upiIds, displayName }] = await Promise.all([
+  const [transactions, allCategories, { upiIds, displayName }] = await Promise.all([
     getCachedTransactions(userId),
-    getCachedCustomCategories(),
+    getCachedCategoriesWithColors(userId),
     getCachedUserSettings(userId),
   ])
 
   const countFor = (name: string) => transactions.filter((t) => t.category === name).length
+  const predefinedSet = new Set<string>(PREDEFINED_CATEGORIES)
 
-  const customCategories = customCategoryNames.map((name) => ({
-    name,
-    transactionCount: countFor(name),
-  }))
+  const customCategories = allCategories
+    .filter((c) => !predefinedSet.has(c.name))
+    .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) }))
 
-  const predefinedCategories = PREDEFINED_CATEGORIES.map((name) => ({
-    name,
-    transactionCount: countFor(name),
-  }))
+  const predefinedCategories = allCategories
+    .filter((c) => predefinedSet.has(c.name))
+    .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) }))
 
   return (
     <SettingsClient
