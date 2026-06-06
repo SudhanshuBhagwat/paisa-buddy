@@ -190,7 +190,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
                 <span style={{ fontSize: 13.5, color: 'var(--pb-ink)' }}>{cat.name}</span>
                 {cat.transactionCount > 0 && (
                   <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 99, background: 'var(--pb-bg)', color: 'var(--pb-ink-3)', border: '1px solid var(--pb-line)', flexShrink: 0 }}>
-                    {cat.transactionCount} tx
+                    {cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>

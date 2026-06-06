@@ -8,7 +8,7 @@ import { PREDEFINED_CATEGORIES } from '@/lib/categories'
 import { auth } from '@/auth'
 import SettingsClient from './SettingsClient'
 
-async function SettingsData({ userId, email }: { userId: string; email: string | null }) {
+async function fetchSettingsData(userId: string) {
   'use cache'
   cacheTag('transactions')
   cacheTag('categories')
@@ -23,30 +23,24 @@ async function SettingsData({ userId, email }: { userId: string; email: string |
   const countFor = (name: string) => transactions.filter((t) => t.category === name).length
   const predefinedSet = new Set<string>(PREDEFINED_CATEGORIES)
 
-  const customCategories = allCategories
-    .filter((c) => !predefinedSet.has(c.name))
-    .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) }))
-
-  const predefinedCategories = allCategories
-    .filter((c) => predefinedSet.has(c.name))
-    .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) }))
-
-  return (
-    <SettingsClient
-      email={email}
-      transactionCount={transactions.length}
-      customCategories={customCategories}
-      predefinedCategories={predefinedCategories}
-      upiIds={upiIds}
-      displayName={displayName}
-    />
-  )
+  return {
+    transactionCount: transactions.length,
+    customCategories: allCategories
+      .filter((c) => !predefinedSet.has(c.name))
+      .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) })),
+    predefinedCategories: allCategories
+      .filter((c) => predefinedSet.has(c.name))
+      .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) })),
+    upiIds,
+    displayName,
+  }
 }
 
 async function SettingsContent() {
   const [userId, session] = await Promise.all([getRequiredUserId(), auth()])
   await requireSetup(userId)
-  return <SettingsData userId={userId} email={session?.user?.email ?? null} />
+  const data = await fetchSettingsData(userId)
+  return <SettingsClient email={session?.user?.email ?? null} {...data} />
 }
 
 export default function SettingsPage() {

@@ -189,17 +189,18 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               Net balance
             </div>
             <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 30, color: balanceColor, marginTop: 6 }}>
-              {balance < 0 ? '–' : ''}₹{absBalInt}
+              {balance < 0 ? '–' : ''}{absBalInt}
               {absBalDec && <span style={{ fontSize: 18, color: 'var(--pb-ink-3)' }}>.{absBalDec}</span>}
             </div>
             <div style={{ display: 'flex', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--pb-line)' }}>
               {[
                 { label: 'Income', value: income, color: 'var(--pb-pos)' },
                 { label: 'Spent', value: expense, color: 'var(--pb-neg)' },
+                { label: 'Transfers', value: transfer, color: 'var(--pb-transfer)' },
               ].map(({ label, value, color }, i) => (
-                <div key={label} style={{ flex: 1, paddingLeft: i ? 14 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none' }}>
+                <div key={label} style={{ flex: 1, paddingLeft: i ? 14 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none', minWidth: 0 }}>
                   <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</div>
-                  <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 15, color, marginTop: 4 }}>
+                  <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 15, color, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {formatAmount(value)}
                   </div>
                 </div>
@@ -475,19 +476,19 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
               {/* Mobile balance card */}
               <div className="md:hidden px-4 pt-1 pb-3">
-                <div style={{ ...CARD, padding: '18px 20px' }}>
+                <div style={{ ...CARD, padding: '16px 14px' }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>Net balance</span>
                   </div>
-                  <div className="flex items-baseline tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>
+                  <div className="flex items-baseline tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: 12 }}>
                     <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{balInt}</span>
                     {balDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{balDec}</span>}
                   </div>
-                  <div className="grid grid-cols-3" style={{ paddingTop: 14, borderTop: '1px solid var(--pb-line)' }}>
+                  <div className="grid grid-cols-3" style={{ paddingTop: 12, borderTop: '1px solid var(--pb-line)' }}>
                     {statsRows.map(({ label, value, color }, i) => (
-                      <div key={label} className="flex flex-col gap-0.5" style={{ paddingLeft: i ? 12 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none' }}>
+                      <div key={label} className="flex flex-col gap-0.5" style={{ paddingLeft: i ? 10 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none' }}>
                         <span className="text-xs font-bold tracking-wide" style={{ color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
-                        <span className="text-sm font-bold tabular-nums" style={{ color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>{formatAmount(value)}</span>
+                        <span className="font-bold tabular-nums" style={{ fontSize: 14, color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatAmount(value)}</span>
                       </div>
                     ))}
                   </div>
