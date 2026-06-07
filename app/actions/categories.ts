@@ -3,11 +3,12 @@
 import { updateTag, refresh } from 'next/cache'
 import { categoriesDb, db } from '@/lib/db'
 import { getRequiredUserId } from '@/lib/auth/require-user'
-import { generatePastelColor } from '@/lib/categories'
+import { generateUniqueColor } from '@/lib/categories'
 
 export async function addCategory(name: string): Promise<void> {
   const userId = await getRequiredUserId()
-  const color = generatePastelColor()
+  const existing = await categoriesDb.getCustomWithColors(userId)
+  const color = generateUniqueColor(existing.map((c) => c.color))
   await categoriesDb.upsertCustom(userId, name, color)
   updateTag('categories')
   refresh()

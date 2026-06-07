@@ -1,6 +1,7 @@
 import 'server-only'
 import type { CategoryRepository, CategoryWithColor } from '../types'
 import { sql } from './client'
+import { generateUniqueColor } from '@/lib/categories'
 
 export class PostgresCategoryRepository implements CategoryRepository {
   async getCustomWithColors(userId: string): Promise<CategoryWithColor[]> {
@@ -10,7 +11,30 @@ export class PostgresCategoryRepository implements CategoryRepository {
       WHERE user_id = ${userId}
       ORDER BY name ASC
     `
-    return rows.map((r) => ({ name: r.name as string, color: r.color as string }))
+    const categories: CategoryWithColor[] = rows.map((r) => ({
+      name: r.name as string,
+      color: r.color as string,
+    }))
+
+    // Auto-repair duplicate colors
+    const seen = new Set<string>()
+    const allColors = categories.map((c) => c.color)
+
+    for (const cat of categories) {
+      if (seen.has(cat.color)) {
+        const newColor = generateUniqueColor(allColors)
+        allColors.push(newColor)
+        cat.color = newColor
+        await sql`
+          UPDATE categories SET color = ${newColor}
+          WHERE user_id = ${userId} AND name = ${cat.name}
+        `
+      } else {
+        seen.add(cat.color)
+      }
+    }
+
+    return categories
   }
 
   async upsertCustom(userId: string, name: string, color: string): Promise<void> {
