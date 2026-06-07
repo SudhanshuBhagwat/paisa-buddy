@@ -91,7 +91,7 @@ export default function TopNav({ pendingCount = 0 }: Props) {
         <button
           type="submit"
           className="px-3 py-1.5 rounded-lg text-sm transition-opacity hover:opacity-70"
-          style={{ color: "var(--pb-ink-3)", fontWeight: 600 }}
+          style={{ color: "var(--pb-ink-3)", fontWeight: 600, cursor: 'pointer' }}
         >
           Sign out
         </button>
