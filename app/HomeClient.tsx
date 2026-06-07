@@ -174,7 +174,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const hasFilters = !!(selectedType || selectedCategory || selectedAccount || recurringOnly)
 
   return (
-    <main className="w-full pb-36 md:pb-0 md:pt-14 lg:pt-[66px] min-h-dvh">
+    <main className="w-full mobile-content-pb md:pb-0 md:pt-14 lg:pt-[66px] min-h-dvh">
 
       {/* ═══ DESKTOP (lg+): 3-col card layout ═══ */}
       <div
@@ -656,7 +656,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
       {/* ── FAB ── */}
       <button
         onClick={() => setModalOpen(true)}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14 rounded-[18px] flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-30"
+        className="fixed mobile-fab-bottom right-4 md:bottom-6 md:right-6 w-14 h-14 rounded-[18px] flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-30"
         style={{ background: 'var(--pb-brand)', color: '#fff', boxShadow: '0 10px 22px color-mix(in srgb, var(--pb-brand) 45%, transparent)' }}
         aria-label="Add transaction"
       >
@@ -767,7 +767,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               onSelectDate={(d) => { setSelectedDate(d); setCalSheetOpen(false) }}
               transactionCounts={txCounts}
             />
-            <div className="px-4 pb-6 pt-2 flex gap-2">
+            <div className="px-4 pt-2 flex gap-2" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}>
               {selectedDate && (
                 <button onClick={() => { setSelectedDate(null); setCalSheetOpen(false) }} className="flex-1 py-2.5 rounded-xl text-sm" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                   Show all

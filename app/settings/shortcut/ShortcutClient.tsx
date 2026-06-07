@@ -101,7 +101,7 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
   }
 
   return (
-    <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-20 md:pt-14 px-4">
+    <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-24 md:pb-8 md:pt-14 px-4">
       <div className="py-4 flex items-center gap-3">
         <Link
           href="/settings"

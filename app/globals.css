@@ -74,6 +74,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+/* Safe-area-aware positioning for mobile PWA (viewportFit: cover) */
+@media (max-width: 767px) {
+  .mobile-fab-bottom {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-content-pb {
+    padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Suppress iOS press-and-hold callout on links and interactive elements */
+a, button {
+  -webkit-touch-callout: none;
+}
+
 /* Prevent iOS Safari auto-zoom on focused inputs */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 select,
