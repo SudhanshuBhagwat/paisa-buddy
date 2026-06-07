@@ -194,10 +194,11 @@ export default function StatsClient({ transactions: txs, month, categoryColorMap
   ]
 
   const buddyMsg = balance > 0
-    ? `You saved ${formatAmount(balance)} this month. Keep it up!`
+    ? <>You saved <span style={{ color: 'var(--pb-pos)', fontWeight: 700 }}>{formatAmount(balance)}</span> this month. Keep it up!</>
     : balance < 0
-    ? `Spending exceeds income by ${formatAmount(Math.abs(balance))} this month.`
-    : 'Income and spending are balanced this month.'
+    ? <>Spending exceeds income by <span style={{ color: 'var(--pb-neg)', fontWeight: 700 }}>{formatAmount(Math.abs(balance))}</span> this month.</>
+    : <>Income and spending are balanced this month.</>
+
 
   return (
     <main className="w-full min-h-dvh pb-24 md:pb-6 md:pt-14 lg:pt-[66px]">
@@ -236,27 +237,27 @@ export default function StatsClient({ transactions: txs, month, categoryColorMap
             <span style={{ fontSize: 14 }}>No data this month</span>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
-            <div style={{ ...CARD, padding: '20px 22px' }}>
-              {expenseCats.length > 0
-                ? <HorizontalDonut categories={expenseCats} total={expense} label="Expenses by Category" colorMap={categoryColorMap} />
-                : <div style={{ color: 'var(--pb-ink-3)', fontSize: 13 }}>No expenses this month</div>}
+          <>
+            <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
+              <BuddySVG size={38} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pb-brand)', marginBottom: 4, letterSpacing: '0.04em' }}>BUDDY SAYS</div>
+                <div style={{ fontSize: 13, color: 'var(--pb-ink-2)', lineHeight: 1.5 }}>{buddyMsg}</div>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+              <div style={{ ...CARD, padding: '20px 22px' }}>
+                {expenseCats.length > 0
+                  ? <HorizontalDonut categories={expenseCats} total={expense} label="Expenses by Category" colorMap={categoryColorMap} />
+                  : <div style={{ color: 'var(--pb-ink-3)', fontSize: 13 }}>No expenses this month</div>}
+              </div>
               <div style={{ ...CARD, padding: '20px 22px' }}>
                 {incomeCats.length > 0
                   ? <HorizontalDonut categories={incomeCats} total={income} label="Income by Category" colorMap={categoryColorMap} />
                   : <div style={{ color: 'var(--pb-ink-3)', fontSize: 13 }}>No income this month</div>}
               </div>
-              <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                <BuddySVG size={38} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pb-brand)', marginBottom: 4, letterSpacing: '0.04em' }}>BUDDY SAYS</div>
-                  <div style={{ fontSize: 13, color: 'var(--pb-ink-2)', lineHeight: 1.5 }}>{buddyMsg}</div>
-                </div>
-              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -301,6 +302,11 @@ export default function StatsClient({ transactions: txs, month, categoryColorMap
               ))}
             </div>
 
+            <div style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <BuddySVG size={34} />
+              <div style={{ fontSize: 13, color: 'var(--pb-ink-2)', lineHeight: 1.5 }}>{buddyMsg}</div>
+            </div>
+
             {expenseCats.length > 0 && (
               <div style={{ ...CARD, padding: '18px 18px 16px' }}>
                 <DonutChart categories={expenseCats} total={expense} label="Expenses by Category" colorMap={categoryColorMap} />
@@ -312,11 +318,6 @@ export default function StatsClient({ transactions: txs, month, categoryColorMap
                 <DonutChart categories={incomeCats} total={income} label="Income by Category" colorMap={categoryColorMap} />
               </div>
             )}
-
-            <div style={{ ...CARD, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <BuddySVG size={34} />
-              <div style={{ fontSize: 13, color: 'var(--pb-ink-2)', lineHeight: 1.5 }}>{buddyMsg}</div>
-            </div>
           </div>
         )}
       </div>

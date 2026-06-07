@@ -99,6 +99,7 @@ export default function AccountsClient({ accounts }: Props) {
 
   const totalBalance = accounts.reduce((s, a) => s + a.current_balance, 0)
   const bankCount = new Set(accounts.filter(a => a.bank).map(a => a.bank!)).size
+  const cardCount = accounts.filter(a => a.type === 'credit').length
   const deletingAccount = accounts.find((a) => a.id === deletingId)
 
   const AddBtn = ({ label = 'Add Account' }: { label?: string }) => (
@@ -122,7 +123,7 @@ export default function AccountsClient({ accounts }: Props) {
           {formatAmount(totalBalance)}
         </div>
         <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>
-          {bankCount > 0 ? `${bankCount} bank${bankCount > 1 ? 's' : ''} · ` : ''}{accounts.length} account{accounts.length !== 1 ? 's' : ''}
+          {bankCount > 0 ? `${bankCount} bank${bankCount > 1 ? 's' : ''} · ` : ''}{cardCount > 0 ? `${cardCount} card${cardCount > 1 ? 's' : ''} · ` : ''}{accounts.length} account{accounts.length !== 1 ? 's' : ''}
         </div>
       </div>
     </div>
