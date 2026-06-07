@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
 
   const parsedAmount = typeof amount === 'string' ? Number(amount) : amount
   if (typeof parsedAmount !== 'number' || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-    return Response.json({ error: 'amount must be a positive number (paise)' }, { status: 400 })
+    return Response.json({ error: 'amount must be a positive number' }, { status: 400 })
   }
-  const amount_paise = Math.round(parsedAmount)
+  const amount_paise = Math.round(parsedAmount * 100)
   const normalizedType = typeof type === 'string' ? type.toLowerCase() : type
   if (typeof normalizedType !== 'string' || !VALID_TYPES.has(normalizedType as TransactionType)) {
     return Response.json({ error: 'type must be debit, credit, or transfer' }, { status: 400 })
