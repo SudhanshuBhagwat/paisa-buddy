@@ -227,7 +227,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                        background: isCreditCard ? 'color-mix(in srgb, var(--pb-neg) 12%, white)' : 'var(--pb-brand-pale)',
+                        background: isCreditCard ? 'color-mix(in srgb, var(--pb-neg) 12%, var(--pb-surface))' : 'var(--pb-brand-pale)',
                         color: isCreditCard ? 'var(--pb-neg)' : 'var(--pb-brand)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
