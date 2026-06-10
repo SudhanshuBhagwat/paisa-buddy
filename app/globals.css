@@ -67,12 +67,14 @@ html {
   color: var(--pb-ink);
   font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-x: none;
 }
 
 body {
   background: var(--pb-bg);
   color: var(--pb-ink);
   min-height: 100dvh;
+  overscroll-behavior-x: none;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
