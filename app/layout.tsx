@@ -24,6 +24,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Paisa Buddy",
   description: "Personal finance tracker",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Paisa Buddy",
+  },
 };
 
 export const viewport: Viewport = {
@@ -32,6 +37,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F4F6F2" },
+    { media: "(prefers-color-scheme: dark)", color: "#17161A" },
+  ],
 };
 
 async function NavWithCount() {
