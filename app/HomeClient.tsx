@@ -75,9 +75,10 @@ interface Props {
   pendingCount: number
   displayName: string | null
   categoryColorMap: Record<string, string>
+  expectedMonthlyIncome: number
 }
 
-export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap }: Props) {
+export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap, expectedMonthlyIncome }: Props) {
   const router = useRouter()
   const [month, setMonth] = useState(initialMonth)
   useEffect(() => { setMonth(initialMonth) }, [initialMonth])
@@ -165,6 +166,13 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
   const firstName = displayName ? displayName.split(' ')[0] : null
 
+  const hasIncomeTarget = expectedMonthlyIncome > 0
+  const incomeReceived = income
+  const incomePending = Math.max(0, expectedMonthlyIncome - incomeReceived)
+  const incomeRemaining = expectedMonthlyIncome - expense
+  const incomeSpentPct = expectedMonthlyIncome > 0 ? Math.min(100, Math.round((expense / expectedMonthlyIncome) * 100)) : 0
+  const incomeBarColor = incomeSpentPct >= 100 ? 'var(--pb-neg)' : incomeSpentPct >= 80 ? 'var(--pb-gold)' : 'var(--pb-brand)'
+
   function navigateMonth(delta: number) {
     const m = addMonths(month, delta)
     setMonth(m)
@@ -192,6 +200,19 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               {balance < 0 ? '–' : ''}{absBalInt}
               {absBalDec && <span style={{ fontSize: 18, color: 'var(--pb-ink-3)' }}>.{absBalDec}</span>}
             </div>
+            {hasIncomeTarget && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--pb-ink-3)' }}>
+                    {formatAmount(expense)} of {formatAmount(expectedMonthlyIncome)} spent
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: incomeBarColor }}>{incomeSpentPct}%</span>
+                </div>
+                <div style={{ height: 5, borderRadius: 99, background: 'var(--pb-line)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${incomeSpentPct}%`, borderRadius: 99, background: incomeBarColor, transition: 'width 0.4s ease' }} />
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--pb-line)' }}>
               {[
                 { label: 'Income', value: income, color: 'var(--pb-pos)' },
@@ -480,10 +501,23 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>Net balance</span>
                   </div>
-                  <div className="flex items-baseline tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: 12 }}>
+                  <div className="flex items-baseline tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: hasIncomeTarget ? 10 : 12 }}>
                     <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{balInt}</span>
                     {balDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{balDec}</span>}
                   </div>
+                  {hasIncomeTarget && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--pb-ink-3)' }}>
+                          {formatAmount(expense)} of {formatAmount(expectedMonthlyIncome)} spent
+                        </span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: incomeBarColor }}>{incomeSpentPct}%</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 99, background: 'var(--pb-line)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${incomeSpentPct}%`, borderRadius: 99, background: incomeBarColor, transition: 'width 0.4s ease' }} />
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-3" style={{ paddingTop: 12, borderTop: '1px solid var(--pb-line)' }}>
                     {statsRows.map(({ label, value, color }, i) => (
                       <div key={label} className="flex flex-col gap-0.5" style={{ paddingLeft: i ? 10 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none' }}>

@@ -10,6 +10,7 @@ export interface UserSettings {
   displayName: string | null
   setupCompleted: boolean
   uploadToken: string | null
+  expectedMonthlyIncome: number
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +87,7 @@ export interface UserSettingsRepository {
    */
   upsert(
     userId: string,
-    data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken'>>,
+    data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken' | 'expectedMonthlyIncome'>>,
   ): Promise<void>
 
   /** Look up owner by upload token for token-authenticated API routes. */

@@ -49,6 +49,13 @@ export async function regenerateUploadToken(): Promise<string> {
   return token
 }
 
+export async function setExpectedMonthlyIncome(paise: number): Promise<void> {
+  const userId = await getRequiredUserId()
+  await settingsDb.upsert(userId, { expectedMonthlyIncome: paise })
+  updateTag('user-settings')
+  refresh()
+}
+
 export async function completeSetup(displayName: string, upiIds: string[]): Promise<void> {
   const userId = await getRequiredUserId()
   await settingsDb.upsert(userId, {

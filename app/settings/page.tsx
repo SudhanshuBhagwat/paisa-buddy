@@ -14,7 +14,7 @@ async function fetchSettingsData(userId: string) {
   cacheTag('categories')
   cacheTag('user-settings')
 
-  const [transactions, allCategories, { upiIds, displayName }] = await Promise.all([
+  const [transactions, allCategories, { upiIds, displayName, expectedMonthlyIncome }] = await Promise.all([
     getCachedTransactions(userId),
     getCachedCategoriesWithColors(userId),
     getCachedUserSettings(userId),
@@ -33,6 +33,7 @@ async function fetchSettingsData(userId: string) {
       .map(({ name, color }) => ({ name, color, transactionCount: countFor(name) })),
     upiIds,
     displayName,
+    expectedMonthlyIncome,
   }
 }
 

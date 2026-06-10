@@ -7,7 +7,7 @@ import { logout } from '@/lib/auth/actions'
 import {
   addCategory, removeCategory, removeCategoryAndUnlinkTransactions, clearAllTransactions,
 } from '@/app/actions/categories'
-import { addUpiId, removeUpiId, setDisplayName } from '@/app/actions/user-settings'
+import { addUpiId, removeUpiId, setDisplayName, setExpectedMonthlyIncome } from '@/app/actions/user-settings'
 import ConfirmModal from '@/components/ConfirmModal'
 
 interface CategoryWithCount { name: string; color: string; transactionCount: number }
@@ -19,6 +19,7 @@ interface Props {
   predefinedCategories: CategoryWithCount[]
   upiIds: string[]
   displayName: string | null
+  expectedMonthlyIncome: number
 }
 
 const CARD: React.CSSProperties = {
@@ -45,17 +46,21 @@ function Row({ children, last }: { children: React.ReactNode; last?: boolean }) 
 const navItems = [
   { id: 'profile',    label: 'Profile',          icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
   { id: 'upi',        label: 'UPI IDs',           icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> },
+  { id: 'income',     label: 'Income',            icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   { id: 'appearance', label: 'Appearance',        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> },
   { id: 'categories', label: 'Categories',        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> },
   { id: 'shortcut',   label: 'Apple Shortcut',   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
   { id: 'data',       label: 'Data',              icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> },
 ]
 
-export default function SettingsClient({ email, transactionCount, customCategories, predefinedCategories, upiIds, displayName }: Props) {
+export default function SettingsClient({ email, transactionCount, customCategories, predefinedCategories, upiIds, displayName, expectedMonthlyIncome }: Props) {
   const { state, dispatch } = useStore()
   const [newCat, setNewCat] = useState('')
   const [newUpi, setNewUpi] = useState('')
   const [nameInput, setNameInput] = useState(displayName ?? '')
+  const [incomeInput, setIncomeInput] = useState(
+    expectedMonthlyIncome > 0 ? String(Math.round(expectedMonthlyIncome / 100)) : '',
+  )
   const [confirmClear, setConfirmClear] = useState(false)
   const [removingCat, setRemovingCat] = useState<CategoryWithCount | null>(null)
   const [activeNav, setActiveNav] = useState('profile')
@@ -148,6 +153,36 @@ export default function SettingsClient({ email, transactionCount, customCategori
         </div>
         <p style={{ fontSize: 11.5, color: 'var(--pb-ink-3)', marginTop: 6, lineHeight: 1.5 }}>
           Your UPI IDs help identify debit vs credit direction in uploaded receipts.
+        </p>
+      </section>
+    )
+  }
+
+  function renderIncome(id?: string) {
+    return (
+      <section id={id}>
+        <SectionLabel>Income</SectionLabel>
+        <div style={{ ...CARD, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--pb-ink-3)', flexShrink: 0 }}>₹</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="Monthly salary (e.g. 85000)"
+              value={incomeInput}
+              onChange={(e) => setIncomeInput(e.target.value)}
+              onBlur={async () => {
+                const rupees = parseFloat(incomeInput)
+                const paise = isNaN(rupees) || rupees < 0 ? 0 : Math.round(rupees * 100)
+                await setExpectedMonthlyIncome(paise)
+                setIncomeInput(paise > 0 ? String(Math.round(paise / 100)) : '')
+              }}
+              style={{ flex: 1, fontSize: 15, background: 'transparent', border: 'none', outline: 'none', color: 'var(--pb-ink)', fontFamily: 'inherit' }}
+            />
+          </div>
+        </div>
+        <p style={{ fontSize: 11.5, color: 'var(--pb-ink-3)', marginTop: 6, lineHeight: 1.5 }}>
+          Your expected monthly income. Used to track how much of your salary has been spent.
         </p>
       </section>
     )
@@ -312,6 +347,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
           <div style={{ maxWidth: 580, display: 'flex', flexDirection: 'column', gap: 28 }}>
             {renderProfile('section-profile')}
             {renderUPI('section-upi')}
+            {renderIncome('section-income')}
             {renderAppearance('section-appearance')}
             {renderCategories('section-categories')}
             {renderShortcut('section-shortcut')}
@@ -334,6 +370,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
         <div style={{ padding: '12px 18px 20px', display: 'flex', flexDirection: 'column', gap: 22 }}>
           {renderProfile()}
           {renderUPI()}
+          {renderIncome()}
           {renderAppearance()}
           {renderCategories()}
           {renderShortcut()}

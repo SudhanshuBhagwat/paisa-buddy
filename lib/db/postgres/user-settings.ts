@@ -7,6 +7,7 @@ const DEFAULTS: UserSettings = {
   displayName: null,
   setupCompleted: false,
   uploadToken: null,
+  expectedMonthlyIncome: 0,
 }
 
 function rowToSettings(row: Record<string, unknown> | undefined): UserSettings {
@@ -16,6 +17,7 @@ function rowToSettings(row: Record<string, unknown> | undefined): UserSettings {
     displayName: (row.display_name as string | null) ?? null,
     setupCompleted: (row.setup_completed as boolean) ?? false,
     uploadToken: (row.upload_token as string | null) ?? null,
+    expectedMonthlyIncome: (row.expected_monthly_income as number) ?? 0,
   }
 }
 
@@ -23,7 +25,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
   async get(userId: string): Promise<UserSettings> {
     return withUserContext(userId, async (db) => {
       const [row] = await db`
-        SELECT upi_ids, display_name, setup_completed, upload_token
+        SELECT upi_ids, display_name, setup_completed, upload_token, expected_monthly_income
         FROM user_settings
         WHERE user_id = ${userId}
       `
@@ -33,7 +35,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
 
   async upsert(
     userId: string,
-    data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken'>>,
+    data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken' | 'expectedMonthlyIncome'>>,
   ): Promise<void> {
     const insertRow: Record<string, unknown> = { user_id: userId }
     const updateRow: Record<string, unknown> = {}
@@ -42,6 +44,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
     if (data.displayName !== undefined) { insertRow.display_name  = updateRow.display_name  = data.displayName }
     if (data.setupCompleted !== undefined) { insertRow.setup_completed = updateRow.setup_completed = data.setupCompleted }
     if (data.uploadToken !== undefined) { insertRow.upload_token  = updateRow.upload_token  = data.uploadToken }
+    if (data.expectedMonthlyIncome !== undefined) { insertRow.expected_monthly_income = updateRow.expected_monthly_income = data.expectedMonthlyIncome }
 
     return withUserContext(userId, async (db) => {
       await db`

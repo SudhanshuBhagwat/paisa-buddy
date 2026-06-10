@@ -43,6 +43,7 @@ async function HomeContent({ searchParams }: Props) {
       pendingCount={pending.length}
       displayName={settings.displayName}
       categoryColorMap={categoryColorMap}
+      expectedMonthlyIncome={settings.expectedMonthlyIncome}
     />
   )
 }
