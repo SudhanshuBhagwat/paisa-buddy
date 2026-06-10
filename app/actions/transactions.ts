@@ -68,6 +68,24 @@ export async function updateAndConfirmTransaction(
   after(() => db.detectRecurring(userId).catch(console.error))
 }
 
+export async function confirmAllPendingTransactions(): Promise<void> {
+  const userId = await getRequiredUserId()
+  const pending = await db.getPending(userId)
+  await Promise.all(pending.map((tx) => db.update(userId, tx.id, { reviewed: true })))
+  updateTag('transactions')
+  updateTag('accounts')
+  refresh()
+  after(() => db.detectRecurring(userId).catch(console.error))
+}
+
+export async function rejectAllPendingTransactions(): Promise<void> {
+  const userId = await getRequiredUserId()
+  const pending = await db.getPending(userId)
+  await Promise.all(pending.map((tx) => db.delete(userId, tx.id)))
+  updateTag('transactions')
+  refresh()
+}
+
 export async function updateTransaction(
   id: string,
   updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,

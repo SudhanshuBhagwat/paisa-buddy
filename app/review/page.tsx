@@ -13,7 +13,8 @@ async function ReviewContent() {
     getCachedCategoriesWithColors(userId),
     getCachedAccounts(userId),
   ])
-  return <ReviewClient transactions={pending} categories={allCategories.map((c) => c.name)} accounts={accounts} />
+  const categoryColors = Object.fromEntries(allCategories.map((c) => [c.name, c.color]))
+  return <ReviewClient transactions={pending} categories={allCategories.map((c) => c.name)} accounts={accounts} categoryColors={categoryColors} />
 }
 
 export default function ReviewPage() {
