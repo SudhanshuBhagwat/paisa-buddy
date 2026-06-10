@@ -10,10 +10,13 @@ export interface Transaction {
   createdAt: string // ISO timestamp
 }
 
+export type BuddyMood = 'happy' | 'neutral' | 'sad'
+
 export interface AppState {
   transactions: Transaction[]
   customCategories: string[]
   darkMode: boolean
+  buddyMood: BuddyMood
 }
 
 export type Action =
@@ -22,5 +25,6 @@ export type Action =
   | { type: 'ADD_CATEGORY'; payload: string }
   | { type: 'REMOVE_CATEGORY'; payload: string }
   | { type: 'SET_DARK_MODE'; payload: boolean }
+  | { type: 'SET_BUDDY_MOOD'; payload: BuddyMood }
   | { type: 'CLEAR_ALL' }
   | { type: 'HYDRATE'; payload: AppState }

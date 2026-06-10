@@ -6,6 +6,7 @@ export const DEFAULT_STATE: AppState = {
   transactions: [],
   customCategories: [],
   darkMode: false,
+  buddyMood: 'happy',
 }
 
 export function loadState(): AppState {
@@ -21,5 +22,7 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(KEY, JSON.stringify(state))
+  // buddyMood is runtime-only — derived from current month's balance, not persisted
+  const { buddyMood: _, ...persisted } = state
+  localStorage.setItem(KEY, JSON.stringify(persisted))
 }

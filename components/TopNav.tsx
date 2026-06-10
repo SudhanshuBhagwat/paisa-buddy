@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/auth/actions";
+import { useStore } from "@/lib/store";
+import BuddySVG from "@/components/BuddySVG";
 
 const HIDDEN_PATHS = ['/login', '/setup'];
 
@@ -20,6 +22,7 @@ interface Props {
 
 export default function TopNav({ pendingCount = 0 }: Props) {
   const pathname = usePathname();
+  const { state } = useStore();
 
   if (HIDDEN_PATHS.includes(pathname)) return null;
 
@@ -34,18 +37,7 @@ export default function TopNav({ pendingCount = 0 }: Props) {
     >
       {/* Wordmark */}
       <div className="flex items-center shrink-0 mr-6" style={{ gap: 8 }}>
-        <svg width="26" height="26" viewBox="0 0 64 64" fill="none">
-          <path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill="#1A936F" />
-          <path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
-          <path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-          <circle cx="32" cy="36" r="22" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
-          <circle cx="32" cy="36" r="17" stroke="#1A936F" strokeWidth="1.5" strokeOpacity="0.3" />
-          <circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-          <circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-          <circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
-          <circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
-          <path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-        </svg>
+        <BuddySVG size={26} mood={state.buddyMood} />
         <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-0.02em", color: "var(--pb-ink)" }}>
           Paisa <span style={{ color: "var(--pb-brand)" }}>Buddy</span>
         </span>

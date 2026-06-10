@@ -21,23 +21,8 @@ import CalendarView from '@/components/CalendarView'
 import ReviewEditDrawer from '@/app/review/ReviewEditDrawer'
 import { updateTransaction } from '@/app/actions/transactions'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
-
-function BuddySVG({ size = 64 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={{ display: 'block', flexShrink: 0 }}>
-      <path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill="#1A936F" />
-      <path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
-      <path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="32" cy="36" r="22" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
-      <circle cx="32" cy="36" r="17" stroke="#1A936F" strokeWidth="1.5" strokeOpacity="0.3" />
-      <circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
-      <circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
-      <path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-    </svg>
-  )
-}
+import { useStore } from '@/lib/store'
+import BuddySVG from '@/components/BuddySVG'
 
 const CARD: React.CSSProperties = {
   background: 'var(--pb-surface)',
@@ -80,6 +65,7 @@ interface Props {
 
 export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap, expectedMonthlyIncome }: Props) {
   const router = useRouter()
+  const { dispatch } = useStore()
   const [month, setMonth] = useState(initialMonth)
   useEffect(() => { setMonth(initialMonth) }, [initialMonth])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -170,6 +156,13 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const incomeReceived = income
   const incomePending = Math.max(0, expectedMonthlyIncome - incomeReceived)
   const incomeRemaining = expectedMonthlyIncome - expense
+
+  const buddyMood = hasIncomeTarget
+    ? (incomeRemaining > 0 ? 'happy' : incomeRemaining < 0 ? 'sad' : 'neutral')
+    : (balance > 0 ? 'happy' : balance < 0 ? 'sad' : 'neutral')
+  useEffect(() => {
+    dispatch({ type: 'SET_BUDDY_MOOD', payload: buddyMood })
+  }, [buddyMood, dispatch])
   const incomeSpentPct = expectedMonthlyIncome > 0 ? Math.min(100, Math.round((expense / expectedMonthlyIncome) * 100)) : 0
   const incomeBarColor = incomeSpentPct >= 100 ? 'var(--pb-neg)' : incomeSpentPct >= 80 ? 'var(--pb-gold)' : 'var(--pb-brand)'
 
@@ -427,7 +420,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
           {/* Buddy tip */}
           <div style={{ padding: 16, borderRadius: 'var(--pb-radius)', background: 'var(--pb-brand-pale)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BuddySVG size={28} />
+              <BuddySVG size={28} mood={buddyMood} />
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--pb-brand-deep)' }}>Buddy tip</span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--pb-brand-deep)', marginTop: 7, lineHeight: 1.45, opacity: 0.85 }}>
@@ -448,7 +441,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
           style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 16px) 22px 8px' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <BuddySVG size={36} />
+            <BuddySVG size={48} mood={buddyMood} />
             <div>
               <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--pb-ink)', letterSpacing: '-0.01em' }}>
                 {firstName ? `Hi, ${firstName}` : 'Hi there'}

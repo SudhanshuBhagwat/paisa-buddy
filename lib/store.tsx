@@ -19,6 +19,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, customCategories: state.customCategories.filter((c) => c !== action.payload) }
     case 'SET_DARK_MODE':
       return { ...state, darkMode: action.payload }
+    case 'SET_BUDDY_MOOD':
+      return { ...state, buddyMood: action.payload }
     case 'CLEAR_ALL':
       return { ...DEFAULT_STATE, darkMode: state.darkMode }
     default:
