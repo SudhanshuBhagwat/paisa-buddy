@@ -166,6 +166,18 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const incomeSpentPct = expectedMonthlyIncome > 0 ? Math.min(100, Math.round((expense / expectedMonthlyIncome) * 100)) : 0
   const incomeBarColor = incomeSpentPct >= 100 ? 'var(--pb-neg)' : incomeSpentPct >= 80 ? 'var(--pb-gold)' : 'var(--pb-brand)'
 
+  // When income target set, show remaining budget as the headline number
+  const displayBalance = hasIncomeTarget ? incomeRemaining : balance
+  const displayBalanceColor = displayBalance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
+  const absDisplayFormatted = formatAmount(Math.abs(displayBalance))
+  const absDisplayDotIdx = absDisplayFormatted.lastIndexOf('.')
+  const absDisplayInt = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(0, absDisplayDotIdx) : absDisplayFormatted
+  const absDisplayDec = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(absDisplayDotIdx + 1) : null
+  const displayFormatted = formatAmount(displayBalance)
+  const displayDotIdx = displayFormatted.lastIndexOf('.')
+  const displayInt = displayDotIdx >= 0 ? displayFormatted.slice(0, displayDotIdx) : displayFormatted
+  const displayDec = displayDotIdx >= 0 ? displayFormatted.slice(displayDotIdx + 1) : null
+
   function navigateMonth(delta: number) {
     const m = addMonths(month, delta)
     setMonth(m)
@@ -187,11 +199,11 @@ export default function HomeClient({ transactions, categories, accounts, month: 
           {/* Net balance card */}
           <div style={{ ...CARD, padding: 20 }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Net balance
+              {hasIncomeTarget ? 'Remaining' : 'Net balance'}
             </div>
-            <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 30, color: balanceColor, marginTop: 6 }}>
-              {balance < 0 ? '–' : ''}{absBalInt}
-              {absBalDec && <span style={{ fontSize: 18, color: 'var(--pb-ink-3)' }}>.{absBalDec}</span>}
+            <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 30, color: displayBalanceColor, marginTop: 6 }}>
+              {displayBalance < 0 ? '–' : ''}{absDisplayInt}
+              {absDisplayDec && <span style={{ fontSize: 18, color: 'var(--pb-ink-3)' }}>.{absDisplayDec}</span>}
             </div>
             {hasIncomeTarget && (
               <div style={{ marginTop: 12 }}>
@@ -492,11 +504,11 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               <div className="md:hidden px-4 pt-1 pb-3">
                 <div style={{ ...CARD, padding: '16px 14px' }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>Net balance</span>
+                    <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>{hasIncomeTarget ? 'Remaining' : 'Net balance'}</span>
                   </div>
-                  <div className="flex items-baseline tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: hasIncomeTarget ? 10 : 12 }}>
-                    <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{balInt}</span>
-                    {balDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{balDec}</span>}
+                  <div className="flex items-baseline tabular-nums" style={{ color: displayBalanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: hasIncomeTarget ? 10 : 12 }}>
+                    <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{displayInt}</span>
+                    {displayDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{displayDec}</span>}
                   </div>
                   {hasIncomeTarget && (
                     <div style={{ marginBottom: 12 }}>
