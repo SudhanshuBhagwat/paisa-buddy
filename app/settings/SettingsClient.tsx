@@ -64,6 +64,22 @@ export default function SettingsClient({ email, transactionCount, customCategori
   const [confirmClear, setConfirmClear] = useState(false)
   const [removingCat, setRemovingCat] = useState<CategoryWithCount | null>(null)
   const [activeNav, setActiveNav] = useState('profile')
+  const [savedField, setSavedField] = useState<string | null>(null)
+
+  function flashSaved(field: string) {
+    setSavedField(field)
+    setTimeout(() => setSavedField(null), 1500)
+  }
+
+  function formatIncomeDisplay(raw: string): string {
+    if (!raw) return ''
+    return Number(raw).toLocaleString('en-IN')
+  }
+
+  function handleIncomeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const clean = e.target.value.replace(/[^0-9]/g, '')
+    setIncomeInput(clean)
+  }
 
   async function handleAddUpiId() {
     const id = newUpi.trim().toLowerCase()
@@ -114,10 +130,15 @@ export default function SettingsClient({ email, transactionCount, customCategori
               <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--pb-brand)' }}>{initials}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <input type="text" placeholder="Your name" value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onBlur={async () => { await setDisplayName(nameInput.trim()) }}
-                style={{ fontSize: 16, fontWeight: 700, color: 'var(--pb-ink)', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: 0, fontFamily: 'inherit' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="text" placeholder="Your name" value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onBlur={async () => { await setDisplayName(nameInput.trim()); flashSaved('name') }}
+                  style={{ fontSize: 16, fontWeight: 700, color: 'var(--pb-ink)', background: 'transparent', border: 'none', outline: 'none', flex: 1, padding: 0, fontFamily: 'inherit' }} />
+                {savedField === 'name' && (
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--pb-pos, #22c55e)', flexShrink: 0 }}>Saved</span>
+                )}
+              </div>
               <div style={{ fontSize: 12.5, color: 'var(--pb-ink-3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email ?? '—'}</div>
             </div>
           </div>
@@ -166,19 +187,23 @@ export default function SettingsClient({ email, transactionCount, customCategori
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px' }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--pb-ink-3)', flexShrink: 0 }}>₹</span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              placeholder="Monthly salary (e.g. 85000)"
-              value={incomeInput}
-              onChange={(e) => setIncomeInput(e.target.value)}
+              placeholder="Monthly salary (e.g. 85,000)"
+              value={formatIncomeDisplay(incomeInput)}
+              onChange={handleIncomeChange}
               onBlur={async () => {
-                const rupees = parseFloat(incomeInput)
-                const paise = isNaN(rupees) || rupees < 0 ? 0 : Math.round(rupees * 100)
+                const rupees = parseInt(incomeInput, 10)
+                const paise = isNaN(rupees) || rupees < 0 ? 0 : rupees * 100
                 await setExpectedMonthlyIncome(paise)
-                setIncomeInput(paise > 0 ? String(Math.round(paise / 100)) : '')
+                setIncomeInput(paise > 0 ? String(rupees) : '')
+                flashSaved('income')
               }}
               style={{ flex: 1, fontSize: 15, background: 'transparent', border: 'none', outline: 'none', color: 'var(--pb-ink)', fontFamily: 'inherit' }}
             />
+            {savedField === 'income' && (
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--pb-pos, #22c55e)', flexShrink: 0 }}>Saved</span>
+            )}
           </div>
         </div>
         <p style={{ fontSize: 11.5, color: 'var(--pb-ink-3)', marginTop: 6, lineHeight: 1.5 }}>
