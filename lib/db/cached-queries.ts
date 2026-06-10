@@ -32,7 +32,10 @@ export async function getCachedCategoriesWithColors(userId: string): Promise<Cat
     name,
     color: CATEGORY_COLORS[name] ?? '#7E8A82',
   }))
-  const custom = await categoriesDb.getCustomWithColors(userId)
+  const predefinedNames = new Set<string>(PREDEFINED_CATEGORIES)
+  const custom = (await categoriesDb.getCustomWithColors(userId)).filter(
+    (c) => !predefinedNames.has(c.name),
+  )
   return [...predefined, ...custom]
 }
 
