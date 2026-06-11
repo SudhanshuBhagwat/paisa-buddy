@@ -3,7 +3,10 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { completeSetup } from '@/app/actions/user-settings'
+import { createAccount } from '@/app/actions/accounts'
 import BuddySVG from '@/components/BuddySVG'
+import type { AccountType } from '@/lib/types/account'
+import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 
 function Sprouts({ style = {} }: { style?: React.CSSProperties }) {
   return (
@@ -46,11 +49,23 @@ const BTN_STYLE: React.CSSProperties = {
   boxShadow: '0 8px 20px color-mix(in srgb, var(--pb-brand) 40%, transparent)',
 }
 
+const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
+
+interface AccountDraft {
+  name: string
+  type: AccountType
+  opening_balance: string
+}
+
+const DEFAULT_ACCOUNT: AccountDraft = { name: '', type: 'savings', opening_balance: '' }
+
 export default function SetupClient() {
   const router = useRouter()
   const [displayName, setDisplayName] = useState('')
   const [upiIds, setUpiIds] = useState<string[]>([])
   const [upiInput, setUpiInput] = useState('')
+  const [accounts, setAccounts] = useState<AccountDraft[]>([])
+  const [accountForm, setAccountForm] = useState<AccountDraft>(DEFAULT_ACCOUNT)
   const [saving, setSaving] = useState(false)
 
   function handleAddUpi() {
@@ -60,15 +75,30 @@ export default function SetupClient() {
     setUpiInput('')
   }
 
+  function handleAddAccount() {
+    const name = accountForm.name.trim()
+    if (!name) return
+    setAccounts((prev) => [...prev, { ...accountForm, name }])
+    setAccountForm(DEFAULT_ACCOUNT)
+  }
+
   async function handleContinue() {
+    if (accounts.length === 0) return
     setSaving(true)
+    await Promise.all(
+      accounts.map((a) => {
+        const rawBalance = Math.round(parseFloat(a.opening_balance || '0') * 100)
+        const opening_balance = a.type === 'credit' ? -Math.abs(rawBalance) : rawBalance
+        return createAccount({ name: a.name, type: a.type, bank: null, currency: 'INR', opening_balance })
+      })
+    )
     await completeSetup(displayName.trim(), upiIds)
     router.push('/')
   }
 
-const InputFields = (
+  const InputFields = (
     <div style={{ width: '100%' }}>
-      {/* Name input */}
+      {/* Name */}
       <div style={{ marginBottom: 16 }}>
         <div style={LABEL_STYLE}>Your name (as it appears on receipts)</div>
         <div style={INPUT_WRAP}>
@@ -83,8 +113,8 @@ const InputFields = (
         <div style={HELPER_STYLE}>Used to identify if you are the sender or receiver in a receipt.</div>
       </div>
 
-      {/* UPI input */}
-      <div style={{ marginBottom: 16 }}>
+      {/* UPI */}
+      <div style={{ marginBottom: 24 }}>
         <div style={LABEL_STYLE}>Your UPI IDs (optional)</div>
         {upiIds.map((id) => (
           <div key={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--pb-surface)', border: '1.5px solid var(--pb-line)', borderRadius: 12, padding: '13px 14px', marginBottom: 8 }}>
@@ -109,12 +139,88 @@ const InputFields = (
         </div>
         <div style={HELPER_STYLE}>Strengthens debit/credit detection when your name alone isn't enough.</div>
       </div>
+
+      {/* Accounts */}
+      <div style={{ borderTop: '1px solid var(--pb-line)', paddingTop: 20, marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--pb-ink)', marginBottom: 4 }}>Accounts</div>
+        <div style={{ fontSize: 13, color: 'var(--pb-ink-3)', marginBottom: 16, lineHeight: 1.4 }}>Add at least one account to get started.</div>
+
+        {/* Added accounts list */}
+        {accounts.map((acc, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--pb-surface)', border: '1.5px solid var(--pb-line)', borderRadius: 12, padding: '11px 14px', marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--pb-ink)' }}>{acc.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--pb-ink-3)', marginTop: 2 }}>
+                {ACCOUNT_TYPE_LABELS[acc.type]}{acc.opening_balance ? ` · ₹${acc.opening_balance}` : ''}
+              </div>
+            </div>
+            <button type="button" onClick={() => setAccounts((p) => p.filter((_, j) => j !== i))} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--pb-neg)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Remove
+            </button>
+          </div>
+        ))}
+
+        {/* Account form */}
+        <div style={{ background: 'var(--pb-surface)', border: '1.5px solid var(--pb-line)', borderRadius: 12, padding: '14px' }}>
+          <input
+            type="text"
+            placeholder="Account name (e.g. HDFC Savings)"
+            value={accountForm.name}
+            onChange={(e) => setAccountForm((f) => ({ ...f, name: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAccount() } }}
+            style={{ width: '100%', background: 'var(--pb-bg)', border: '1.5px solid var(--pb-line)', borderRadius: 8, padding: '8px 10px', fontSize: 14, color: 'var(--pb-ink)', fontFamily: 'inherit', outline: 'none', marginBottom: 12, boxSizing: 'border-box' }}
+          />
+
+          {/* Type pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {ACCOUNT_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setAccountForm((f) => ({ ...f, type: t }))}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '5px 11px', borderRadius: 20, border: '1.5px solid',
+                  borderColor: accountForm.type === t ? 'var(--pb-brand)' : 'var(--pb-line)',
+                  background: accountForm.type === t ? 'color-mix(in srgb, var(--pb-brand) 12%, transparent)' : 'transparent',
+                  color: accountForm.type === t ? 'var(--pb-brand)' : 'var(--pb-ink-3)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {ACCOUNT_TYPE_LABELS[t]}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="number"
+              placeholder="Opening balance (₹)"
+              value={accountForm.opening_balance}
+              onChange={(e) => setAccountForm((f) => ({ ...f, opening_balance: e.target.value }))}
+              style={{ flex: 1, background: 'var(--pb-bg)', border: '1.5px solid var(--pb-line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--pb-ink)', fontFamily: 'inherit', outline: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={handleAddAccount}
+              disabled={!accountForm.name.trim()}
+              style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: accountForm.name.trim() ? 1 : 0.4, whiteSpace: 'nowrap' }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 
   const ActionButtons = (
-    <button type="button" onClick={handleContinue} disabled={saving} style={{ ...BTN_STYLE, opacity: saving ? 0.6 : 1 }}>
-      {saving ? 'Saving…' : 'Continue'}
+    <button
+      type="button"
+      onClick={handleContinue}
+      disabled={saving || accounts.length === 0}
+      style={{ ...BTN_STYLE, opacity: saving || accounts.length === 0 ? 0.5 : 1, cursor: saving || accounts.length === 0 ? 'not-allowed' : 'pointer' }}
+    >
+      {saving ? 'Setting up…' : 'Get started'}
     </button>
   )
 
@@ -136,7 +242,7 @@ const InputFields = (
           Just a quick setup and you're good to go.
         </div>
       </div>
-      <div className="hidden md:flex" style={{ flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
+      <div className="hidden md:flex" style={{ flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, overflowY: 'auto' }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{ fontWeight: 800, fontSize: 28, color: 'var(--pb-ink)', marginBottom: 6 }}>One-time setup</div>
           <div style={{ fontSize: 15, color: 'var(--pb-ink-3)', marginBottom: 32, lineHeight: 1.5 }}>
@@ -148,8 +254,7 @@ const InputFields = (
       </div>
 
       {/* ── Mobile ── */}
-      <div className="flex md:hidden" style={{ flex: 1, flexDirection: 'column', padding: '60px 28px 40px' }}>
-        {/* Buddy greeting */}
+      <div className="flex md:hidden" style={{ flex: 1, flexDirection: 'column', padding: '60px 28px 40px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{ position: 'relative' }}>
             <BuddySVG size={56} />
@@ -165,8 +270,6 @@ const InputFields = (
         </div>
 
         {InputFields}
-
-        <div style={{ flex: 1 }} />
         {ActionButtons}
       </div>
     </div>

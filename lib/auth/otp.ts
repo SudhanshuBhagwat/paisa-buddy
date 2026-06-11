@@ -122,6 +122,11 @@ export async function generateAndSendOTP(email: string): Promise<void> {
 </body>
 </html>`
 
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`\n[OTP] ${email} → ${token}\n`)
+    return
+  }
+
   const { error: emailError } = await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to: email,

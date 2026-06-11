@@ -27,7 +27,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
       const [row] = await db`
         SELECT upi_ids, display_name, setup_completed, upload_token, expected_monthly_income
         FROM user_settings
-        WHERE user_id = ${userId}
+        WHERE id = ${userId}
       `
       return rowToSettings(row)
     })
@@ -37,7 +37,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
     userId: string,
     data: Partial<Pick<UserSettings, 'upiIds' | 'displayName' | 'setupCompleted' | 'uploadToken' | 'expectedMonthlyIncome'>>,
   ): Promise<void> {
-    const insertRow: Record<string, unknown> = { user_id: userId }
+    const insertRow: Record<string, unknown> = { id: userId }
     const updateRow: Record<string, unknown> = {}
 
     if (data.upiIds      !== undefined) { insertRow.upi_ids       = updateRow.upi_ids       = data.upiIds }
@@ -49,7 +49,7 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
     return withUserContext(userId, async (db) => {
       await db`
         INSERT INTO user_settings ${db(insertRow)}
-        ON CONFLICT (user_id)
+        ON CONFLICT (id)
         DO UPDATE SET ${db(updateRow)}
       `
     })
@@ -65,13 +65,13 @@ export class PostgresUserSettingsRepository implements UserSettingsRepository {
     return sql.begin(async (db) => {
       await db`RESET ROLE`
       const [row] = await db`
-        SELECT user_id, display_name, upi_ids
+        SELECT id, display_name, upi_ids
         FROM user_settings
         WHERE upload_token = ${token}
       `
       if (!row) return null
       return {
-        userId: row.user_id as string,
+        userId: row.id as string,
         displayName: (row.display_name as string | null) ?? null,
         upiIds: (row.upi_ids as string[]) ?? [],
       }

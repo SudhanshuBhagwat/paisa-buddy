@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useActionState } from 'react'
+import React, { useActionState, useState } from 'react'
 import { requestOTP, verifyOTPAndSignIn } from './actions'
 import type { RequestOTPState, VerifyOTPState } from './actions'
 import BuddySVG from '@/components/BuddySVG'
@@ -71,15 +71,19 @@ const TERMS = (
 )
 
 export default function LoginPage() {
+  const [showEmail, setShowEmail] = useState(false)
   const [emailState, emailAction, emailPending] = useActionState<RequestOTPState, FormData>(requestOTP, {})
   const [otpState, otpAction, otpPending] = useActionState<VerifyOTPState, FormData>(verifyOTPAndSignIn, {})
 
   // ── OTP screen ──────────────────────────────────────────────────
-  if (emailState.email) {
+  if (emailState.email && !showEmail) {
     const OtpForm = (
       <form action={otpAction} style={{ width: '100%', maxWidth: 340 }}>
         <input type="hidden" name="email" value={emailState.email} />
-        <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--pb-ink)', marginBottom: 6 }}>Check your email</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <button type="button" onClick={() => setShowEmail(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pb-ink-3)', padding: 0, display: 'flex', alignItems: 'center', fontSize: 20, lineHeight: 1 }}>←</button>
+          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--pb-ink)' }}>Check your email</div>
+        </div>
         <div style={{ fontSize: 13.5, color: 'var(--pb-ink-3)', marginBottom: 22, lineHeight: 1.4 }}>
           We sent a 6-digit code to <strong style={{ color: 'var(--pb-ink)' }}>{emailState.email}</strong>
         </div>
@@ -131,7 +135,7 @@ export default function LoginPage() {
 
   // ── Email screen ─────────────────────────────────────────────────
   const EmailForm = (
-    <form action={emailAction} style={{ width: '100%', maxWidth: 340 }}>
+    <form action={emailAction} onSubmit={() => setShowEmail(false)} style={{ width: '100%', maxWidth: 340 }}>
       <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--pb-ink)', marginBottom: 6 }}>Sign in</div>
       <div style={{ fontSize: 13.5, color: 'var(--pb-ink-3)', marginBottom: 22, lineHeight: 1.4 }}>
         We'll send a one-time code to your email.
