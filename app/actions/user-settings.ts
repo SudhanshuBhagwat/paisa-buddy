@@ -36,7 +36,6 @@ export async function ensureUploadToken(): Promise<string> {
   if (uploadToken) return uploadToken
   const token = randomBytes(32).toString('hex')
   await settingsDb.upsert(userId, { uploadToken: token })
-  updateTag('user-settings')
   return token
 }
 
