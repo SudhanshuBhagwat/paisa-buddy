@@ -1000,9 +1000,21 @@ export default function ReviewClient({ transactions, categories, accounts, categ
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 0' }}>
-          <div>
-            <span style={{ fontSize: 23, fontWeight: 800, color: 'var(--pb-ink)' }}>Review </span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--pb-ink-3)' }}>({transactions.length})</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--pb-ink-3)', display: 'flex', alignItems: 'center' }}
+              aria-label="Go back"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <span style={{ fontSize: 23, fontWeight: 800, color: 'var(--pb-ink)' }}>Review </span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--pb-ink-3)' }}>({transactions.length})</span>
+            </div>
           </div>
           {renderBulkButtons('sm')}
         </div>
@@ -1116,6 +1128,16 @@ export default function ReviewClient({ transactions, categories, accounts, categ
           {/* panel header */}
           <div style={{ padding: '20px 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--pb-ink-3)', display: 'flex', alignItems: 'center' }}
+                aria-label="Go back"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
               <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--pb-ink)' }}>Review</span>
               <span style={{
                 background: 'var(--pb-neg)', color: '#fff', borderRadius: 99,
