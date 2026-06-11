@@ -312,6 +312,23 @@ export default function SettingsClient({ email, transactionCount, customCategori
           <div style={{ fontSize: 13, color: 'var(--pb-ink-3)' }}>
             {transactionCount} transaction{transactionCount !== 1 ? 's' : ''} stored
           </div>
+          <a
+            href="/api/export"
+            download
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600,
+              background: 'var(--pb-surface)', color: 'var(--pb-brand)',
+              border: '1px solid var(--pb-brand)', textDecoration: 'none', cursor: 'pointer',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export to Excel
+          </a>
           <button onClick={handleClear} style={{
             padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s',
             ...(confirmClear
@@ -323,7 +340,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
           {confirmClear && (
             <button onClick={() => setConfirmClear(false)} style={{ fontSize: 13, color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           )}
-          <form action={logout} style={{ marginTop: 4 }}>
+          <form action={logout} className="lg:hidden" style={{ marginTop: 4 }}>
             <button type="submit" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600, background: 'var(--pb-surface)', color: 'var(--pb-neg)', border: '1px solid var(--pb-line)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Sign out
             </button>
@@ -354,17 +371,6 @@ export default function SettingsClient({ email, transactionCount, customCategori
               </button>
             ))}
           </div>
-          <div style={{ flex: 1 }} />
-          <form action={logout}>
-            <button type="submit" style={{ width: '100%', padding: '11px 24px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'transparent', color: 'var(--pb-neg)', fontSize: 14, fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              Sign out
-            </button>
-          </form>
         </nav>
 
         {/* Right content */}
