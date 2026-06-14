@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence } from 'motion/react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion, useMotionValue, animate } from 'motion/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Transaction } from '@/lib/types/transaction'
@@ -24,6 +24,27 @@ import { updateTransaction } from '@/app/actions/transactions'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useStore } from '@/lib/store'
 import BuddySVG from '@/components/BuddySVG'
+
+const CAL_VARIANTS = {
+  enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir * -48, opacity: 0 }),
+}
+
+function CountUp({ value }: { value: number }) {
+  const mv = useMotionValue(0)
+  const [display, setDisplay] = useState(value)
+  useEffect(() => {
+    mv.set(0)
+    const controls = animate(mv, value, {
+      duration: 0.5,
+      ease: 'easeOut',
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    })
+    return controls.stop
+  }, [value])
+  return <>{display}</>
+}
 
 const CARD: React.CSSProperties = {
   background: 'var(--pb-surface)',
@@ -81,6 +102,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [greetingDate, setGreetingDate] = useState('')
+
+  const calDirRef = useRef<number>(1)
+  const isCalFirstMount = useRef(true)
+  useEffect(() => { isCalFirstMount.current = false }, [])
 
   useScrollLock(calSheetOpen || filterSheetOpen || editingTx !== null)
 
@@ -180,6 +205,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const displayDec = displayDotIdx >= 0 ? displayFormatted.slice(displayDotIdx + 1) : null
 
   function navigateMonth(delta: number) {
+    calDirRef.current = delta > 0 ? 1 : -1
     const m = addMonths(month, delta)
     setMonth(m)
     router.push(`/?month=${m}`)
@@ -398,9 +424,22 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pb-ink)' }}>{formatMonthLabel(month)}</div>
-                <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}>{txs.length} transaction{txs.length !== 1 ? 's' : ''}</div>
+              <div style={{ textAlign: 'center', overflow: 'hidden' }}>
+                <AnimatePresence mode="wait" custom={calDirRef.current}>
+                  <motion.div
+                    key={month}
+                    custom={calDirRef.current}
+                    variants={CAL_VARIANTS}
+                    initial={isCalFirstMount.current ? false : 'enter'}
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                    style={{ fontSize: 14, fontWeight: 800, color: 'var(--pb-ink)' }}
+                  >
+                    {formatMonthLabel(month)}
+                  </motion.div>
+                </AnimatePresence>
+                <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}><CountUp value={txs.length} /> transaction{txs.length !== 1 ? 's' : ''}</div>
               </div>
               <button
                 onClick={() => navigateMonth(1)}

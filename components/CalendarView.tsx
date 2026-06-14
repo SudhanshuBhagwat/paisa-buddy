@@ -1,5 +1,7 @@
-﻿'use client'
+'use client'
 
+import { useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { parseYearMonth, today } from '@/lib/utils'
 
 interface Props {
@@ -18,7 +20,23 @@ function dotCount(n: number): number {
   return 3
 }
 
+const variants = {
+  enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir * -48, opacity: 0 }),
+}
+
 export default function CalendarView({ month, selectedDate, onSelectDate, transactionCounts }: Props) {
+  const prevMonthRef = useRef(month)
+  const dirRef = useRef<number>(1)
+  const isFirstMount = useRef(true)
+  useEffect(() => { isFirstMount.current = false }, [])
+
+  if (prevMonthRef.current !== month) {
+    dirRef.current = month > prevMonthRef.current ? 1 : -1
+    prevMonthRef.current = month
+  }
+
   const base = parseYearMonth(month)
   const year = base.getFullYear()
   const monthNum = base.getMonth() + 1
@@ -36,7 +54,7 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
   }
 
   return (
-    <div className="px-3 py-3 select-none">
+    <div className="px-3 py-3 select-none overflow-hidden">
       <div className="grid grid-cols-7 mb-1">
         {DAY_HEADERS.map((h) => (
           <div key={h} className="text-center text-xs py-1 font-medium" style={{ color: 'var(--muted)' }}>
@@ -45,53 +63,63 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
         ))}
       </div>
 
-      <div className="grid grid-cols-7">
-        {cells.map((day, idx) => {
-          if (!day) return <div key={`e-${idx}`} className="h-11" />
+      <AnimatePresence initial={false} mode="wait" custom={dirRef.current}>
+        <motion.div
+          key={month}
+          className="grid grid-cols-7"
+          custom={dirRef.current}
+          variants={variants}
+          initial={isFirstMount.current ? false : 'enter'}
+          animate="center"
+          exit="exit"
+          transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+        >
+          {cells.map((day, idx) => {
+            if (!day) return <div key={`e-${idx}`} className="h-11" />
 
-          const ds = toDateStr(day)
-          const isToday = ds === todayStr
-          const isSelected = ds === selectedDate
-          const dots = dotCount(transactionCounts.get(ds) ?? 0)
+            const ds = toDateStr(day)
+            const isToday = ds === todayStr
+            const isSelected = ds === selectedDate
+            const dots = dotCount(transactionCounts.get(ds) ?? 0)
 
-          const anotherDaySelected = selectedDate !== null && !isSelected
-          let circleBg = 'transparent'
-          let circleColor = 'var(--pb-ink)'
-          if (isSelected) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
-          else if (isToday && anotherDaySelected) { circleBg = 'var(--pb-ink)'; circleColor = 'var(--pb-surface)' }
-          else if (isToday) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
+            const anotherDaySelected = selectedDate !== null && !isSelected
+            let circleBg = 'transparent'
+            let circleColor = 'var(--pb-ink)'
+            if (isSelected) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
+            else if (isToday && anotherDaySelected) { circleBg = 'var(--pb-ink)'; circleColor = 'var(--pb-surface)' }
+            else if (isToday) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
 
-          return (
-            <button
-              key={ds}
-              onClick={() => isToday ? onSelectDate(null) : onSelectDate(isSelected ? null : ds)}
-              className="flex flex-col items-center justify-center h-11"
-            >
-              <span
-                className="w-7 h-7 flex items-center justify-center rounded-full text-sm transition-colors"
-                style={{ background: circleBg, color: circleColor, fontWeight: isToday || isSelected ? 600 : 400 }}
+            return (
+              <button
+                key={ds}
+                onClick={() => isToday ? onSelectDate(null) : onSelectDate(isSelected ? null : ds)}
+                className="flex flex-col items-center justify-center h-11"
               >
-                {day}
-              </span>
-              {/* Dot row — always occupies space for consistent height */}
-              <div className="flex gap-0.5 items-center" style={{ height: '5px', marginTop: '2px' }}>
-                {Array.from({ length: dots }, (_, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full"
-                    style={{
-                      width: '3px',
-                      height: '3px',
-                      background: isSelected ? '#fff' : 'var(--pb-brand)',
-                    }}
-                  />
-                ))}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                <span
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-sm transition-colors"
+                  style={{ background: circleBg, color: circleColor, fontWeight: isToday || isSelected ? 600 : 400 }}
+                >
+                  {day}
+                </span>
+                {/* Dot row — always occupies space for consistent height */}
+                <div className="flex gap-0.5 items-center" style={{ height: '5px', marginTop: '2px' }}>
+                  {Array.from({ length: dots }, (_, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full"
+                      style={{
+                        width: '3px',
+                        height: '3px',
+                        background: isSelected ? '#fff' : 'var(--pb-brand)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </button>
+            )
+          })}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
-
