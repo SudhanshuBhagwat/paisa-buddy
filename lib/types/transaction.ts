@@ -16,7 +16,7 @@ export type Transaction = {
   upi_ref: string | null
   bank: string | null
   category: string | null
-  source: 'receipt_ocr' | 'manual'
+  source: 'receipt_ocr' | 'manual' | 'bank_import'
   raw_ai_response: string | null
   confidence: Confidence | null
   reviewed: boolean

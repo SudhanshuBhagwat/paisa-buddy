@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useIsMobile } from '@/lib/hooks/useIsMobile'
@@ -11,6 +11,7 @@ import { createAccount } from '@/app/actions/accounts'
 import type { TransactionType } from '@/lib/types/transaction'
 import type { Account, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
+import ImportTab from '@/components/ImportTab'
 
 interface Props {
   open: boolean
@@ -36,6 +37,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
   useScrollLock(open)
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
+  const [activeTab, setActiveTab] = useState<'manual' | 'import'>('manual')
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
   const [merchant, setMerchant] = useState('')
@@ -53,6 +55,19 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
   const [addingAccSaving, setAddingAccSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const amountRef = useRef<HTMLInputElement>(null)
+  const tabContentRef = useRef<HTMLDivElement>(null)
+  const [tabHeight, setTabHeight] = useState<number | 'auto'>('auto')
+
+  // Set baseline pixel height synchronously before first paint
+  useLayoutEffect(() => {
+    if (tabContentRef.current) setTabHeight(tabContentRef.current.offsetHeight)
+  }, [])
+
+  // After each tab switch React has committed new content and the browser has
+  // painted — measure the actual new height and let Framer Motion spring to it
+  useEffect(() => {
+    if (tabContentRef.current) setTabHeight(tabContentRef.current.offsetHeight)
+  }, [activeTab])
 
   const allAccounts = [
     ...accounts,
@@ -61,6 +76,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
 
   useEffect(() => {
     if (open) {
+      setActiveTab('manual')
       setType('debit')
       setAmountStr('')
       setMerchant('')
@@ -211,12 +227,13 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                     initial: { y: '100%' },
                     animate: { y: 0 },
                     exit: { y: '100%' },
-                    transition: { type: 'spring', damping: 32, stiffness: 320, mass: 0.8 },
+                    transition: { type: 'spring', damping: 32, stiffness: 320, mass: 0.8, layout: { type: 'spring', damping: 36, stiffness: 340 } },
                   }
                 : {
                     initial: { opacity: 0, scale: 0.95 },
                     animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } },
                     exit:    { opacity: 0, scale: 0.95, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } },
+                    transition: { layout: { type: 'spring', damping: 36, stiffness: 340 } },
                   })}
             >
               <motion.div
@@ -242,6 +259,38 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
               </motion.div>
 
               <div style={{ maxHeight: 'calc(90dvh - 24px)', overflowY: 'auto' }}>
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
+              {(['manual', 'import'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className="flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize"
+                  style={
+                    activeTab === tab
+                      ? { background: 'var(--surface)', color: 'var(--text)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                      : { color: 'var(--muted)' }
+                  }
+                >
+                  {tab === 'manual' ? 'Manual' : 'Import File'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <motion.div
+            initial={false}
+            animate={{ height: tabHeight }}
+            transition={{ type: 'spring', damping: 36, stiffness: 340 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div ref={tabContentRef}>
+          {activeTab === 'import' ? (
+            <div className="px-4 pb-8 pt-3">
+              <ImportTab accounts={accounts} onClose={onClose} />
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="px-4 pb-8 pt-2 flex flex-col gap-5">
             <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
               {TYPES.map((t) => (
@@ -488,6 +537,9 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
               {submitting ? 'Saving…' : 'Add Transaction'}
             </button>
           </form>
+          )}
+            </div>
+          </motion.div>
               </div>
             </motion.div>
           </div>
