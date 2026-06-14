@@ -537,25 +537,6 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               )}
             </div>
           </div>
-          {pendingCount > 0 && (
-            <div style={{ position: 'relative' }}>
-              <Link
-                href="/review"
-                style={{
-                  width: 40, height: 40, borderRadius: 13,
-                  background: 'var(--pb-surface)', border: '1px solid var(--pb-line)',
-                  boxShadow: 'var(--pb-card-shadow)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--pb-ink-2)' }}>
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </Link>
-              <div style={{ position: 'absolute', top: 7, right: 8, width: 8, height: 8, borderRadius: 99, background: 'var(--pb-neg)', border: '1.5px solid var(--pb-surface)' }} />
-            </div>
-          )}
         </div>
 
         <div className="md:grid md:grid-cols-[1fr_328px]">
@@ -647,8 +628,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     {pendingCount}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--pb-neg)' }}>Receipts pending review</p>
-                    <p className="text-xs" style={{ color: 'var(--muted)' }}>Screenshot imports need confirmation</p>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--pb-neg)' }}>Transactions pending review</p>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>From imports, shortcuts & bank statements</p>
                   </div>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--pb-neg)', flexShrink: 0 }}>
                     <polyline points="9 18 15 12 9 6" />
