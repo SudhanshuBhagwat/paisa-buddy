@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
 import { useRouter } from 'next/navigation'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import {
@@ -300,6 +301,8 @@ export default function ReviewClient({ transactions, categories, accounts, categ
   const [newAccType, setNewAccType] = useState<AccountType>('savings')
   const [addingAccSaving, setAddingAccSaving] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const dragY = useMotionValue(0)
 
   const activeTx = transactions.find((tx) => tx.id === activeId) ?? transactions[0] ?? null
 
@@ -1052,68 +1055,245 @@ export default function ReviewClient({ transactions, categories, accounts, categ
       </main>
 
       {/* ── Mobile bottom sheet ── */}
-      {sheetOpen && (
-        <>
-          <div
-            className="lg:hidden"
-            style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.3)' }}
-            onClick={() => setSheetOpen(false)}
-          />
-          <div
-            className="lg:hidden"
-            style={{
-              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-              background: 'var(--pb-surface)', borderRadius: '22px 22px 0 0',
-              boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
-              maxHeight: 'min(85dvh, 620px)', overflowY: 'auto', overflowX: 'hidden',
-            }}
-          >
-            {/* drag handle */}
-            <div style={{ padding: '10px 0 6px', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: 36, height: 4, borderRadius: 99, background: 'var(--pb-line)' }} />
-            </div>
+      <AnimatePresence>
+        {sheetOpen && activeTx && edits && (() => {
+          const tColor = typeColor(edits.type)
+          const merchantLabel = edits.type === 'credit' ? 'Sender' : edits.type === 'transfer' ? 'Account' : 'Recipient'
 
-            <div style={{ padding: '0 22px' }}>
-              {/* sheet header */}
-              {activeTx && edits && (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          const inputCls = 'px-3 py-2.5 rounded-xl text-sm outline-none w-full'
+          const inputStyle: React.CSSProperties = { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+          const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer', appearance: 'none' }
+          const labelCls = 'text-xs font-medium'
+          const labelStyle: React.CSSProperties = { color: 'var(--muted)' }
+
+          const TYPE_META = [
+            { value: 'debit' as TransactionType, label: 'Debit', color: 'var(--pb-neg)' },
+            { value: 'credit' as TransactionType, label: 'Credit', color: 'var(--pb-pos)' },
+            { value: 'transfer' as TransactionType, label: 'Transfer', color: 'var(--pb-transfer)' },
+          ]
+
+          return (
+            <>
+              <motion.div
+                className="lg:hidden"
+                style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.4)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setSheetOpen(false)}
+              />
+              <motion.div
+                className="lg:hidden"
+                style={{
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+                  background: 'var(--surface)', borderRadius: '22px 22px 0 0',
+                  boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
+                  maxHeight: 'min(94dvh, 820px)', overflowY: 'auto', overflowX: 'hidden',
+                  y: dragY,
+                }}
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 32, stiffness: 320, mass: 0.8 }}
+              >
+                {/* drag handle */}
+                <motion.div
+                  className="flex justify-center pt-3 pb-4 touch-none"
+                  style={{ cursor: 'grab' }}
+                  drag="y"
+                  dragConstraints={{ top: 0, bottom: 0 }}
+                  dragElastic={0}
+                  onDrag={(_, info) => { dragY.set(Math.max(0, info.offset.y)) }}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.y > 80 || info.velocity.y > 400) {
+                      setSheetOpen(false)
+                    } else {
+                      animate(dragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                    }
+                  }}
+                >
+                  <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} whileDrag={{ scaleX: 0.6 }} />
+                </motion.div>
+
+                <div className="px-4 pb-8 flex flex-col gap-4">
+                  {/* header */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">Edit & Confirm</h2>
+                    <button type="button" onClick={() => setSheetOpen(false)} className="text-sm" style={{ color: 'var(--muted)' }}>Cancel</button>
+                  </div>
+
+                  {/* type selector */}
+                  <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
+                    {TYPE_META.map(({ value, label, color }) => (
                       <button
+                        key={value}
                         type="button"
-                        onClick={() => {
-                          if (!edits) return
-                          const types: TransactionType[] = ['debit', 'credit', 'transfer']
-                          const next = types[(types.indexOf(edits.type) + 1) % types.length]
-                          setEdits({ ...edits, type: next })
-                        }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        onClick={() => setEdits({ ...edits, type: value })}
+                        className="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
+                        style={
+                          edits.type === value
+                            ? { background: 'var(--surface)', color, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                            : { color: 'var(--muted)' }
+                        }
                       >
-                        <ReviewTypeBadge type={edits.type} />
+                        {label}
                       </button>
-                      <span style={{ fontSize: 12, color: 'var(--pb-ink-3)' }}>{activeIdx + 1} of {transactions.length}</span>
+                    ))}
+                  </div>
+
+                  {/* amount — centered, matching add-transaction layout */}
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <span className="font-light" style={{ color: tColor, fontSize: '2.25rem' }}>₹</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formatAmountDisplay(edits.amountStr)}
+                      onChange={handleAmountChange}
+                      className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
+                      style={{ color: tColor, WebkitTextFillColor: tColor, fontSize: '2.25rem' }}
+                    />
+                    <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '2.25rem' }}>₹</span>
+                  </div>
+
+                  {/* Merchant */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>{merchantLabel.toUpperCase()}</label>
+                    <input type="text" value={edits.merchant} onChange={(e) => setEdits({ ...edits, merchant: e.target.value })} placeholder="e.g. Swiggy, Amazon" className={inputCls} style={inputStyle} />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>NOTES <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <input type="text" value={edits.description} onChange={(e) => setEdits({ ...edits, description: e.target.value })} className={inputCls} style={inputStyle} required />
+                  </div>
+
+                  {/* Date */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>DATE</label>
+                    <input type="date" value={edits.date} onChange={(e) => setEdits({ ...edits, date: e.target.value })} className={inputCls} style={inputStyle} required />
+                  </div>
+
+                  {/* Category */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>CATEGORY <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <select
+                      value={editingField === 'newCat' ? '__new__' : edits.category}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setEditingField('newCat') }
+                        else { setEdits({ ...edits, category: e.target.value }); setEditingField(null) }
+                      }}
+                      className={inputCls}
+                      style={selectStyle}
+                    >
+                      <option value="">— Select category —</option>
+                      {allCats.map((cat) => (
+                        <option key={cat} value={cat}>{cat}{cat === hint && !activeTx.category ? ' ✦' : ''}</option>
+                      ))}
+                      <option value="__new__">+ Add new…</option>
+                    </select>
+                    {editingField === 'newCat' && (
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          autoFocus type="text" placeholder="New category name" value={newCatInput}
+                          onChange={(e) => setNewCatInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCat() } if (e.key === 'Escape') setEditingField(null) }}
+                          className={`${inputCls} flex-1`} style={inputStyle}
+                        />
+                        <button type="button" onClick={handleAddCat} disabled={!newCatInput.trim()} className="px-4 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                          Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Account */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <select
+                      value={edits.accountId}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setAddingAccount(true) }
+                        else { setEdits({ ...edits, accountId: e.target.value }) }
+                      }}
+                      className={inputCls}
+                      style={selectStyle}
+                    >
+                      <option value="">— Select account —</option>
+                      {allAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
+                      ))}
+                      <option value="__new__">+ Add new account…</option>
+                    </select>
+                    {addingAccount && (
+                      <div className="flex flex-col gap-2 p-3 rounded-xl mt-1" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <input autoFocus type="text" placeholder="Account name" value={newAccName} onChange={(e) => setNewAccName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setAddingAccount(false) }} className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }} />
+                        <div className="flex flex-wrap gap-1.5">
+                          {(['savings', 'current', 'credit', 'wallet', 'other'] as AccountType[]).map((t) => (
+                            <button key={t} type="button" onClick={() => setNewAccType(t)} className="px-2.5 py-1 rounded-full text-xs transition-all" style={newAccType === t ? { background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                              {ACCOUNT_TYPE_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)', background: 'none', cursor: 'pointer' }}>Cancel</button>
+                          <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                            {addingAccSaving ? 'Adding…' : 'Add'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* To Account (transfer only) */}
+                  {edits.type === 'transfer' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls} style={labelStyle}>TO ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                      <select value={edits.toAccountId} onChange={(e) => setEdits({ ...edits, toAccountId: e.target.value })} className={inputCls} style={selectStyle}>
+                        <option value="">— Select account —</option>
+                        {allAccounts.filter((a) => a.id !== edits.accountId).map((acc) => (
+                          <option key={acc.id} value={acc.id}>{acc.name}</option>
+                        ))}
+                      </select>
                     </div>
-                    <span style={{ fontSize: 12.5, color: 'var(--pb-ink-3)' }}>{formatDate(activeTx.date)}</span>
-                  </div>
+                  )}
 
-                  {/* amount */}
-                  <div style={{ marginBottom: 6 }}>
-                    {renderAmountHeader(false)}
-                  </div>
+                  {/* Advanced toggle */}
+                  <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="self-start text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {showAdvanced ? '▲' : '▼'} Advanced
+                  </button>
 
-                  {/* edit fields */}
-                  {renderEditFields()}
+                  {showAdvanced && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>TIME</label>
+                        <input type="time" value={edits.time} onChange={(e) => setEdits({ ...edits, time: e.target.value })} className={inputCls} style={inputStyle} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>BANK</label>
+                        <input type="text" value={edits.bank} onChange={(e) => setEdits({ ...edits, bank: e.target.value })} className={inputCls} style={inputStyle} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>UPI REF</label>
+                        <input type="text" value={edits.upiRef} onChange={(e) => setEdits({ ...edits, upiRef: e.target.value })} className={`${inputCls} font-mono`} style={inputStyle} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <span className="text-sm" style={{ color: 'var(--text)' }}>Recurring transaction</span>
+                        <button type="button" onClick={() => setEdits({ ...edits, isRecurring: !edits.isRecurring })} className="relative w-10 h-6 rounded-full transition-colors shrink-0" style={{ background: edits.isRecurring ? 'var(--pb-pos)' : 'var(--border)', border: 'none', cursor: 'pointer' }} aria-pressed={edits.isRecurring}>
+                          <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: edits.isRecurring ? 'translateX(16px)' : 'translateX(0)' }} />
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   {/* actions */}
-                  <div style={{ padding: '16px 0 30px' }}>
-                    {renderActionButtons()}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+                  {renderActionButtons()}
+                </div>
+              </motion.div>
+            </>
+          )
+        })()}
+      </AnimatePresence>
 
       {/* ── Desktop split view ── */}
       <div
