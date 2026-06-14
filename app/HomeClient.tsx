@@ -25,6 +25,17 @@ import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useStore } from '@/lib/store'
 import BuddySVG from '@/components/BuddySVG'
 
+function useMoneyCountUp(value: number) {
+  const mv = useMotionValue(0)
+  const [display, setDisplay] = useState(value)
+  useEffect(() => {
+    mv.set(0)
+    const controls = animate(mv, value, { duration: 0.5, ease: 'easeOut', onUpdate: (v) => setDisplay(Math.round(v)) })
+    return controls.stop
+  }, [value])
+  return display
+}
+
 const CAL_VARIANTS = {
   enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -146,6 +157,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
       (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
   )
   const { income, expense, balance, transfer } = calcSummary(txs)
+  const incomeAnim = useMoneyCountUp(income)
+  const expenseAnim = useMoneyCountUp(expense)
+  const transferAnim = useMoneyCountUp(transfer)
+  const balanceAbsAnim = useMoneyCountUp(Math.abs(balance))
 
   const balanceColor = balance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
   const balFormatted = formatAmount(balance)
@@ -171,9 +186,9 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   )
 
   const statsRows = [
-    { label: 'INCOME', value: income, color: 'var(--pb-pos)' },
-    { label: 'SPENT', value: expense, color: 'var(--pb-neg)' },
-    { label: 'TRANSFERS', value: transfer, color: 'var(--pb-transfer)' },
+    { label: 'INCOME', value: incomeAnim, color: 'var(--pb-pos)' },
+    { label: 'SPENT', value: expenseAnim, color: 'var(--pb-neg)' },
+    { label: 'TRANSFERS', value: transferAnim, color: 'var(--pb-transfer)' },
   ]
 
   const firstName = displayName ? displayName.split(' ')[0] : null
@@ -195,14 +210,13 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   // When income target set, show remaining budget as the headline number
   const displayBalance = hasIncomeTarget ? incomeRemaining : balance
   const displayBalanceColor = displayBalance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
-  const absDisplayFormatted = formatAmount(Math.abs(displayBalance))
+  const displayBalanceAbsAnim = useMoneyCountUp(Math.abs(displayBalance))
+  const absDisplayFormatted = formatAmount(displayBalanceAbsAnim)
   const absDisplayDotIdx = absDisplayFormatted.lastIndexOf('.')
   const absDisplayInt = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(0, absDisplayDotIdx) : absDisplayFormatted
   const absDisplayDec = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(absDisplayDotIdx + 1) : null
-  const displayFormatted = formatAmount(displayBalance)
-  const displayDotIdx = displayFormatted.lastIndexOf('.')
-  const displayInt = displayDotIdx >= 0 ? displayFormatted.slice(0, displayDotIdx) : displayFormatted
-  const displayDec = displayDotIdx >= 0 ? displayFormatted.slice(displayDotIdx + 1) : null
+  const displayInt = absDisplayInt
+  const displayDec = absDisplayDec
 
   function navigateMonth(delta: number) {
     calDirRef.current = delta > 0 ? 1 : -1
@@ -247,9 +261,9 @@ export default function HomeClient({ transactions, categories, accounts, month: 
             )}
             <div style={{ display: 'flex', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--pb-line)' }}>
               {[
-                { label: 'Income', value: income, color: 'var(--pb-pos)' },
-                { label: 'Spent', value: expense, color: 'var(--pb-neg)' },
-                { label: 'Transfers', value: transfer, color: 'var(--pb-transfer)' },
+                { label: 'Income', value: incomeAnim, color: 'var(--pb-pos)' },
+                { label: 'Spent', value: expenseAnim, color: 'var(--pb-neg)' },
+                { label: 'Transfers', value: transferAnim, color: 'var(--pb-transfer)' },
               ].map(({ label, value, color }, i) => (
                 <div key={label} style={{ flex: 1, paddingLeft: i ? 14 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none', minWidth: 0 }}>
                   <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</div>
@@ -547,7 +561,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>{hasIncomeTarget ? 'Remaining' : 'Net balance'}</span>
                   </div>
                   <div className="flex items-baseline tabular-nums" style={{ color: displayBalanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: hasIncomeTarget ? 10 : 12 }}>
-                    <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{displayInt}</span>
+                    <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{displayBalance < 0 ? '–' : ''}{displayInt}</span>
                     {displayDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{displayDec}</span>}
                   </div>
                   {hasIncomeTarget && (
@@ -580,14 +594,14 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 style={{ borderBottom: '1px solid var(--pb-line)' }}
               >
                 {[
-                  { label: 'Income', value: income, color: 'var(--pb-pos)' },
-                  { label: 'Spent', value: expense, color: 'var(--pb-neg)' },
-                  { label: 'Balance', value: balance, color: balanceColor },
-                  { label: 'Transfers', value: transfer, color: 'var(--pb-transfer)' },
-                ].map(({ label, value, color }) => (
+                  { label: 'Income', text: formatAmount(incomeAnim), color: 'var(--pb-pos)' },
+                  { label: 'Spent', text: formatAmount(expenseAnim), color: 'var(--pb-neg)' },
+                  { label: 'Balance', text: (balance < 0 ? '–' : '') + formatAmount(balanceAbsAnim), color: balanceColor },
+                  { label: 'Transfers', text: formatAmount(transferAnim), color: 'var(--pb-transfer)' },
+                ].map(({ label, text, color }) => (
                   <div key={label} className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.04em' }}>{label}</span>
-                    <span className="text-sm font-bold tabular-nums" style={{ color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>{formatAmount(value)}</span>
+                    <span className="text-sm font-bold tabular-nums" style={{ color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>{text}</span>
                   </div>
                 ))}
               </div>
