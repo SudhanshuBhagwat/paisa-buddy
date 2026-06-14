@@ -54,15 +54,17 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
           const isSelected = ds === selectedDate
           const dots = dotCount(transactionCounts.get(ds) ?? 0)
 
+          const anotherDaySelected = selectedDate !== null && !isSelected
           let circleBg = 'transparent'
           let circleColor = 'var(--pb-ink)'
           if (isSelected) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
+          else if (isToday && anotherDaySelected) { circleBg = 'var(--pb-ink)'; circleColor = 'var(--pb-surface)' }
           else if (isToday) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
 
           return (
             <button
               key={ds}
-              onClick={() => onSelectDate(isSelected ? null : ds)}
+              onClick={() => isToday ? onSelectDate(null) : onSelectDate(isSelected ? null : ds)}
               className="flex flex-col items-center justify-center h-11"
             >
               <span
