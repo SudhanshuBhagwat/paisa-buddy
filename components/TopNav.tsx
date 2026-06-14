@@ -64,14 +64,20 @@ export default function TopNav({ pendingCount = 0 }: Props) {
             >
               {tab.label}
               {badge != null && (
-                <span
-                  className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
-                  style={{
-                    background: active ? "var(--pb-brand-deep)" : "var(--pb-neg)",
-                    color: "#fff",
-                  }}
-                >
-                  {badge > 99 ? "99+" : badge}
+                <span className="absolute -top-1 -right-1">
+                  <span
+                    className="absolute inset-0 rounded-full animate-ping opacity-60"
+                    style={{ background: active ? "var(--pb-brand-deep)" : "var(--pb-neg)" }}
+                  />
+                  <span
+                    className="relative min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
+                    style={{
+                      background: active ? "var(--pb-brand-deep)" : "var(--pb-neg)",
+                      color: "#fff",
+                    }}
+                  >
+                    {badge > 99 ? "99+" : badge}
+                  </span>
                 </span>
               )}
             </Link>
