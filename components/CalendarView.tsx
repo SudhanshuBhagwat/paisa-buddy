@@ -44,6 +44,8 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
   const daysInMonth = new Date(year, monthNum, 0).getDate()
   const todayStr = today()
 
+  const hasAnyTxThisMonth = transactionCounts.size > 0
+
   const cells: (number | null)[] = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
@@ -81,6 +83,7 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
             const isToday = ds === todayStr
             const isSelected = ds === selectedDate
             const dots = dotCount(transactionCounts.get(ds) ?? 0)
+            const showStar = hasAnyTxThisMonth && ds <= todayStr && !transactionCounts.has(ds)
 
             const anotherDaySelected = selectedDate !== null && !isSelected
             let circleBg = 'transparent'
@@ -88,6 +91,7 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
             if (isSelected) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
             else if (isToday && anotherDaySelected) { circleBg = 'var(--pb-ink)'; circleColor = 'var(--pb-surface)' }
             else if (isToday) { circleBg = 'var(--pb-brand)'; circleColor = '#fff' }
+            else if (showStar) { circleColor = 'var(--pb-gold)' }
 
             return (
               <button
@@ -101,19 +105,25 @@ export default function CalendarView({ month, selectedDate, onSelectDate, transa
                 >
                   {day}
                 </span>
-                {/* Dot row — always occupies space for consistent height */}
-                <div className="flex gap-0.5 items-center" style={{ height: '5px', marginTop: '2px' }}>
-                  {Array.from({ length: dots }, (_, i) => (
-                    <span
-                      key={i}
-                      className="rounded-full"
-                      style={{
-                        width: '3px',
-                        height: '3px',
-                        background: isSelected ? '#fff' : 'var(--pb-brand)',
-                      }}
-                    />
-                  ))}
+                {/* Dot/star row — always occupies space for consistent height */}
+                <div className="flex gap-0.5 items-center justify-center" style={{ height: '10px', marginTop: '2px' }}>
+                  {showStar ? (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ color: isSelected ? '#fff' : 'var(--pb-gold)', flexShrink: 0 }}>
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  ) : (
+                    Array.from({ length: dots }, (_, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full"
+                        style={{
+                          width: '3px',
+                          height: '3px',
+                          background: isSelected ? '#fff' : 'var(--pb-brand)',
+                        }}
+                      />
+                    ))
+                  )}
                 </div>
               </button>
             )
