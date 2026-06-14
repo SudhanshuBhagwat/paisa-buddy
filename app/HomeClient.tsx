@@ -246,7 +246,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const hasFilters = !!(selectedType || selectedCategory || selectedAccount || recurringOnly)
 
   return (
-    <main className="w-full mobile-content-pb md:pb-0 md:pt-14 lg:pt-[66px] min-h-dvh">
+    <main className="w-full mobile-content-pb md:pb-0 md:pt-[66px] min-h-dvh">
 
       {/* ═══ DESKTOP (lg+): 3-col card layout ═══ */}
       <div
@@ -558,7 +558,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
           )}
         </div>
 
-        <div className="md:grid md:grid-cols-[1fr_320px]">
+        <div className="md:grid md:grid-cols-[1fr_328px]">
 
           {/* ── Center column ── */}
           <div className="md:border-r" style={{ borderColor: 'var(--border)' }}>
@@ -574,8 +574,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 />
               </div>
 
-              {/* Mobile balance card */}
-              <div className="md:hidden px-4 pt-1 pb-3">
+              {/* Balance card */}
+              <div className="px-4 pt-3 pb-2">
                 <div style={{ ...CARD, padding: '16px 14px' }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>{hasIncomeTarget ? 'Remaining' : 'Net balance'}</span>
@@ -613,9 +613,9 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 </div>
               </div>
 
-              {/* iPad stats: tablet only */}
+              {/* iPad stats: removed — balance card above replaces this */}
               <div
-                className="hidden md:grid grid-cols-4 gap-4 px-3 py-3"
+                className="hidden"
                 style={{ borderBottom: '1px solid var(--pb-line)' }}
               >
                 {[
@@ -682,7 +682,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                   <button
                     type="button"
                     onClick={() => setFilterSheetOpen(true)}
-                    className="md:hidden relative shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                    className="relative shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
                     style={{
                       background: hasFilters ? 'var(--pb-brand)' : 'var(--pb-surface)',
                       border: '1px solid var(--pb-line)',
@@ -701,7 +701,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
               {/* Tablet type filter */}
               {txs.length > 0 && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-3 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
+                <div className="hidden" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
                   <span className="shrink-0 text-sm font-bold pr-1" style={{ color: 'var(--muted)' }}>Type:</span>
                   {(['debit', 'credit', 'transfer'] as TransactionType[]).map((type) => {
                     const active = selectedType === type
@@ -721,7 +721,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
               {/* Tablet category filter */}
               {monthCategories.length > 0 && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-3 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
+                <div className="hidden" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
                   <span className="shrink-0 text-sm font-bold pr-1" style={{ color: 'var(--muted)' }}>Category:</span>
                   {monthCategories.map((cat) => (
                     <button
@@ -749,7 +749,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
           {/* ── Right column: MonthPicker + Calendar (tablet) ── */}
           <div className="hidden md:block">
-            <div className="sticky top-14" style={{ maxHeight: 'calc(100dvh - 3.5rem)', overflowY: 'auto' }}>
+            <div className="sticky top-[66px]" style={{ maxHeight: 'calc(100dvh - 66px)', overflowY: 'auto' }}>
               <div className="py-[6px]" style={{ borderBottom: '1px solid var(--border)' }}>
                 <MonthPicker value={month} onChange={(m) => { setMonth(m); router.push(`/?month=${m}`) }} txCount={txs.length} />
               </div>
@@ -770,6 +770,66 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                   </button>
                 </div>
               )}
+
+              {/* Accounts - tablet right column */}
+              {accounts.length > 0 && (
+                <div style={{ margin: '12px 16px 0', ...CARD, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accounts</span>
+                    <Link href="/accounts" style={{ fontSize: 12, fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}>Manage</Link>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {accounts.map((acc) => {
+                      const isCreditCard = acc.type === 'credit'
+                      const accBalColor = isCreditCard || acc.current_balance < 0 ? 'var(--pb-neg)' : 'var(--pb-ink)'
+                      return (
+                        <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                            background: isCreditCard ? 'color-mix(in srgb, var(--pb-neg) 12%, var(--pb-surface))' : 'var(--pb-brand-pale)',
+                            color: isCreditCard ? 'var(--pb-neg)' : 'var(--pb-brand)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {isCreditCard ? (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                                <line x1="1" y1="10" x2="23" y2="10" />
+                              </svg>
+                            ) : (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="3" y1="22" x2="21" y2="22" />
+                                <line x1="6" y1="22" x2="6" y2="11" />
+                                <line x1="18" y1="22" x2="18" y2="11" />
+                                <polygon points="1 11 12 2 23 11" />
+                              </svg>
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}>{ACCOUNT_TYPE_LABELS[acc.type]}</div>
+                          </div>
+                          <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 12.5, color: accBalColor, flexShrink: 0 }}>
+                            {formatAmount(acc.current_balance)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Buddy tip - tablet right column */}
+              <div style={{ margin: '10px 16px 16px', padding: '11px 13px', borderRadius: 'var(--pb-radius)', background: 'var(--pb-brand-pale)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <BuddySVG size={22} mood={buddyMood} />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--pb-brand-deep)' }}>Buddy tip</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--pb-brand-deep)', marginTop: 6, lineHeight: 1.45, opacity: 0.85 }}>
+                  {txs.length > 0
+                    ? `${txs.length} transaction${txs.length !== 1 ? 's' : ''} this month. Keep adding to see spending patterns!`
+                    : 'No transactions yet this month. Add your first one using the + button!'}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -809,8 +869,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
       {/* ── Mobile filter bottom sheet ── */}
       {filterSheetOpen && (
         <>
-          <div className="fixed inset-0 z-50 md:hidden" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setFilterSheetOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl md:hidden" style={{ background: 'var(--surface)' }}>
+          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setFilterSheetOpen(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl" style={{ background: 'var(--surface)' }}>
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
             </div>
