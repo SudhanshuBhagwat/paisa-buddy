@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Transaction } from '@/lib/types/transaction'
@@ -707,17 +708,20 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
       <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} month={month} />
 
-      {editingTx && (
-        <ReviewEditDrawer
-          transaction={editingTx}
-          categories={categories}
-          accounts={accounts}
-          onSave={handleEditSave}
-          onClose={() => setEditingTx(null)}
-          saving={editSaving}
-          mode="edit"
-        />
-      )}
+      <AnimatePresence>
+        {editingTx && (
+          <ReviewEditDrawer
+            key="edit-drawer"
+            transaction={editingTx}
+            categories={categories}
+            accounts={accounts}
+            onSave={handleEditSave}
+            onClose={() => setEditingTx(null)}
+            saving={editSaving}
+            mode="edit"
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Mobile filter bottom sheet ── */}
       {filterSheetOpen && (

@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { motion, useMotionValue, animate } from "motion/react";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import type { Transaction, TransactionType } from "@/lib/types/transaction";
 import type { Account, AccountType } from "@/lib/types/account";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/types/account";
@@ -45,6 +47,9 @@ export default function ReviewEditDrawer({
 }: Props) {
   const categoryHint = getCategoryHint(tx);
   const defaultCategory = tx.category ?? categoryHint ?? "";
+
+  const isMobile = useIsMobile()
+  const dragY = useMotionValue(0)
 
   const [type, setType] = useState<TransactionType>(tx.type);
   const [amountStr, setAmountStr] = useState(String(tx.amount / 100));
@@ -159,28 +164,55 @@ export default function ReviewEditDrawer({
 
   return (
     <>
-      <div
+      <motion.div
         className="fixed inset-0 z-50"
         style={{ background: "rgba(0,0,0,0.4)" }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
       />
 
       <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
-        <div
+        <motion.div
           className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
-          style={{
-            background: "var(--surface)",
-            maxHeight: "92dvh",
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
+          style={isMobile ? { background: "var(--surface)", overflowX: "hidden", y: dragY } : { background: "var(--surface)", overflowX: "hidden" }}
+          {...(isMobile
+            ? {
+                initial: { y: "100%" },
+                animate: { y: 0 },
+                exit: { y: "100%" },
+                transition: { type: "spring", damping: 32, stiffness: 320, mass: 0.8 },
+              }
+            : {
+                initial: { opacity: 0, scale: 0.95 },
+                animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } },
+                exit:    { opacity: 0, scale: 0.95, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } },
+              })}
         >
-          <div className="flex justify-center pt-3 pb-1 md:hidden">
-            <div
+          <motion.div
+            className="flex justify-center pt-3 pb-4 md:hidden touch-none"
+            style={{ cursor: "grab" }}
+            drag={isMobile ? "y" : false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0}
+            onDrag={(_, info) => { dragY.set(Math.max(0, info.offset.y)) }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 80 || info.velocity.y > 400) {
+                onClose()
+              } else {
+                animate(dragY, 0, { type: "spring", damping: 30, stiffness: 300 })
+              }
+            }}
+          >
+            <motion.div
               className="w-10 h-1 rounded-full"
               style={{ background: "var(--border)" }}
+              whileDrag={{ scaleX: 0.6 }}
             />
-          </div>
+          </motion.div>
+          <div style={{ maxHeight: "calc(92dvh - 24px)", overflowY: "auto" }}>
 
           <div className="px-4 pt-3 pb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold">
@@ -599,7 +631,8 @@ export default function ReviewEditDrawer({
               {saving ? "Saving…" : mode === "edit" ? "Save" : "Confirm & Save"}
             </button>
           </form>
-        </div>
+          </div>
+        </motion.div>
       </div>
     </>
   );

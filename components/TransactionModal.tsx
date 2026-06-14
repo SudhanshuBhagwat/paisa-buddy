@@ -1,7 +1,9 @@
 ﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
+import { useIsMobile } from '@/lib/hooks/useIsMobile'
 import { today } from '@/lib/utils'
 import { insertTransaction } from '@/app/actions/transactions'
 import { addCategory } from '@/app/actions/categories'
@@ -32,6 +34,8 @@ function defaultDateForMonth(month?: string): string {
 
 export default function TransactionModal({ open, onClose, categories, accounts, month }: Props) {
   useScrollLock(open)
+  const isMobile = useIsMobile()
+  const dragY = useMotionValue(0)
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
   const [merchant, setMerchant] = useState('')
@@ -161,8 +165,6 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     setNewCatInput('')
   }
 
-  if (!open) return null
-
   const isSettlement = category === 'Settlement'
   const fromAccounts = isSettlement ? allAccounts.filter((a) => a.type !== 'credit') : allAccounts
   const toAccounts = isSettlement
@@ -187,22 +189,59 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-50"
-        style={{ background: 'rgba(0,0,0,0.4)' }}
-        onClick={onClose}
-      />
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-50"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+          />
 
-      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
-        <div
-          className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
-          style={{ background: 'var(--surface)', maxHeight: '90dvh', overflowY: 'auto' }}
-        >
-          <div className="flex justify-center pt-3 pb-1 md:hidden">
-            <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-          </div>
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
+            <motion.div
+              className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
+              style={isMobile ? { background: 'var(--surface)', y: dragY } : { background: 'var(--surface)' }}
+              {...(isMobile
+                ? {
+                    initial: { y: '100%' },
+                    animate: { y: 0 },
+                    exit: { y: '100%' },
+                    transition: { type: 'spring', damping: 32, stiffness: 320, mass: 0.8 },
+                  }
+                : {
+                    initial: { opacity: 0, scale: 0.95 },
+                    animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } },
+                    exit:    { opacity: 0, scale: 0.95, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } },
+                  })}
+            >
+              <motion.div
+                className="flex justify-center pt-3 pb-4 md:hidden touch-none"
+                style={{ cursor: 'grab' }}
+                drag={isMobile ? 'y' : false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0}
+                onDrag={(_, info) => { dragY.set(Math.max(0, info.offset.y)) }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 80 || info.velocity.y > 400) {
+                    onClose()
+                  } else {
+                    animate(dragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                  }
+                }}
+              >
+                <motion.div
+                  className="w-10 h-1 rounded-full"
+                  style={{ background: 'var(--border)' }}
+                  whileDrag={{ scaleX: 0.6 }}
+                />
+              </motion.div>
 
+              <div style={{ maxHeight: 'calc(90dvh - 24px)', overflowY: 'auto' }}>
           <form onSubmit={handleSubmit} className="px-4 pb-8 pt-2 flex flex-col gap-5">
             <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
               {TYPES.map((t) => (
@@ -449,9 +488,12 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
               {submitting ? 'Saving…' : 'Add Transaction'}
             </button>
           </form>
-        </div>
-      </div>
-    </>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
   )
 }
 
