@@ -25,36 +25,75 @@ import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useStore } from '@/lib/store'
 import BuddySVG from '@/components/BuddySVG'
 
-function useMoneyCountUp(value: number) {
-  const mv = useMotionValue(0)
-  const [display, setDisplay] = useState(value)
-  useEffect(() => {
-    mv.set(0)
-    const controls = animate(mv, value, { duration: 0.5, ease: 'easeOut', onUpdate: (v) => setDisplay(Math.round(v)) })
-    return controls.stop
-  }, [value])
-  return display
-}
-
 const CAL_VARIANTS = {
   enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir * -48, opacity: 0 }),
 }
 
-function CountUp({ value }: { value: number }) {
+function AnimatedMoney({ value, prefix = '' }: { value: number; prefix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
   const mv = useMotionValue(0)
-  const [display, setDisplay] = useState(value)
   useEffect(() => {
     mv.set(0)
-    const controls = animate(mv, value, {
-      duration: 0.5,
-      ease: 'easeOut',
-      onUpdate: (v) => setDisplay(Math.round(v)),
+    const controls = animate(mv, value, { duration: 0.5, ease: 'easeOut' })
+    const unsub = mv.on('change', (v) => {
+      if (ref.current) ref.current.textContent = prefix + formatAmount(Math.round(v))
     })
-    return controls.stop
+    return () => { controls.stop(); unsub() }
   }, [value])
-  return <>{display}</>
+  return <span ref={ref}>{prefix + formatAmount(value)}</span>
+}
+
+function AnimatedBalanceSplit({
+  value,
+  intClassName, intStyle,
+  decClassName, decStyle,
+}: {
+  value: number
+  intClassName?: string; intStyle?: React.CSSProperties
+  decClassName?: string; decStyle?: React.CSSProperties
+}) {
+  const intRef = useRef<HTMLSpanElement>(null)
+  const decRef = useRef<HTMLSpanElement>(null)
+  const mv = useMotionValue(0)
+  useEffect(() => {
+    mv.set(0)
+    const controls = animate(mv, Math.abs(value), { duration: 0.5, ease: 'easeOut' })
+    const unsub = mv.on('change', (v) => {
+      const fmt = formatAmount(Math.round(v))
+      const dot = fmt.lastIndexOf('.')
+      const sign = value < 0 ? '–' : ''
+      if (intRef.current) intRef.current.textContent = sign + (dot >= 0 ? fmt.slice(0, dot) : fmt)
+      if (decRef.current) decRef.current.textContent = dot >= 0 ? '.' + fmt.slice(dot + 1) : ''
+    })
+    return () => { controls.stop(); unsub() }
+  }, [value])
+  const fmt = formatAmount(Math.abs(value))
+  const dot = fmt.lastIndexOf('.')
+  const sign = value < 0 ? '–' : ''
+  const intPart = sign + (dot >= 0 ? fmt.slice(0, dot) : fmt)
+  const decPart = dot >= 0 ? '.' + fmt.slice(dot + 1) : null
+  return (
+    <>
+      <span ref={intRef} className={intClassName} style={intStyle}>{intPart}</span>
+      {decPart != null && <span ref={decRef} className={decClassName} style={decStyle}>{decPart}</span>}
+    </>
+  )
+}
+
+function AnimatedCount({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const mv = useMotionValue(0)
+  useEffect(() => {
+    mv.set(0)
+    const controls = animate(mv, value, { duration: 0.5, ease: 'easeOut' })
+    const unsub = mv.on('change', (v) => {
+      if (ref.current) ref.current.textContent = String(Math.round(v))
+    })
+    return () => { controls.stop(); unsub() }
+  }, [value])
+  return <span ref={ref}>{value}</span>
 }
 
 const CARD: React.CSSProperties = {
@@ -157,22 +196,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
       (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
   )
   const { income, expense, balance, transfer } = calcSummary(txs)
-  const incomeAnim = useMoneyCountUp(income)
-  const expenseAnim = useMoneyCountUp(expense)
-  const transferAnim = useMoneyCountUp(transfer)
-  const balanceAbsAnim = useMoneyCountUp(Math.abs(balance))
 
   const balanceColor = balance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
-  const balFormatted = formatAmount(balance)
-  const balDotIdx = balFormatted.lastIndexOf('.')
-  const balInt = balDotIdx >= 0 ? balFormatted.slice(0, balDotIdx) : balFormatted
-  const balDec = balDotIdx >= 0 ? balFormatted.slice(balDotIdx + 1) : null
-
-  // Absolute balance for desktop display (sign handled separately)
-  const absBalFormatted = formatAmount(Math.abs(balance))
-  const absDotIdx = absBalFormatted.lastIndexOf('.')
-  const absBalInt = absDotIdx >= 0 ? absBalFormatted.slice(0, absDotIdx) : absBalFormatted
-  const absBalDec = absDotIdx >= 0 ? absBalFormatted.slice(absDotIdx + 1) : null
 
   const txCounts = useMemo(() => {
     const map = new Map<string, number>()
@@ -186,9 +211,9 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   )
 
   const statsRows = [
-    { label: 'INCOME', value: incomeAnim, color: 'var(--pb-pos)' },
-    { label: 'SPENT', value: expenseAnim, color: 'var(--pb-neg)' },
-    { label: 'TRANSFERS', value: transferAnim, color: 'var(--pb-transfer)' },
+    { label: 'INCOME', value: income, color: 'var(--pb-pos)' },
+    { label: 'SPENT', value: expense, color: 'var(--pb-neg)' },
+    { label: 'TRANSFERS', value: transfer, color: 'var(--pb-transfer)' },
   ]
 
   const firstName = displayName ? displayName.split(' ')[0] : null
@@ -210,13 +235,6 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   // When income target set, show remaining budget as the headline number
   const displayBalance = hasIncomeTarget ? incomeRemaining : balance
   const displayBalanceColor = displayBalance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
-  const displayBalanceAbsAnim = useMoneyCountUp(Math.abs(displayBalance))
-  const absDisplayFormatted = formatAmount(displayBalanceAbsAnim)
-  const absDisplayDotIdx = absDisplayFormatted.lastIndexOf('.')
-  const absDisplayInt = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(0, absDisplayDotIdx) : absDisplayFormatted
-  const absDisplayDec = absDisplayDotIdx >= 0 ? absDisplayFormatted.slice(absDisplayDotIdx + 1) : null
-  const displayInt = absDisplayInt
-  const displayDec = absDisplayDec
 
   function navigateMonth(delta: number) {
     calDirRef.current = delta > 0 ? 1 : -1
@@ -243,8 +261,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               {hasIncomeTarget ? 'Remaining' : 'Net balance'}
             </div>
             <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 30, color: displayBalanceColor, marginTop: 6 }}>
-              {displayBalance < 0 ? '–' : ''}{absDisplayInt}
-              {absDisplayDec && <span style={{ fontSize: 18, color: 'var(--pb-ink-3)' }}>.{absDisplayDec}</span>}
+              <AnimatedBalanceSplit
+                value={displayBalance}
+                decStyle={{ fontSize: 18, color: 'var(--pb-ink-3)' }}
+              />
             </div>
             {hasIncomeTarget && (
               <div style={{ marginTop: 12 }}>
@@ -261,14 +281,14 @@ export default function HomeClient({ transactions, categories, accounts, month: 
             )}
             <div style={{ display: 'flex', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--pb-line)' }}>
               {[
-                { label: 'Income', value: incomeAnim, color: 'var(--pb-pos)' },
-                { label: 'Spent', value: expenseAnim, color: 'var(--pb-neg)' },
-                { label: 'Transfers', value: transferAnim, color: 'var(--pb-transfer)' },
+                { label: 'Income', value: income, color: 'var(--pb-pos)' },
+                { label: 'Spent', value: expense, color: 'var(--pb-neg)' },
+                { label: 'Transfers', value: transfer, color: 'var(--pb-transfer)' },
               ].map(({ label, value, color }, i) => (
                 <div key={label} style={{ flex: 1, paddingLeft: i ? 14 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none', minWidth: 0 }}>
                   <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</div>
                   <div style={{ fontFamily: '"Space Mono", var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 15, color, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formatAmount(value)}
+                    <AnimatedMoney value={value} />
                   </div>
                 </div>
               ))}
@@ -453,7 +473,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     {formatMonthLabel(month)}
                   </motion.div>
                 </AnimatePresence>
-                <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}><CountUp value={txs.length} /> transaction{txs.length !== 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}><AnimatedCount value={txs.length} /> transaction{txs.length !== 1 ? 's' : ''}</div>
               </div>
               <button
                 onClick={() => navigateMonth(1)}
@@ -561,8 +581,13 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.05em' }}>{hasIncomeTarget ? 'Remaining' : 'Net balance'}</span>
                   </div>
                   <div className="flex items-baseline tabular-nums" style={{ color: displayBalanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', marginBottom: hasIncomeTarget ? 10 : 12 }}>
-                    <span className="font-bold" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>{displayBalance < 0 ? '–' : ''}{displayInt}</span>
-                    {displayDec && <span className="font-semibold" style={{ fontSize: 20, color: 'var(--pb-ink-3)' }}>.{displayDec}</span>}
+                    <AnimatedBalanceSplit
+                      value={displayBalance}
+                      intClassName="font-bold"
+                      intStyle={{ fontSize: 34, letterSpacing: '-0.02em' }}
+                      decClassName="font-semibold"
+                      decStyle={{ fontSize: 20, color: 'var(--pb-ink-3)' }}
+                    />
                   </div>
                   {hasIncomeTarget && (
                     <div style={{ marginBottom: 12 }}>
@@ -581,7 +606,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     {statsRows.map(({ label, value, color }, i) => (
                       <div key={label} className="flex flex-col gap-0.5" style={{ paddingLeft: i ? 10 : 0, borderLeft: i ? '1px solid var(--pb-line)' : 'none' }}>
                         <span className="text-xs font-bold tracking-wide" style={{ color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
-                        <span className="font-bold tabular-nums" style={{ fontSize: 14, color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatAmount(value)}</span>
+                        <span className="font-bold tabular-nums" style={{ fontSize: 14, color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><AnimatedMoney value={value} /></span>
                       </div>
                     ))}
                   </div>
@@ -594,16 +619,21 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 style={{ borderBottom: '1px solid var(--pb-line)' }}
               >
                 {[
-                  { label: 'Income', text: formatAmount(incomeAnim), color: 'var(--pb-pos)' },
-                  { label: 'Spent', text: formatAmount(expenseAnim), color: 'var(--pb-neg)' },
-                  { label: 'Balance', text: (balance < 0 ? '–' : '') + formatAmount(balanceAbsAnim), color: balanceColor },
-                  { label: 'Transfers', text: formatAmount(transferAnim), color: 'var(--pb-transfer)' },
-                ].map(({ label, text, color }) => (
+                  { label: 'Income', value: income, color: 'var(--pb-pos)' },
+                  { label: 'Spent', value: expense, color: 'var(--pb-neg)' },
+                  { label: 'Transfers', value: transfer, color: 'var(--pb-transfer)' },
+                ].map(({ label, value, color }) => (
                   <div key={label} className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.04em' }}>{label}</span>
-                    <span className="text-sm font-bold tabular-nums" style={{ color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>{text}</span>
+                    <span className="text-sm font-bold tabular-nums" style={{ color, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}><AnimatedMoney value={value} /></span>
                   </div>
                 ))}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--pb-ink-3)', letterSpacing: '0.04em' }}>Balance</span>
+                  <span className="text-sm font-bold tabular-nums" style={{ color: balanceColor, fontFamily: '"Space Mono", var(--font-space-mono, monospace)' }}>
+                    <AnimatedBalanceSplit value={balance} />
+                  </span>
+                </div>
               </div>
 
               {/* Pending review banner (mobile only) */}
