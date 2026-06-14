@@ -773,7 +773,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
               {/* Accounts - tablet right column */}
               {accounts.length > 0 && (
-                <div style={{ margin: '12px 16px 0', ...CARD, padding: 20 }}>
+                <div style={{ margin: '0 16px', ...CARD, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--pb-ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accounts</span>
                     <Link href="/accounts" style={{ fontSize: 12, fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}>Manage</Link>
