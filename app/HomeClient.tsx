@@ -311,7 +311,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
               </button>
             )}
             <div style={{ height: 22, width: 1, background: 'var(--pb-line)', flexShrink: 0 }} />
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 1, minWidth: 0, alignItems: 'center', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {/* Type chip */}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <select
