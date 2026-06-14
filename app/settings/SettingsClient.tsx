@@ -351,7 +351,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
   }
 
   return (
-    <main className="w-full min-h-dvh pb-24 md:pb-0 md:pt-14 lg:pt-[66px]">
+    <main className="w-full min-h-dvh pb-24 md:pb-0 md:pt-[62px] lg:pt-[66px]">
 
       {/* ── Desktop: sidebar + content ───────────────────────── */}
       <div className="hidden lg:flex" style={{ height: 'calc(100dvh - 66px)', overflow: 'hidden' }}>

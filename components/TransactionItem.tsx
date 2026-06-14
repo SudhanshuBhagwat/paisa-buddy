@@ -78,23 +78,23 @@ export default function TransactionItem({ tx, onEdit, colorMap }: Props) {
           </span>
         )}
 
-        {tx.account_id === null && (
+<div className="shrink-0 flex items-center gap-1.5">
+          {!tx.reviewed && (
+            <div className="relative" style={{ width: 7, height: 7 }}>
+              <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'var(--pb-neg)', opacity: 0.5 }} />
+              <span className="absolute inset-0 rounded-full" style={{ background: 'var(--pb-neg)' }} />
+            </div>
+          )}
           <div
-            className="shrink-0 w-1.5 h-1.5 rounded-full"
-            title="No account assigned"
-            style={{ background: 'var(--pb-gold)' }}
-          />
-        )}
-
-        <div
-          className="shrink-0 flex items-center gap-1 text-sm font-bold tabular-nums"
-          style={{
-            color: typeColor,
-            fontFamily: '"Space Mono", var(--font-space-mono, monospace)',
-          }}
-        >
-          <span>{TYPE_PREFIX[tx.type]}</span>
-          <span>{formatAmount(tx.amount)}</span>
+            className="flex items-center gap-1 text-sm font-bold tabular-nums"
+            style={{
+              color: typeColor,
+              fontFamily: '"Space Mono", var(--font-space-mono, monospace)',
+            }}
+          >
+            <span>{TYPE_PREFIX[tx.type]}</span>
+            <span>{formatAmount(tx.amount)}</span>
+          </div>
         </div>
 
         <button

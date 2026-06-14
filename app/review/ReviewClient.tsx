@@ -996,7 +996,7 @@ export default function ReviewClient({ transactions, categories, accounts, categ
   return (
     <>
       {/* ── Mobile layout ── */}
-      <main className="lg:hidden" style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 80 }}>
+      <main className="lg:hidden md:pt-[66px] max-w-[560px] md:max-w-none mx-auto md:mx-0" style={{ paddingBottom: 80 }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 0' }}>
@@ -1011,9 +1011,11 @@ export default function ReviewClient({ transactions, categories, accounts, categ
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <div>
-              <span style={{ fontSize: 23, fontWeight: 800, color: 'var(--pb-ink)' }}>Review </span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--pb-ink-3)' }}>({transactions.length})</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--pb-ink)' }}>Review</span>
+              <span style={{ background: 'var(--pb-neg)', color: '#fff', borderRadius: 99, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>
+                {transactions.length}
+              </span>
             </div>
           </div>
           {renderBulkButtons('sm')}

@@ -130,7 +130,7 @@ export default function AccountsClient({ accounts }: Props) {
   )
 
   return (
-    <main className="w-full min-h-dvh pb-24 md:pb-6 md:pt-14 lg:pt-[66px]">
+    <main className="w-full min-h-dvh pb-24 md:pb-6 md:pt-[62px] lg:pt-[66px]">
 
       {/* ── Desktop ─────────────────────────────────────────── */}
       <div className="hidden lg:block" style={{ height: 'calc(100dvh - 66px)', overflowY: 'auto', padding: '26px 30px' }}>
