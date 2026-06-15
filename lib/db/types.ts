@@ -1,5 +1,7 @@
 import type { Transaction, TransactionFilters } from '../types/transaction'
 import type { Account } from '../types/account'
+import type { Investment, InvestmentWithTotal } from '../types/investment'
+export type { Investment, InvestmentWithTotal }
 
 // ---------------------------------------------------------------------------
 // Domain types
@@ -75,6 +77,13 @@ export interface CategoryRepository {
   upsertCustom(userId: string, name: string, color: string): Promise<void>
   deleteCustom(userId: string, name: string): Promise<void>
   deleteCustomAndUnlinkTransactions(userId: string, name: string): Promise<void>
+}
+
+export interface InvestmentRepository {
+  getAll(userId: string): Promise<InvestmentWithTotal[]>
+  insert(userId: string, name: string): Promise<Investment>
+  update(userId: string, id: string, name: string): Promise<Investment>
+  delete(userId: string, id: string): Promise<void>
 }
 
 export interface UserSettingsRepository {

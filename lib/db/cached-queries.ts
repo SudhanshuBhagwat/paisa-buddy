@@ -1,9 +1,9 @@
 import 'server-only'
 import { cacheTag } from 'next/cache'
-import { db, accountsDb, categoriesDb, settingsDb } from './index'
+import { db, accountsDb, categoriesDb, settingsDb, investmentsDb } from './index'
 import type { Transaction } from '../types/transaction'
 import type { Account } from '../types/account'
-import type { UserSettings, CategoryWithColor } from './types'
+import type { UserSettings, CategoryWithColor, InvestmentWithTotal } from './types'
 import { PREDEFINED_CATEGORIES, CATEGORY_COLORS } from '../categories'
 
 export async function getCachedTransactions(userId: string): Promise<Transaction[]> {
@@ -55,4 +55,10 @@ export async function getCachedTransactionsByMonth(
   const dateFrom = `${y}-${m}-01`
   const dateTo = `${y}-${m}-${new Date(Number(y), Number(m), 0).getDate().toString().padStart(2, '0')}`
   return db.getAll(userId, { dateFrom, dateTo })
+}
+
+export async function getCachedInvestments(userId: string): Promise<InvestmentWithTotal[]> {
+  'use cache'
+  cacheTag('investments')
+  return investmentsDb.getAll(userId)
 }
