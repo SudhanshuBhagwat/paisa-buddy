@@ -63,11 +63,15 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     if (tabContentRef.current) setTabHeight(tabContentRef.current.offsetHeight)
   }, [])
 
-  // After each tab switch React has committed new content and the browser has
-  // painted — measure the actual new height and let Framer Motion spring to it
+  // Keep height in sync with content — covers both tab switches and
+  // ImportTab's internal step changes (account → upload → mapping → done)
   useEffect(() => {
-    if (tabContentRef.current) setTabHeight(tabContentRef.current.offsetHeight)
-  }, [activeTab])
+    const el = tabContentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setTabHeight(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const allAccounts = [
     ...accounts,
