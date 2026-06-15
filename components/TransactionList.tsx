@@ -9,9 +9,10 @@ interface Props {
   onEdit?: (tx: Transaction) => void
   compact?: boolean
   colorMap?: Record<string, string>
+  accountMap?: Record<string, string>
 }
 
-export default function TransactionList({ transactions, onEdit, compact, colorMap }: Props) {
+export default function TransactionList({ transactions, onEdit, compact, colorMap, accountMap }: Props) {
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ color: 'var(--muted)' }}>
@@ -38,7 +39,7 @@ export default function TransactionList({ transactions, onEdit, compact, colorMa
             {formatDateLabel(date)}
           </div>
           {grouped.get(date)!.map((tx) => (
-            <TransactionItem key={tx.id} tx={tx} onEdit={onEdit} colorMap={colorMap} />
+            <TransactionItem key={tx.id} tx={tx} onEdit={onEdit} colorMap={colorMap} accountMap={accountMap} />
           ))}
         </div>
       ))}

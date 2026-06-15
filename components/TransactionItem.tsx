@@ -23,12 +23,14 @@ interface Props {
   tx: Transaction
   onEdit?: (tx: Transaction) => void
   colorMap?: Record<string, string>
+  accountMap?: Record<string, string>
 }
 
-export default function TransactionItem({ tx, onEdit, colorMap }: Props) {
+export default function TransactionItem({ tx, onEdit, colorMap, accountMap }: Props) {
   const typeColor = TYPE_COLOR[tx.type]
   const catColor = categoryColor(tx.category, colorMap)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const accountName = tx.account_id && accountMap ? accountMap[tx.account_id] : null
 
   async function handleConfirmDelete() {
     setConfirmOpen(false)
@@ -63,8 +65,8 @@ export default function TransactionItem({ tx, onEdit, colorMap }: Props) {
             {tx.category && (
               <span style={{ color: catColor, fontWeight: 700 }}>{tx.category}</span>
             )}
-            {tx.category && tx.description && tx.merchant && ' · '}
-            {tx.merchant ? tx.description : null}
+            {tx.category && accountName && ' · '}
+            {accountName && <span>{accountName}</span>}
           </span>
         </div>
 

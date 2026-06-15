@@ -216,6 +216,11 @@ export default function HomeClient({ transactions, categories, accounts, month: 
     [txs],
   )
 
+  const accountMap = useMemo(
+    () => Object.fromEntries(accounts.map((a) => [a.id, a.name])),
+    [accounts],
+  )
+
   const statsRows = [
     { label: 'INCOME', value: income, color: 'var(--pb-pos)' },
     { label: 'SPENT', value: expense, color: 'var(--pb-neg)' },
@@ -446,7 +451,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 <button onClick={() => setSelectedDate(null)} className="font-semibold" style={{ color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
               </div>
             )}
-            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact colorMap={categoryColorMap} />
+            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact colorMap={categoryColorMap} accountMap={accountMap} />
           </div>
         </div>
 
