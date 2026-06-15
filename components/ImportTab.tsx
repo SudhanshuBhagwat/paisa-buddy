@@ -16,6 +16,7 @@ import {
   type ImportRow,
 } from '@/app/actions/import'
 import { decryptAesExcel, WrongExcelPasswordError } from '@/lib/import/decryptExcel'
+import BuddyUploadSVG from '@/components/BuddyUploadSVG'
 
 // ── Client-side encryption detection ────────────────────────────────────────
 
@@ -429,7 +430,7 @@ export default function ImportTab({ accounts, onClose }: Props) {
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
         >
-          <span style={{ fontSize: '2.5rem' }}>📂</span>
+          <BuddyUploadSVG size={96} />
           <div>
             <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Drop your bank statement here</p>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>PDF · CSV · XLSX · XLS</p>

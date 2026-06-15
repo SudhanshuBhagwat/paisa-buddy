@@ -50,7 +50,13 @@ export default function ReviewEditDrawer({
   mode = "review",
 }: Props) {
   const categoryHint = getCategoryHint(tx);
-  const defaultCategory = tx.category ?? categoryHint ?? "";
+  // Map AI hint to an existing category; never invent a new one
+  const aiCategory = (() => {
+    if (!categoryHint) return null
+    if (categories.includes(categoryHint)) return categoryHint
+    return categories.includes('Other') ? 'Other' : null
+  })()
+  const defaultCategory = tx.category ?? aiCategory ?? "";
 
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
@@ -166,14 +172,9 @@ export default function ReviewEditDrawer({
     );
   }
 
-  // All categories + hint + any newly added (deduped)
-  const baseCats =
-    categoryHint && !categories.includes(categoryHint)
-      ? [...categories, categoryHint]
-      : categories;
   const allCats = [
-    ...baseCats,
-    ...extraCats.filter((c) => !baseCats.includes(c)),
+    ...categories,
+    ...extraCats.filter((c) => !categories.includes(c)),
   ];
 
   const allAccounts = [
@@ -428,7 +429,7 @@ export default function ReviewEditDrawer({
                   }}
                 >
                   {allCats.map((cat) => {
-                    const isHint = cat === categoryHint && !tx.category;
+                    const isHint = cat === aiCategory && !tx.category;
                     return (
                       <button
                         key={cat}
@@ -460,7 +461,11 @@ export default function ReviewEditDrawer({
               </div>
               {categoryHint && !tx.category && (
                 <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  ✦ AI suggested
+                  {aiCategory === categoryHint
+                    ? '✦ AI suggested'
+                    : aiCategory
+                      ? `✦ AI suggested "${categoryHint}" — defaulted to Other`
+                      : `✦ AI suggested "${categoryHint}" — no match found`}
                 </p>
               )}
               <div
