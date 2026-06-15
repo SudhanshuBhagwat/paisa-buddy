@@ -23,6 +23,15 @@ export async function batchImportTransactions(
   return insertRows(userId, rows, accountId)
 }
 
+export async function countDuplicates(
+  rows: ImportRow[],
+  accountId: string,
+): Promise<number> {
+  const userId = await getRequiredUserId()
+  const existing = await buildExistingFingerprints(userId, accountId, rows)
+  return rows.filter((r) => existing.has(txFingerprint(r))).length
+}
+
 /**
  * For encrypted PDFs: text is extracted client-side with PDF.js (password never
  * leaves the browser), then sent here for AI parsing and insertion.

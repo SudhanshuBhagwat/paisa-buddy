@@ -61,7 +61,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
   const [incomeInput, setIncomeInput] = useState(
     expectedMonthlyIncome > 0 ? String(Math.round(expectedMonthlyIncome / 100)) : '',
   )
-  const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [removingCat, setRemovingCat] = useState<CategoryWithCount | null>(null)
   const [activeNav, setActiveNav] = useState('profile')
   const [savedField, setSavedField] = useState<string | null>(null)
@@ -97,9 +97,9 @@ export default function SettingsClient({ email, transactionCount, customCategori
     else await removeCategory(removingCat.name)
     setRemovingCat(null)
   }
-  async function handleClear() {
-    if (confirmClear) { await clearAllTransactions(); setConfirmClear(false) }
-    else setConfirmClear(true)
+  async function handleClearConfirm() {
+    await clearAllTransactions()
+    setConfirmClearOpen(false)
   }
 
   const initials = nameInput.trim()
@@ -329,17 +329,12 @@ export default function SettingsClient({ email, transactionCount, customCategori
             </svg>
             Export to Excel
           </a>
-          <button onClick={handleClear} style={{
-            padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s',
-            ...(confirmClear
-              ? { background: 'var(--pb-neg)', color: '#fff', border: 'none' }
-              : { background: 'var(--pb-surface)', color: 'var(--pb-neg)', border: '1px solid var(--pb-neg)' })
+          <button onClick={() => setConfirmClearOpen(true)} style={{
+            padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            background: 'var(--pb-surface)', color: 'var(--pb-ink-2)', border: '1px solid var(--pb-line)',
           }}>
-            {confirmClear ? 'Tap again to confirm — this cannot be undone' : 'Clear all data'}
+            Clear all data
           </button>
-          {confirmClear && (
-            <button onClick={() => setConfirmClear(false)} style={{ fontSize: 13, color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          )}
           <form action={logout} className="lg:hidden" style={{ marginTop: 4 }}>
             <button type="submit" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--pb-radius)', fontSize: 13.5, fontWeight: 600, background: 'var(--pb-surface)', color: 'var(--pb-neg)', border: '1px solid var(--pb-line)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Sign out
@@ -416,6 +411,14 @@ export default function SettingsClient({ email, transactionCount, customCategori
         confirmLabel="Delete"
         onConfirm={handleConfirmRemoveCategory}
         onCancel={() => setRemovingCat(null)} />
+
+      <ConfirmModal
+        open={confirmClearOpen}
+        title="Clear all data?"
+        message="This will permanently delete all your transactions. This cannot be undone."
+        confirmLabel="Clear all data"
+        onConfirm={handleClearConfirm}
+        onCancel={() => setConfirmClearOpen(false)} />
     </main>
   )
 }

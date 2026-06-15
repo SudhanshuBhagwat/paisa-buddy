@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Account } from '@/lib/types/account'
 import {
@@ -12,6 +12,7 @@ import {
 import {
   batchImportTransactions,
   batchImportFromText,
+  countDuplicates,
   type ImportRow,
 } from '@/app/actions/import'
 import { decryptAesExcel, WrongExcelPasswordError } from '@/lib/import/decryptExcel'
@@ -141,6 +142,7 @@ export default function ImportTab({ accounts, onClose }: Props) {
   // CSV/Excel mapping
   const [allRows, setAllRows] = useState<string[][]>([])
   const [headerRowIdx, setHeaderRowIdx] = useState(0)
+  const [dupCount, setDupCount] = useState<number | null>(null)
   const [mapping, setMapping] = useState<ColumnMapping>({
     dateCol: '', descCol: '', refCol: '',
     amountMode: 'split',
@@ -155,6 +157,16 @@ export default function ImportTab({ accounts, onClose }: Props) {
     try { return applyMapping(allRows, headers, headerRowIdx, mapping) }
     catch { return [] }
   })()
+
+  useEffect(() => {
+    if (parsedRows.length === 0 || !accountId) { setDupCount(null); return }
+    let cancelled = false
+    countDuplicates(parsedRows, accountId)
+      .then((n) => { if (!cancelled) setDupCount(n) })
+      .catch(() => { if (!cancelled) setDupCount(null) })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRows, headerRowIdx, mapping, accountId])
 
   // ── File routing ─────────────────────────────────────────────────────────
 
@@ -451,7 +463,7 @@ export default function ImportTab({ accounts, onClose }: Props) {
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               {isPdf
                 ? 'Enter the password to decrypt it in your browser — it never leaves your device.'
-                : 'Enter the password to decrypt it. Note: only legacy XOR encryption is supported.'}
+                : 'Enter the password you use to open this file in Excel'}
             </p>
           </div>
         </div>
@@ -607,6 +619,11 @@ export default function ImportTab({ accounts, onClose }: Props) {
           </>
         )}
 
+        {dupCount !== null && dupCount > 0 && (
+          <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>
+            {dupCount} possible duplicate{dupCount !== 1 ? 's' : ''} detected — will be skipped automatically
+          </p>
+        )}
         <button type="button" disabled={parsedRows.length === 0 || !mapping.dateCol} onClick={handleImport}
           className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
           style={{ background: 'var(--pb-brand)', color: '#fff' }}>

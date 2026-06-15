@@ -221,6 +221,19 @@ export default function HomeClient({ transactions, categories, accounts, month: 
     [accounts],
   )
 
+  const recentCategories = useMemo(() => {
+    const seen = new Set<string>()
+    const result: string[] = []
+    for (const tx of [...transactions].sort((a, b) => b.date.localeCompare(a.date))) {
+      if (tx.category && !seen.has(tx.category)) {
+        seen.add(tx.category)
+        result.push(tx.category)
+        if (result.length === 3) break
+      }
+    }
+    return result
+  }, [transactions])
+
   const statsRows = [
     { label: 'INCOME', value: income, color: 'var(--pb-pos)' },
     { label: 'SPENT', value: expense, color: 'var(--pb-neg)' },
@@ -841,7 +854,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
         </svg>
       </button>
 
-      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} investments={investments} month={month} />
+      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} recentCategories={recentCategories} accounts={accounts} investments={investments} month={month} />
 
       <AnimatePresence>
         {editingTx && (

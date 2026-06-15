@@ -19,6 +19,7 @@ interface Props {
   open: boolean
   onClose: () => void
   categories: string[]
+  recentCategories?: string[]
   accounts: Account[]
   investments: InvestmentWithTotal[]
   month?: string // YYYY-MM — defaults to current month
@@ -38,7 +39,7 @@ function defaultDateForMonth(month?: string): string {
   return `${month}-01`
 }
 
-export default function TransactionModal({ open, onClose, categories, accounts, investments: initialInvestments, month, initialCategory, initialInvestmentId }: Props) {
+export default function TransactionModal({ open, onClose, categories, recentCategories, accounts, investments: initialInvestments, month, initialCategory, initialInvestmentId }: Props) {
   useScrollLock(open)
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
@@ -149,7 +150,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     e.preventDefault()
     const paise = Math.round(parseFloat(amountStr) * 100)
     const needsToAccount = type === 'transfer'
-    if (!paise || paise <= 0 || !merchant.trim() || !category || !notes.trim() || !accountId || (needsToAccount && !toAccountId)) return
+    if (!paise || paise <= 0 || !merchant.trim() || !category || !accountId || (needsToAccount && !toAccountId)) return
     setSubmitting(true)
     try {
       await insertTransaction({
@@ -348,7 +349,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
             </div>
 
             <div className="flex items-center justify-center gap-2">
-              <span className="font-light" style={{ color: activeType.color, fontSize: '2.25rem' }}>₹</span>
+              <span className="font-light" style={{ color: activeType.color, fontSize: '3.5rem' }}>₹</span>
               <input
                 ref={amountRef}
                 type="text"
@@ -356,16 +357,35 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                 placeholder="0"
                 value={formatDisplayAmount(amountStr)}
                 onChange={handleAmountChange}
-                className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
-                style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '2.25rem' }}
+                className="font-semibold bg-transparent border-none outline-none w-64 text-center tabular-nums"
+                style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '3.5rem' }}
               />
-              <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '2.25rem' }}>₹</span>
+              <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '3.5rem' }}>₹</span>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
                 CATEGORY
               </label>
+              {recentCategories && recentCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  {recentCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        category === cat
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <button
@@ -595,7 +615,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                NOTES <span style={{ color: 'var(--pb-neg)' }}>*</span>
+                NOTES
               </label>
               <input
                 type="text"
@@ -604,7 +624,6 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                 onChange={(e) => setNotes(e.target.value)}
                 className="px-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
-                required
               />
             </div>
 
@@ -624,7 +643,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
 
             <button
               type="submit"
-              disabled={!amountStr || !merchant.trim() || !category || !notes.trim() || !accountId || (type === 'transfer' && !toAccountId) || submitting}
+              disabled={!amountStr || !merchant.trim() || !category || !accountId || (type === 'transfer' && !toAccountId) || submitting}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
               style={{ background: activeType.color, color: '#fff' }}
             >
