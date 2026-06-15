@@ -6,6 +6,7 @@ import { StoreProvider } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import TopNav from "@/components/TopNav";
 import PinchZoomBlock from "@/components/PinchZoomBlock";
+import WindowFocusRefresh from "@/components/WindowFocusRefresh";
 import { getCachedPendingTransactions } from "@/lib/db/cached-queries";
 import { auth } from "@/auth";
 
@@ -66,6 +67,7 @@ export default function RootLayout({
       <body className="min-h-full">
         <PinchZoomBlock />
         <StoreProvider>
+          <WindowFocusRefresh />
           <Suspense fallback={<><TopNav /><BottomNav /></>}>
             <NavWithCount />
           </Suspense>
