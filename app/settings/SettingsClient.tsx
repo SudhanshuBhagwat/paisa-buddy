@@ -50,7 +50,7 @@ const navItems = [
   { id: 'income',     label: 'Income',            icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   { id: 'appearance', label: 'Appearance',        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> },
   { id: 'categories', label: 'Categories',        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> },
-  { id: 'shortcut',   label: 'Apple Shortcut',   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
+  { id: 'shortcut',   label: 'Shortcut Setup',   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
   { id: 'data',       label: 'Data',              icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> },
 ]
 
@@ -294,7 +294,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
   function renderShortcut(id?: string) {
     return (
       <section id={id}>
-        <SectionLabel>Apple Shortcut</SectionLabel>
+        <SectionLabel>Shortcut Setup</SectionLabel>
         <Link href="/settings/shortcut" style={{ ...CARD, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', textDecoration: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pb-brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -384,21 +384,14 @@ export default function SettingsClient({ email, transactionCount, customCategori
                 padding: '14px 16px', borderRadius: 'var(--pb-radius)',
                 background: 'color-mix(in srgb, var(--pb-gold) 12%, var(--pb-surface))',
                 border: '1px solid color-mix(in srgb, var(--pb-gold) 35%, var(--pb-line))',
-                borderLeft: '3px solid var(--pb-gold)',
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-ink)', marginBottom: 2 }}>
-                    ⚡ Set up receipt scanning
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-ink)', marginBottom: 3 }}>
+                    Set up receipt scanning
                   </div>
                   <div style={{ fontSize: 12.5, color: 'var(--pb-ink-3)', lineHeight: 1.45 }}>
-                    Scan receipts directly from your phone
+                    Scan receipts directly from your phone · <Link href="/settings/shortcut" style={{ fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}>Set up Shortcut</Link>
                   </div>
-                  <Link
-                    href="/settings/shortcut"
-                    style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}
-                  >
-                    Set up Shortcut →
-                  </Link>
                 </div>
                 <button
                   type="button"

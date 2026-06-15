@@ -44,7 +44,7 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-const STEPS = [
+const IOS_STEPS = [
   {
     title: 'Open the Shortcuts app on your iPhone',
     body: null,
@@ -83,10 +83,50 @@ const STEPS = [
   },
 ]
 
+const ANDROID_STEPS = [
+  {
+    title: 'Install HTTP Shortcuts from the Play Store',
+    body: 'Search for "HTTP Shortcuts" by Waboodoo — it\'s free and open source.',
+  },
+  {
+    title: 'Create a new shortcut',
+    body: 'Tap + → select Regular Shortcut.',
+  },
+  {
+    title: 'Configure the request',
+    body: 'Name it "Queue Receipt". Set Method to POST and paste your endpoint URL above into the URL field.',
+  },
+  {
+    title: 'Add the file parameter',
+    body: 'Open the Request Body tab → set Type to Multipart / Form Data → tap Add Parameter → set Name = file, Type = Image, Value = the share input variable ({image} or the picker option).',
+  },
+  {
+    title: 'Add the upload token header',
+    body: 'Open the Headers tab → tap Add Header → Key = X-Upload-Token, Value = your token above.',
+  },
+  {
+    title: 'Add a success toast',
+    body: 'Open the Scripting tab → in the "Run on Success" block add: showToast("Receipt queued ✓")',
+  },
+  {
+    title: 'Add to home screen',
+    body: 'Save the shortcut → tap the three-dot menu → Add to Home Screen.',
+  },
+  {
+    title: 'Enable share menu',
+    body: 'In the shortcut settings, toggle on "Show in share menu".',
+  },
+  {
+    title: 'Test it',
+    body: 'Open your Gallery → select a receipt → tap Share → find "Queue Receipt" → run it. You should see the toast, then check the Review tab in this app.',
+  },
+]
+
 export default function ShortcutClient({ token, uploadUrl }: Props) {
   const [currentToken, setCurrentToken] = useState(token)
   const [revealed, setRevealed] = useState(false)
   const [confirmRegen, setConfirmRegen] = useState(false)
+  const [platform, setPlatform] = useState<'ios' | 'android'>('ios')
   const maskedToken = '•'.repeat(Math.min(currentToken.length, 24))
 
   async function handleRegenerate() {
@@ -101,21 +141,48 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
   }
 
   return (
-    <main className="max-w-xl md:max-w-2xl mx-auto w-full min-h-dvh pb-24 md:pb-8 md:pt-14 px-4">
-      <div className="py-4 flex items-center gap-3">
+    <main className="w-full min-h-dvh pb-24 md:pb-0 md:pt-[62px] lg:pt-[66px]">
+
+      {/* Mobile header */}
+      <div className="md:hidden flex items-center gap-2" style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 16px) 22px 10px' }}>
         <Link
           href="/settings"
-          className="p-1 -ml-1 rounded-lg"
-          style={{ color: 'var(--muted)' }}
+          style={{ color: 'var(--pb-ink-3)', display: 'flex', padding: 4, marginLeft: -4 }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </Link>
-        <h1 className="text-lg font-semibold">Shortcut Setup</h1>
+        <h1 style={{ fontSize: 23, fontWeight: 800, color: 'var(--pb-ink)', margin: 0 }}>Shortcut Setup</h1>
       </div>
 
-      <div className="flex flex-col gap-6">
+      {/* Tablet header */}
+      <div className="hidden md:flex lg:hidden items-center gap-2 px-6 py-4" style={{ borderBottom: '1px solid var(--pb-line)' }}>
+        <Link
+          href="/settings"
+          style={{ color: 'var(--pb-ink-3)', display: 'flex', padding: 4, marginLeft: -4 }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </Link>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--pb-ink)', margin: 0 }}>Shortcut Setup</h1>
+      </div>
+
+      <div className="max-w-xl lg:max-w-2xl mx-auto px-4 lg:px-6 pt-2 lg:pt-0 flex flex-col gap-6">
+
+        {/* Desktop page title */}
+        <div className="hidden lg:flex items-center gap-2 pt-8 pb-2">
+          <Link
+            href="/settings"
+            style={{ color: 'var(--pb-ink-3)', display: 'flex', padding: 4, marginLeft: -4 }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </Link>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--pb-ink)', margin: 0 }}>Shortcut Setup</h1>
+        </div>
         {/* Credentials */}
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-medium" style={{ color: 'var(--muted)' }}>YOUR CREDENTIALS</h2>
@@ -202,9 +269,35 @@ export default function ShortcutClient({ token, uploadUrl }: Props) {
 
         {/* Instructions */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-xs font-medium" style={{ color: 'var(--muted)' }}>SETUP INSTRUCTIONS</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-medium" style={{ color: 'var(--muted)' }}>SETUP INSTRUCTIONS</h2>
+            <div
+              className="flex rounded-lg overflow-hidden text-xs font-medium"
+              style={{ border: '1px solid var(--border)', background: 'var(--bg)' }}
+            >
+              {(['ios', 'android'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPlatform(p)}
+                  className="px-3 py-1 transition-colors"
+                  style={platform === p
+                    ? { background: 'var(--text)', color: 'var(--bg)' }
+                    : { color: 'var(--muted)' }
+                  }
+                >
+                  {p === 'ios' ? 'iOS' : 'Android'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {platform === 'android' && (
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              Requires <span className="font-medium">HTTP Shortcuts</span> — free on the Play Store.
+            </p>
+          )}
           <div className="flex flex-col gap-3">
-            {STEPS.map((step, i) => (
+            {(platform === 'ios' ? IOS_STEPS : ANDROID_STEPS).map((step, i) => (
               <div
                 key={i}
                 className="flex gap-3 px-4 py-3 rounded-xl"
