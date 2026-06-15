@@ -5,6 +5,7 @@ import {
   getCachedCategoriesWithColors,
   getCachedPendingTransactions,
   getCachedUserSettings,
+  getCachedInvestments,
 } from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
@@ -18,17 +19,20 @@ interface Props {
 
 async function HomeContent({ searchParams }: Props) {
   const userId = await getRequiredUserId()
-  const { month: raw } = await searchParams
+  const { month: raw, category: rawCategory, merchant: rawMerchant } = await searchParams
   const month =
     typeof raw === 'string' && /^\d{4}-\d{2}$/.test(raw) ? raw : toYearMonth(new Date())
+  const initialCategory = typeof rawCategory === 'string' ? rawCategory : null
+  const initialMerchant = typeof rawMerchant === 'string' ? rawMerchant : undefined
 
-  const [, transactions, allCategories, accounts, pending, settings] = await Promise.all([
+  const [, transactions, allCategories, accounts, pending, settings, investments] = await Promise.all([
     requireSetup(userId),
     getCachedTransactionsByMonth(userId, month),
     getCachedCategoriesWithColors(userId),
     getCachedAccounts(userId),
     getCachedPendingTransactions(userId),
     getCachedUserSettings(userId),
+    getCachedInvestments(userId),
   ])
 
   const categories = allCategories.map((c) => c.name)
@@ -44,6 +48,9 @@ async function HomeContent({ searchParams }: Props) {
       displayName={settings.displayName}
       categoryColorMap={categoryColorMap}
       expectedMonthlyIncome={settings.expectedMonthlyIncome}
+      initialCategory={initialCategory}
+      initialMerchant={initialMerchant}
+      investments={investments}
     />
   )
 }

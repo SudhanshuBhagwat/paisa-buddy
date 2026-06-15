@@ -64,6 +64,7 @@ export async function updateAndConfirmTransaction(
   await db.update(userId, id, { ...updates, reviewed: true })
   updateTag('transactions')
   updateTag('accounts')
+  if ('investment_id' in updates) updateTag('investments')
   refresh()
   after(() => db.detectRecurring(userId).catch(console.error))
 }
@@ -98,5 +99,6 @@ export async function updateTransaction(
   await db.update(userId, id, updates)
   updateTag('transactions')
   updateTag('accounts')
+  if ('investment_id' in updates) updateTag('investments')
   refresh()
 }

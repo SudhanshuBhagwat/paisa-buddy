@@ -31,6 +31,7 @@ function rowToTransaction(row: Record<string, unknown>): Transaction {
     reviewed: row.reviewed as boolean,
     is_recurring: row.is_recurring as boolean,
     recurrence_group: (row.recurrence_group as string | null) ?? null,
+    investment_id: (row.investment_id as string | null) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -143,4 +144,5 @@ export class PostgresTransactionRepository implements TransactionRepository {
       }
     })
   }
+
 }

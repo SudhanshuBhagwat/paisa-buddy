@@ -15,6 +15,7 @@ import {
 import type { TransactionType } from '@/lib/types/transaction'
 import type { AccountWithBalance } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
+import type { InvestmentWithTotal } from '@/lib/db/types'
 import MonthPicker from '@/components/MonthPicker'
 import TransactionList from '@/components/TransactionList'
 import TransactionModal from '@/components/TransactionModal'
@@ -133,19 +134,22 @@ interface Props {
   displayName: string | null
   categoryColorMap: Record<string, string>
   expectedMonthlyIncome: number
+  initialCategory?: string | null
+  initialMerchant?: string
+  investments: InvestmentWithTotal[]
 }
 
-export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap, expectedMonthlyIncome }: Props) {
+export default function HomeClient({ transactions, categories, accounts, month: initialMonth, pendingCount, displayName, categoryColorMap, expectedMonthlyIncome, initialCategory, initialMerchant, investments }: Props) {
   const router = useRouter()
   const { dispatch } = useStore()
   const [month, setMonth] = useState(initialMonth)
   useEffect(() => { setMonth(initialMonth) }, [initialMonth])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory ?? null)
   const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [recurringOnly, setRecurringOnly] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialMerchant ?? '')
   const [modalOpen, setModalOpen] = useState(false)
   const [calSheetOpen, setCalSheetOpen] = useState(false)
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
@@ -156,6 +160,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const calDirRef = useRef<number>(1)
   const isCalFirstMount = useRef(true)
   useEffect(() => { isCalFirstMount.current = false }, [])
+  const isFirstMonthRender = useRef(true)
 
   useScrollLock(calSheetOpen || filterSheetOpen || editingTx !== null)
 
@@ -176,6 +181,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   }
 
   useEffect(() => {
+    if (isFirstMonthRender.current) { isFirstMonthRender.current = false; return }
     setSelectedDate(null)
     setSelectedCategory(null)
     setSelectedType(null)
@@ -830,7 +836,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
         </svg>
       </button>
 
-      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} month={month} />
+      <TransactionModal open={modalOpen} onClose={() => setModalOpen(false)} categories={categories} accounts={accounts} investments={investments} month={month} />
 
       <AnimatePresence>
         {editingTx && (
@@ -839,6 +845,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
             transaction={editingTx}
             categories={categories}
             accounts={accounts}
+            investments={investments}
             onSave={handleEditSave}
             onClose={() => setEditingTx(null)}
             saving={editSaving}

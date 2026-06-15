@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/auth/actions";
 import { useStore } from "@/lib/store";
 import BuddySVG from "@/components/BuddySVG";
+import type { BuddyMood } from "@/lib/types";
 
 const HIDDEN_PATHS = ['/login', '/setup'];
 
@@ -23,6 +25,8 @@ interface Props {
 export default function TopNav({ pendingCount = 0 }: Props) {
   const pathname = usePathname();
   const { state } = useStore();
+  const [mood, setMood] = useState<BuddyMood>('happy');
+  useEffect(() => { setMood(state.buddyMood) }, [state.buddyMood]);
 
   if (HIDDEN_PATHS.includes(pathname)) return null;
 
@@ -37,7 +41,7 @@ export default function TopNav({ pendingCount = 0 }: Props) {
     >
       {/* Wordmark */}
       <div className="flex items-center shrink-0 mr-6" style={{ gap: 8 }}>
-        <BuddySVG size={26} mood={state.buddyMood} />
+        <BuddySVG size={26} mood={mood} />
         <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-0.02em", color: "var(--pb-ink)" }}>
           Paisa <span style={{ color: "var(--pb-brand)" }}>Buddy</span>
         </span>

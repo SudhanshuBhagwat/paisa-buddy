@@ -8,9 +8,11 @@ import { today } from '@/lib/utils'
 import { insertTransaction } from '@/app/actions/transactions'
 import { addCategory } from '@/app/actions/categories'
 import { createAccount } from '@/app/actions/accounts'
+import { createInvestment } from '@/app/actions/investments'
 import type { TransactionType } from '@/lib/types/transaction'
 import type { Account, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
+import type { InvestmentWithTotal } from '@/lib/db/types'
 import ImportTab from '@/components/ImportTab'
 
 interface Props {
@@ -18,7 +20,10 @@ interface Props {
   onClose: () => void
   categories: string[]
   accounts: Account[]
+  investments: InvestmentWithTotal[]
   month?: string // YYYY-MM — defaults to current month
+  initialCategory?: string
+  initialInvestmentId?: string
 }
 
 const TYPES: { value: TransactionType; label: string; color: string }[] = [
@@ -33,7 +38,7 @@ function defaultDateForMonth(month?: string): string {
   return `${month}-01`
 }
 
-export default function TransactionModal({ open, onClose, categories, accounts, month }: Props) {
+export default function TransactionModal({ open, onClose, categories, accounts, investments: initialInvestments, month, initialCategory, initialInvestmentId }: Props) {
   useScrollLock(open)
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
@@ -53,6 +58,11 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
   const [newAccName, setNewAccName] = useState('')
   const [newAccType, setNewAccType] = useState<AccountType>('savings')
   const [addingAccSaving, setAddingAccSaving] = useState(false)
+  const [investmentId, setInvestmentId] = useState('')
+  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([])
+  const [addingInvestment, setAddingInvestment] = useState(false)
+  const [newInvName, setNewInvName] = useState('')
+  const [addingInvSaving, setAddingInvSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const amountRef = useRef<HTMLInputElement>(null)
   const tabContentRef = useRef<HTMLDivElement>(null)
@@ -77,6 +87,10 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     ...accounts,
     ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id)),
   ]
+  const allInvestments = [
+    ...initialInvestments,
+    ...extraInvestments.filter((i) => !initialInvestments.find((x) => x.id === i.id)),
+  ]
 
   useEffect(() => {
     if (open) {
@@ -84,7 +98,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
       setType('debit')
       setAmountStr('')
       setMerchant('')
-      setCategory('')
+      setCategory(initialCategory ?? '')
       setAccountId('')
       setToAccountId('')
       setNotes('')
@@ -94,6 +108,10 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
       setAddingAccount(false)
       setNewAccName('')
       setNewAccType('savings')
+      setInvestmentId(initialInvestmentId ?? '')
+      setExtraInvestments([])
+      setAddingInvestment(false)
+      setNewInvName('')
       setTimeout(() => amountRef.current?.focus(), 100)
     }
   }, [open])
@@ -147,6 +165,7 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
         category,
         account_id: accountId,
         to_account_id: needsToAccount ? toAccountId : null,
+        investment_id: category === 'Investment' && investmentId ? investmentId : null,
         source: 'manual',
         raw_ai_response: null,
         confidence: null,
@@ -174,6 +193,20 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
     } finally {
       setAddingAccSaving(false)
     }
+  }
+
+  async function handleAddInvestment() {
+    const name = newInvName.trim()
+    if (!name) return
+    setAddingInvSaving(true)
+    try {
+      const newInv = await createInvestment(name)
+      const withTotal: InvestmentWithTotal = { ...newInv, total_invested: 0 }
+      setExtraInvestments((prev) => [...prev, withTotal])
+      setInvestmentId(newInv.id)
+      setAddingInvestment(false)
+      setNewInvName('')
+    } finally { setAddingInvSaving(false) }
   }
 
   async function handleAddCustomCategory() {
@@ -385,6 +418,63 @@ export default function TransactionModal({ open, onClose, categories, accounts, 
                 )}
               </div>
             </div>
+
+            {/* Investment (shown when category = Investment) */}
+            {category === 'Investment' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>INVESTMENT</label>
+                {allInvestments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {allInvestments.map((inv) => (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        onClick={() => setInvestmentId(inv.id === investmentId ? '' : inv.id)}
+                        className="px-3 py-1.5 rounded-full text-sm transition-all"
+                        style={
+                          investmentId === inv.id
+                            ? { background: '#C99A2E', color: '#fff' }
+                            : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                        }
+                      >
+                        {inv.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {addingInvestment ? (
+                  <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Investment name (e.g. Zerodha)"
+                      value={newInvName}
+                      onChange={(e) => setNewInvName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setAddingInvestment(false) }}
+                      className="px-3 py-2 rounded-lg text-sm outline-none"
+                      style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setAddingInvestment(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={handleAddInvestment} disabled={!newInvName.trim() || addingInvSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: '#C99A2E', color: '#fff' }}>
+                        {addingInvSaving ? 'Adding…' : 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingInvestment(true)}
+                    className="self-start px-3 py-1.5 rounded-full text-sm"
+                    style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}
+                  >
+                    + Add investment
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Account */}
             <div className="flex flex-col gap-2">

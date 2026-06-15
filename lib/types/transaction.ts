@@ -22,6 +22,7 @@ export type Transaction = {
   reviewed: boolean
   is_recurring: boolean
   recurrence_group: string | null
+  investment_id?: string | null
   created_at: string
 }
 

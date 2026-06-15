@@ -11,7 +11,9 @@ import {
   rejectAllPendingTransactions,
 } from '@/app/actions/transactions'
 import { createAccount } from '@/app/actions/accounts'
+import { createInvestment } from '@/app/actions/investments'
 import { categoryColor } from '@/lib/categories'
+import type { InvestmentWithTotal } from '@/lib/db/types'
 import ConfirmModal from '@/components/ConfirmModal'
 import BuddySVG from '@/components/BuddySVG'
 import type { Transaction, TransactionType } from '@/lib/types/transaction'
@@ -23,6 +25,7 @@ interface Props {
   transactions: Transaction[]
   categories: string[]
   accounts: Account[]
+  investments: InvestmentWithTotal[]
   categoryColors: Record<string, string>
 }
 
@@ -72,6 +75,7 @@ interface LocalEdits {
   date: string
   time: string
   isRecurring: boolean
+  investmentId: string
 }
 
 function txToEdits(tx: Transaction): LocalEdits {
@@ -88,6 +92,7 @@ function txToEdits(tx: Transaction): LocalEdits {
     date: tx.date,
     time: tx.time ?? '',
     isRecurring: tx.is_recurring,
+    investmentId: tx.investment_id ?? '',
   }
 }
 
@@ -106,6 +111,7 @@ function editsToSave(e: LocalEdits): Partial<Omit<Transaction, 'id' | 'created_a
     date: e.date,
     time: e.time || null,
     is_recurring: e.isRecurring,
+    investment_id: e.category === 'Investment' && e.investmentId ? e.investmentId : null,
   }
 }
 
@@ -280,7 +286,7 @@ function EditField({
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-export default function ReviewClient({ transactions, categories, accounts, categoryColors }: Props) {
+export default function ReviewClient({ transactions, categories, accounts, investments, categoryColors }: Props) {
   const router = useRouter()
   const prevCountRef = useRef(transactions.length)
 
@@ -300,6 +306,10 @@ export default function ReviewClient({ transactions, categories, accounts, categ
   const [newAccName, setNewAccName] = useState('')
   const [newAccType, setNewAccType] = useState<AccountType>('savings')
   const [addingAccSaving, setAddingAccSaving] = useState(false)
+  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([])
+  const [addingInvestment, setAddingInvestment] = useState(false)
+  const [newInvName, setNewInvName] = useState('')
+  const [addingInvSaving, setAddingInvSaving] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const dragY = useMotionValue(0)
@@ -326,6 +336,8 @@ export default function ReviewClient({ transactions, categories, accounts, categ
       setEdits(txToEdits(activeTx))
       setEditingField(null)
       setShowAdvanced(false)
+      setExtraInvestments([])
+      setAddingInvestment(false)
     }
   }, [activeTx?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -445,6 +457,26 @@ export default function ReviewClient({ transactions, categories, accounts, categ
     } finally {
       setAddingAccSaving(false)
     }
+  }
+
+  async function handleAddInvestment() {
+    const name = newInvName.trim()
+    if (!name) return
+    setAddingInvSaving(true)
+    try {
+      const created = await createInvestment(name)
+      const newInv: InvestmentWithTotal = { ...created, total_invested: 0 }
+      setExtraInvestments((prev) => [...prev, newInv])
+      if (edits) setEdits({ ...edits, investmentId: created.id })
+      setAddingInvestment(false)
+      setNewInvName('')
+    } finally {
+      setAddingInvSaving(false)
+    }
+  }
+
+  function getAllInvestments(): InvestmentWithTotal[] {
+    return [...investments, ...extraInvestments.filter((i) => !investments.find((x) => x.id === i.id))]
   }
 
   function getAllCats(): string[] {
@@ -644,6 +676,80 @@ export default function ReviewClient({ transactions, categories, accounts, categ
             </div>
           </div>
         </EditField>
+
+        {/* Investment (only when category = Investment) */}
+        {edits.category === 'Investment' && (() => {
+          const allInvestments = getAllInvestments()
+          return (
+            <EditField
+              icon={
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                  <polyline points="16 7 22 7 22 13" />
+                </svg>
+              }
+              label="INVESTMENT"
+              isEditing={editingField === 'investment'}
+              onEdit={() => setEditingField(editingField === 'investment' ? null : 'investment')}
+              valueNode={
+                <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.investmentId ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                  {allInvestments.find((i) => i.id === edits.investmentId)?.name || 'Not set'}
+                </span>
+              }
+            >
+              <div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {allInvestments.map((inv) => (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      onClick={() => { setEdits({ ...edits, investmentId: inv.id === edits.investmentId ? '' : inv.id }); setEditingField(null) }}
+                      style={
+                        edits.investmentId === inv.id
+                          ? { background: '#C99A2E', color: '#fff', borderRadius: 99, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }
+                          : { background: 'var(--bg, var(--pb-brand-pale))', color: 'var(--pb-ink)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                      }
+                    >
+                      {inv.name}
+                    </button>
+                  ))}
+                </div>
+                {addingInvestment ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'var(--pb-bg, #F4F6F2)', border: '1px solid var(--pb-line)' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Investment name…"
+                      value={newInvName}
+                      onChange={(e) => setNewInvName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddInvestment() } if (e.key === 'Escape') setAddingInvestment(false) }}
+                      style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--pb-ink)' }}
+                    />
+                    <button type="button" onClick={() => setAddingInvestment(false)} style={{ fontSize: 12, color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleAddInvestment()}
+                      disabled={!newInvName.trim() || addingInvSaving}
+                      style={{ fontSize: 12, fontWeight: 700, color: '#C99A2E', background: 'none', border: 'none', cursor: 'pointer', opacity: (!newInvName.trim() || addingInvSaving) ? 0.4 : 1 }}
+                    >
+                      {addingInvSaving ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingInvestment(true)}
+                    style={{ fontSize: 13, color: 'var(--pb-ink-3)', background: 'none', border: '1px dashed var(--pb-line)', borderRadius: 99, padding: '4px 12px', cursor: 'pointer' }}
+                  >
+                    + Add investment
+                  </button>
+                )}
+              </div>
+            </EditField>
+          )
+        })()}
 
         {/* Notes */}
         <EditField
@@ -1206,6 +1312,44 @@ export default function ReviewClient({ transactions, categories, accounts, categ
                       </div>
                     )}
                   </div>
+
+                  {/* Investment (only when category = Investment) */}
+                  {edits.category === 'Investment' && (() => {
+                    const allInvestments = getAllInvestments()
+                    return (
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>INVESTMENT</label>
+                        <select
+                          value={addingInvestment ? '__new__' : edits.investmentId}
+                          onChange={(e) => {
+                            if (e.target.value === '__new__') { setAddingInvestment(true) }
+                            else { setEdits({ ...edits, investmentId: e.target.value }); setAddingInvestment(false) }
+                          }}
+                          className={inputCls}
+                          style={selectStyle}
+                        >
+                          <option value="">— Select investment —</option>
+                          {allInvestments.map((inv) => (
+                            <option key={inv.id} value={inv.id}>{inv.name}</option>
+                          ))}
+                          <option value="__new__">+ Add new…</option>
+                        </select>
+                        {addingInvestment && (
+                          <div className="flex gap-2 mt-1">
+                            <input
+                              autoFocus type="text" placeholder="Investment name" value={newInvName}
+                              onChange={(e) => setNewInvName(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddInvestment() } if (e.key === 'Escape') setAddingInvestment(false) }}
+                              className={`${inputCls} flex-1`} style={inputStyle}
+                            />
+                            <button type="button" onClick={() => void handleAddInvestment()} disabled={!newInvName.trim() || addingInvSaving} className="px-4 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: '#C99A2E', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                              {addingInvSaving ? 'Adding…' : 'Add'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Account */}
                   <div className="flex flex-col gap-1.5">

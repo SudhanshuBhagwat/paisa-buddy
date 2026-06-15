@@ -7,11 +7,14 @@ import type { Transaction, TransactionType } from "@/lib/types/transaction";
 import type { Account, AccountType } from "@/lib/types/account";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/types/account";
 import { createAccount } from "@/app/actions/accounts";
+import { createInvestment } from "@/app/actions/investments";
+import type { InvestmentWithTotal } from "@/lib/db/types";
 
 interface Props {
   transaction: Transaction;
   categories: string[];
   accounts: Account[];
+  investments: InvestmentWithTotal[];
   onSave: (updates: Partial<Omit<Transaction, "id" | "created_at">>) => void;
   onClose: () => void;
   saving: boolean;
@@ -40,6 +43,7 @@ export default function ReviewEditDrawer({
   transaction: tx,
   categories,
   accounts,
+  investments,
   onSave,
   onClose,
   saving,
@@ -71,6 +75,12 @@ export default function ReviewEditDrawer({
   const [newAccType, setNewAccType] = useState<AccountType>("savings");
   const [addingAccSaving, setAddingAccSaving] = useState(false);
 
+  const [investmentId, setInvestmentId] = useState(tx.investment_id ?? "");
+  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([]);
+  const [addingInvestment, setAddingInvestment] = useState(false);
+  const [newInvName, setNewInvName] = useState("");
+  const [addingInvSaving, setAddingInvSaving] = useState(false);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -97,6 +107,7 @@ export default function ReviewEditDrawer({
       bank: bank.trim() || null,
       upi_ref: upiRef.trim() || null,
       is_recurring: isRecurring,
+      investment_id: category === "Investment" && investmentId ? investmentId : null,
     });
   }
 
@@ -113,6 +124,22 @@ export default function ReviewEditDrawer({
       setNewAccType("savings");
     } finally {
       setAddingAccSaving(false);
+    }
+  }
+
+  async function handleAddInvestment() {
+    const name = newInvName.trim();
+    if (!name) return;
+    setAddingInvSaving(true);
+    try {
+      const created = await createInvestment(name);
+      const newInv: InvestmentWithTotal = { ...created, total_invested: 0 };
+      setExtraInvestments((prev) => [...prev, newInv]);
+      setInvestmentId(created.id);
+      setAddingInvestment(false);
+      setNewInvName("");
+    } finally {
+      setAddingInvSaving(false);
     }
   }
 
@@ -152,6 +179,11 @@ export default function ReviewEditDrawer({
   const allAccounts = [
     ...accounts,
     ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id)),
+  ];
+
+  const allInvestments = [
+    ...investments,
+    ...extraInvestments.filter((i) => !investments.find((x) => x.id === i.id)),
   ];
 
   function handleAddCat() {
@@ -463,6 +495,77 @@ export default function ReviewEditDrawer({
                 </button>
               </div>
             </div>
+
+            {/* Investment (only when category = Investment) */}
+            {category === "Investment" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                  INVESTMENT
+                </label>
+                {allInvestments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {allInvestments.map((inv) => (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        onClick={() => setInvestmentId(inv.id === investmentId ? "" : inv.id)}
+                        className="px-3 py-1.5 rounded-full text-sm transition-all"
+                        style={
+                          investmentId === inv.id
+                            ? { background: "#C99A2E", color: "#fff" }
+                            : { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }
+                        }
+                      >
+                        {inv.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {addingInvestment ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Investment name…"
+                      value={newInvName}
+                      onChange={(e) => setNewInvName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); handleAddInvestment(); }
+                        if (e.key === "Escape") setAddingInvestment(false);
+                      }}
+                      className="flex-1 bg-transparent outline-none text-sm"
+                      style={{ color: "var(--text)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAddingInvestment(false)}
+                      className="text-xs"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddInvestment}
+                      disabled={!newInvName.trim() || addingInvSaving}
+                      className="text-xs font-medium disabled:opacity-40"
+                      style={{ color: "#C99A2E", fontWeight: 700 }}
+                    >
+                      {addingInvSaving ? "Adding…" : "Add"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingInvestment(true)}
+                    className="self-start px-3 py-1.5 rounded-full text-sm"
+                    style={{ background: "var(--bg)", color: "var(--muted)", border: "1px dashed var(--border)" }}
+                  >
+                    + Add investment
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Account */}
             <div className="flex flex-col gap-2">
