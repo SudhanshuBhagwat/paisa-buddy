@@ -157,6 +157,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [greetingDate, setGreetingDate] = useState('')
+  const [newRecurringCount, setNewRecurringCount] = useState(0)
+  const [recurringBannerDismissed, setRecurringBannerDismissed] = useState(false)
 
   const calDirRef = useRef<number>(1)
   const isCalFirstMount = useRef(true)
@@ -171,6 +173,20 @@ export default function HomeClient({ transactions, categories, accounts, month: 
     const date = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
     setGreetingDate(`${day}, ${date}`)
   }, [])
+
+  useEffect(() => {
+    const recurringIds = transactions.filter((t) => t.is_recurring).map((t) => t.id)
+    const stored: string[] = JSON.parse(localStorage.getItem('pb_recurring_notified_ids') ?? '[]')
+    const storedSet = new Set(stored)
+    const newCount = recurringIds.filter((id) => !storedSet.has(id)).length
+    setNewRecurringCount(newCount)
+  }, [transactions])
+
+  function dismissRecurringBanner() {
+    const recurringIds = transactions.filter((t) => t.is_recurring).map((t) => t.id)
+    localStorage.setItem('pb_recurring_notified_ids', JSON.stringify(recurringIds))
+    setRecurringBannerDismissed(true)
+  }
 
   async function handleEditSave(updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
     if (!editingTx) return
@@ -457,6 +473,30 @@ export default function HomeClient({ transactions, categories, accounts, month: 
             </div>
           </div>
 
+          {/* Recurring banner (desktop only) */}
+          {newRecurringCount > 0 && !recurringBannerDismissed && (
+            <div
+              className="hidden lg:flex items-center gap-3 px-4 py-3 rounded-xl"
+              style={{ background: 'color-mix(in srgb, var(--pb-brand) 8%, var(--pb-surface))', border: '1px solid color-mix(in srgb, var(--pb-brand) 20%, var(--pb-line))', flexShrink: 0 }}
+            >
+              <button
+                type="button"
+                className="flex-1 flex items-center gap-3 min-w-0"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onClick={() => { setRecurringOnly(true); dismissRecurringBanner() }}
+              >
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--pb-brand)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, flexShrink: 0 }}>↻</div>
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-brand)' }}>{newRecurringCount} new recurring detected</div>
+                  <div style={{ fontSize: 12, color: 'var(--pb-ink-3)' }}>Click to view recurring transactions</div>
+                </div>
+              </button>
+              <button type="button" onClick={dismissRecurringBanner} style={{ color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+          )}
+
           {/* Transaction list card */}
           <div style={{ flexShrink: 0, ...(txs.length > 0 ? CARD : {}), paddingTop: txs.length > 0 ? 10 : 0, paddingBottom: 20 }}>
             {txs.length === 0 ? (
@@ -668,6 +708,30 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 </Link>
+              )}
+
+              {/* Recurring banner (mobile only) */}
+              {newRecurringCount > 0 && !recurringBannerDismissed && (
+                <div
+                  className="md:hidden flex items-center gap-3 px-4 py-3"
+                  style={{ background: 'color-mix(in srgb, var(--pb-brand) 8%, var(--pb-surface))', borderTop: '1px solid var(--pb-line)', borderBottom: '1px solid var(--pb-line)' }}
+                >
+                  <button
+                    type="button"
+                    className="flex-1 flex items-center gap-3 min-w-0"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    onClick={() => { setRecurringOnly(true); setFilterSheetOpen(false); dismissRecurringBanner() }}
+                  >
+                    <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold" style={{ background: 'var(--pb-brand)', color: '#fff', fontSize: 16 }}>↻</div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--pb-brand)' }}>{newRecurringCount} new recurring detected</p>
+                      <p className="text-xs" style={{ color: 'var(--muted)' }}>Tap to view recurring transactions</p>
+                    </div>
+                  </button>
+                  <button type="button" onClick={dismissRecurringBanner} style={{ color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
               )}
 
               {/* Search bar */}
