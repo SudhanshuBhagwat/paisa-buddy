@@ -25,6 +25,7 @@ import { updateTransaction } from '@/app/actions/transactions'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useStore } from '@/lib/store'
 import BuddySVG from '@/components/BuddySVG'
+import HomeEmptyState from '@/components/HomeEmptyState'
 
 const CAL_VARIANTS = {
   enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
@@ -374,7 +375,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
         </div>
 
         {/* ── Center: Search + filter chips + Transaction list ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, height: '100%', overflowY: 'auto' }}>
           {/* Search + filter chips card */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...CARD, padding: '12px 18px', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--pb-ink-3)', flexShrink: 0 }}>
@@ -457,14 +458,22 @@ export default function HomeClient({ transactions, categories, accounts, month: 
           </div>
 
           {/* Transaction list card */}
-          <div style={{ flex: 1, overflow: 'hidden', ...CARD, overflowY: 'auto', paddingTop: 10, paddingBottom: 20 }}>
-            {selectedDate && (
-              <div className="flex items-center justify-between px-5 py-2 text-xs" style={{ borderBottom: '1px solid var(--pb-line)' }}>
-                <span style={{ color: 'var(--pb-ink-3)' }}>Showing {formatDateLabel(selectedDate)}</span>
-                <button onClick={() => setSelectedDate(null)} className="font-semibold" style={{ color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
+          <div style={{ flexShrink: 0, ...(txs.length > 0 ? CARD : {}), paddingTop: txs.length > 0 ? 10 : 0, paddingBottom: 20 }}>
+            {txs.length === 0 ? (
+              <div style={{ marginTop: '4rem' }}>
+                <HomeEmptyState onAddManually={() => setModalOpen(true)} />
               </div>
+            ) : (
+              <>
+                {selectedDate && (
+                  <div className="flex items-center justify-between px-5 py-2 text-xs" style={{ borderBottom: '1px solid var(--pb-line)' }}>
+                    <span style={{ color: 'var(--pb-ink-3)' }}>Showing {formatDateLabel(selectedDate)}</span>
+                    <button onClick={() => setSelectedDate(null)} className="font-semibold" style={{ color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
+                  </div>
+                )}
+                <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact colorMap={categoryColorMap} accountMap={accountMap} />
+              </>
             )}
-            <TransactionList transactions={filteredTxs} onEdit={setEditingTx} compact colorMap={categoryColorMap} accountMap={accountMap} />
           </div>
         </div>
 
@@ -748,7 +757,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 </div>
               )}
 
-              <TransactionList transactions={filteredTxs} onEdit={setEditingTx} colorMap={categoryColorMap} />
+              {txs.length === 0
+                ? <HomeEmptyState onAddManually={() => setModalOpen(true)} />
+                : <TransactionList transactions={filteredTxs} onEdit={setEditingTx} colorMap={categoryColorMap} />
+              }
             </div>
           </div>
 

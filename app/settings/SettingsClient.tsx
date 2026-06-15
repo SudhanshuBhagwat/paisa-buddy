@@ -7,7 +7,7 @@ import { logout } from '@/lib/auth/actions'
 import {
   addCategory, removeCategory, removeCategoryAndUnlinkTransactions, clearAllTransactions,
 } from '@/app/actions/categories'
-import { addUpiId, removeUpiId, setDisplayName, setExpectedMonthlyIncome } from '@/app/actions/user-settings'
+import { addUpiId, removeUpiId, setDisplayName, setExpectedMonthlyIncome, setShortcutBannerDismissed } from '@/app/actions/user-settings'
 import ConfirmModal from '@/components/ConfirmModal'
 
 interface CategoryWithCount { name: string; color: string; transactionCount: number }
@@ -20,6 +20,7 @@ interface Props {
   upiIds: string[]
   displayName: string | null
   expectedMonthlyIncome: number
+  shortcutBannerDismissed: boolean
 }
 
 const CARD: React.CSSProperties = {
@@ -53,7 +54,7 @@ const navItems = [
   { id: 'data',       label: 'Data',              icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> },
 ]
 
-export default function SettingsClient({ email, transactionCount, customCategories, predefinedCategories, upiIds, displayName, expectedMonthlyIncome }: Props) {
+export default function SettingsClient({ email, transactionCount, customCategories, predefinedCategories, upiIds, displayName, expectedMonthlyIncome, shortcutBannerDismissed: initialBannerDismissed }: Props) {
   const { state, dispatch } = useStore()
   const [newCat, setNewCat] = useState('')
   const [newUpi, setNewUpi] = useState('')
@@ -65,6 +66,12 @@ export default function SettingsClient({ email, transactionCount, customCategori
   const [removingCat, setRemovingCat] = useState<CategoryWithCount | null>(null)
   const [activeNav, setActiveNav] = useState('profile')
   const [savedField, setSavedField] = useState<string | null>(null)
+  const [bannerDismissed, setBannerDismissed] = useState(initialBannerDismissed)
+
+  async function handleDismissBanner() {
+    setBannerDismissed(true)
+    await setShortcutBannerDismissed()
+  }
 
   function flashSaved(field: string) {
     setSavedField(field)
@@ -371,6 +378,40 @@ export default function SettingsClient({ email, transactionCount, customCategori
         {/* Right content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px 44px', scrollBehavior: 'smooth' }}>
           <div style={{ maxWidth: 580, display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {!bannerDismissed && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '14px 16px', borderRadius: 'var(--pb-radius)',
+                background: 'color-mix(in srgb, var(--pb-gold) 12%, var(--pb-surface))',
+                border: '1px solid color-mix(in srgb, var(--pb-gold) 35%, var(--pb-line))',
+                borderLeft: '3px solid var(--pb-gold)',
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-ink)', marginBottom: 2 }}>
+                    ⚡ Set up receipt scanning
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--pb-ink-3)', lineHeight: 1.45 }}>
+                    Scan receipts directly from your phone
+                  </div>
+                  <Link
+                    href="/settings/shortcut"
+                    style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}
+                  >
+                    Set up Shortcut →
+                  </Link>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDismissBanner}
+                  aria-label="Dismiss"
+                  style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pb-ink-3)', padding: 2, display: 'flex' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            )}
             {renderProfile('section-profile')}
             {renderUPI('section-upi')}
             {renderIncome('section-income')}
@@ -394,6 +435,40 @@ export default function SettingsClient({ email, transactionCount, customCategori
         </div>
 
         <div style={{ padding: '12px 18px 20px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {!bannerDismissed && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '14px 16px', borderRadius: 'var(--pb-radius)',
+              background: 'color-mix(in srgb, var(--pb-gold) 12%, var(--pb-surface))',
+              border: '1px solid color-mix(in srgb, var(--pb-gold) 35%, var(--pb-line))',
+              borderLeft: '3px solid var(--pb-gold)',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--pb-ink)', marginBottom: 2 }}>
+                  ⚡ Set up receipt scanning
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--pb-ink-3)', lineHeight: 1.45 }}>
+                  Scan receipts directly from your phone
+                </div>
+                <Link
+                  href="/settings/shortcut"
+                  style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--pb-brand)', textDecoration: 'none' }}
+                >
+                  Set up Shortcut →
+                </Link>
+              </div>
+              <button
+                type="button"
+                onClick={handleDismissBanner}
+                aria-label="Dismiss"
+                style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pb-ink-3)', padding: 2, display: 'flex' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          )}
           {renderProfile()}
           {renderUPI()}
           {renderIncome()}

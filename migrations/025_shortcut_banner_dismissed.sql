@@ -1,0 +1,2 @@
+ALTER TABLE user_settings
+  ADD COLUMN IF NOT EXISTS shortcut_banner_dismissed BOOLEAN NOT NULL DEFAULT FALSE;

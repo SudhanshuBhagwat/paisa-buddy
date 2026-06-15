@@ -55,6 +55,13 @@ export async function setExpectedMonthlyIncome(paise: number): Promise<void> {
   refresh()
 }
 
+export async function setShortcutBannerDismissed(): Promise<void> {
+  const userId = await getRequiredUserId()
+  await settingsDb.upsert(userId, { shortcutBannerDismissed: true })
+  updateTag('user-settings')
+  refresh()
+}
+
 export async function completeSetup(displayName: string, upiIds: string[]): Promise<void> {
   const userId = await getRequiredUserId()
   await settingsDb.upsert(userId, {
