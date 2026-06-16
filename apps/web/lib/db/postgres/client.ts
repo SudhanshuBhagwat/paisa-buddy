@@ -4,10 +4,6 @@ import postgres from 'postgres'
 // This is the only file that imports 'postgres'.
 // All other DB code goes through the repository interfaces in lib/db/types.ts.
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('Missing DATABASE_URL')
-}
-
 // Custom type parsers — return date/time as strings to match the Transaction/Account types.
 // By default postgres.js returns DATE and TIMESTAMPTZ as JS Date objects.
 const types: postgres.Options<{}>['types'] = {
@@ -36,7 +32,7 @@ const types: postgres.Options<{}>['types'] = {
 
 // Admin connection (postgres superuser) — bypasses RLS.
 // Used only for: categories writes, getByUploadToken, auth operations.
-export const sql = postgres(process.env.DATABASE_URL, {
+export const sql = postgres(process.env.DATABASE_URL!, {
   max: 5,
   idle_timeout: 20,
   connect_timeout: 10,
