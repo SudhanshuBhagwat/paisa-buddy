@@ -2,7 +2,11 @@ import 'server-only'
 import { Resend } from 'resend'
 import { getSupabaseClient } from '@/lib/db/supabase/client'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY)
+  return _resend
+}
 
 export async function generateAndSendOTP(email: string): Promise<void> {
   const token = String(Math.floor(100000 + Math.random() * 900000))
@@ -127,7 +131,7 @@ export async function generateAndSendOTP(email: string): Promise<void> {
     return
   }
 
-  const { error: emailError } = await resend.emails.send({
+  const { error: emailError } = await getResend().emails.send({
     from: process.env.EMAIL_FROM!,
     to: email,
     subject: 'Your Paisa Buddy login code',
