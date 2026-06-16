@@ -1,0 +1,104 @@
+﻿'use server'
+
+import { after } from 'next/server'
+import { updateTag, refresh } from 'next/cache'
+import { db, categoriesDb } from '@/lib/db'
+import { getRequiredUserId } from '@/lib/auth/require-user'
+import { generateUniqueColor } from '@paisa-buddy/shared/categories'
+import type { Transaction } from '@paisa-buddy/shared/types/transaction'
+
+async function ensureCategoryColor(userId: string, category: string): Promise<void> {
+  const existing = await categoriesDb.getCustomWithColors(userId)
+  const color = generateUniqueColor(existing.map((c) => c.color))
+  await categoriesDb.upsertCustom(userId, category, color)
+}
+
+export async function insertTransaction(
+  tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
+): Promise<void> {
+  const userId = await getRequiredUserId()
+  if (tx.category) {
+    await ensureCategoryColor(userId, tx.category)
+    updateTag('categories')
+  }
+  await db.insert(userId, tx)
+  updateTag('transactions')
+  if (tx.reviewed) updateTag('accounts')
+  refresh()
+}
+
+export async function deleteTransaction(id: string): Promise<void> {
+  const userId = await getRequiredUserId()
+  await db.delete(userId, id)
+  updateTag('transactions')
+  updateTag('accounts')
+  refresh()
+  after(() => db.detectRecurring(userId).catch(console.error))
+}
+
+export async function confirmTransaction(id: string): Promise<void> {
+  const userId = await getRequiredUserId()
+  await db.update(userId, id, { reviewed: true })
+  updateTag('transactions')
+  updateTag('accounts')
+  refresh()
+  after(() => db.detectRecurring(userId).catch(console.error))
+}
+
+export async function rejectTransaction(id: string): Promise<void> {
+  const userId = await getRequiredUserId()
+  await db.delete(userId, id)
+  updateTag('transactions')
+  refresh()
+}
+
+export async function updateAndConfirmTransaction(
+  id: string,
+  updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,
+): Promise<void> {
+  const userId = await getRequiredUserId()
+  if (updates.category) {
+    await ensureCategoryColor(userId, updates.category)
+    updateTag('categories')
+  }
+  await db.update(userId, id, { ...updates, reviewed: true })
+  updateTag('transactions')
+  updateTag('accounts')
+  if ('investment_id' in updates) updateTag('investments')
+  refresh()
+  after(() => db.detectRecurring(userId).catch(console.error))
+}
+
+export async function confirmAllPendingTransactions(): Promise<void> {
+  const userId = await getRequiredUserId()
+  const pending = await db.getPending(userId)
+  await Promise.all(pending.map((tx) => db.update(userId, tx.id, { reviewed: true })))
+  updateTag('transactions')
+  updateTag('accounts')
+  refresh()
+  after(() => db.detectRecurring(userId).catch(console.error))
+}
+
+export async function rejectAllPendingTransactions(): Promise<void> {
+  const userId = await getRequiredUserId()
+  const pending = await db.getPending(userId)
+  await Promise.all(pending.map((tx) => db.delete(userId, tx.id)))
+  updateTag('transactions')
+  refresh()
+}
+
+export async function updateTransaction(
+  id: string,
+  updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>>,
+): Promise<void> {
+  const userId = await getRequiredUserId()
+  if (updates.category) {
+    await ensureCategoryColor(userId, updates.category)
+    updateTag('categories')
+  }
+  await db.update(userId, id, updates)
+  updateTag('transactions')
+  updateTag('accounts')
+  if ('investment_id' in updates) updateTag('investments')
+  refresh()
+}

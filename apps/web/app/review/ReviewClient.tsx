@@ -1,0 +1,1549 @@
+﻿'use client'
+
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
+import { OVERLAY_ANIM, SHEET_MOBILE_ANIM } from '@/lib/modal-animations'
+import { useRouter } from 'next/navigation'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
+import {
+  rejectTransaction,
+  updateAndConfirmTransaction,
+  confirmAllPendingTransactions,
+  rejectAllPendingTransactions,
+} from '@/app/actions/transactions'
+import { createAccount } from '@/app/actions/accounts'
+import { createInvestment } from '@/app/actions/investments'
+import { categoryColor } from '@paisa-buddy/shared/categories'
+import type { InvestmentWithTotal } from '@/lib/db/types'
+import ConfirmModal from '@/components/ConfirmModal'
+import BuddySVG from '@/components/BuddySVG'
+import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
+import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
+import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
+import { formatMonthLabel } from '@/lib/utils'
+import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from '@paisa-buddy/shared/logic/amount'
+import { groupTransactionsByMonth } from '@paisa-buddy/shared/logic/transaction'
+import {
+  getCategoryHint,
+  txToFormState,
+  formStateToPayload,
+  isTransactionConfirmable,
+  type ReviewFormState,
+} from '@paisa-buddy/shared/logic/review'
+
+interface Props {
+  transactions: Transaction[]
+  categories: string[]
+  accounts: Account[]
+  investments: InvestmentWithTotal[]
+  categoryColors: Record<string, string>
+}
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function getCatColor(cat: string | null | undefined, colorMap: Record<string, string>): string {
+  return categoryColor(cat, colorMap)
+}
+
+function typeColor(t: TransactionType): string {
+
+  if (t === 'credit') return 'var(--pb-pos)'
+  if (t === 'transfer') return 'var(--pb-transfer)'
+  return 'var(--pb-neg)'
+}
+
+function formatDisplay(paise: number, t: TransactionType): string {
+  const rupees = (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return t === 'credit' ? `+₹${rupees}` : `−₹${rupees}`
+}
+
+function formatDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ─── icon primitives ─────────────────────────────────────────────────────────
+
+function UserIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+
+function TagIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  )
+}
+
+function NoteIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  )
+}
+
+function BankIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="22" x2="21" y2="22" />
+      <line x1="6" y1="18" x2="6" y2="11" />
+      <line x1="10" y1="18" x2="10" y2="11" />
+      <line x1="14" y1="18" x2="14" y2="11" />
+      <line x1="18" y1="18" x2="18" y2="11" />
+      <polygon points="12 2 20 7 4 7" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  )
+}
+
+function CardIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  )
+}
+
+function HashIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="9" x2="20" y2="9" />
+      <line x1="4" y1="15" x2="20" y2="15" />
+      <line x1="10" y1="3" x2="8" y2="21" />
+      <line x1="16" y1="3" x2="14" y2="21" />
+    </svg>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
+function RepeatIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  )
+}
+
+// ─── ReviewTypeBadge ─────────────────────────────────────────────────────────
+
+function ReviewTypeBadge({ type, small }: { type: TransactionType; small?: boolean }) {
+  const color = typeColor(type)
+  return (
+    <span style={{
+      fontSize: small ? 9 : 10.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase',
+      color,
+      background: `color-mix(in srgb, ${color} 12%, var(--pb-surface))`,
+      borderRadius: 5, padding: small ? '2px 5px' : '3px 8px',
+    }}>
+      {type}
+    </span>
+  )
+}
+
+// ─── EditField ───────────────────────────────────────────────────────────────
+
+function EditField({
+  icon, label, valueNode, isEditing, onEdit, children,
+}: {
+  icon: React.ReactNode
+  label: string
+  valueNode: React.ReactNode
+  isEditing: boolean
+  onEdit: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <div style={{ borderTop: '1px solid var(--pb-line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+        <div style={{ flexShrink: 0, color: 'var(--pb-ink-3)', display: 'flex', alignItems: 'center' }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--pb-ink-3)', marginBottom: 2 }}>{label}</div>
+          {valueNode}
+        </div>
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={onEdit}
+            style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pb-ink-3)', display: 'flex', flexShrink: 0 }}
+          >
+            <PencilIcon />
+          </button>
+        )}
+      </div>
+      {isEditing && children && (
+        <div style={{ paddingBottom: 12 }}>{children}</div>
+      )}
+    </div>
+  )
+}
+
+// ─── main component ───────────────────────────────────────────────────────────
+
+export default function ReviewClient({ transactions, categories, accounts, investments, categoryColors }: Props) {
+  const router = useRouter()
+  const prevCountRef = useRef(transactions.length)
+
+  const [activeId, setActiveId] = useState<string | null>(transactions[0]?.id ?? null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [loading, setLoading] = useState<string | null>(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkModal, setBulkModal] = useState<'confirm-all' | 'reject-all' | null>(null)
+
+  // editing state
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [edits, setEdits] = useState<ReviewFormState | null>(null)
+  const [extraCats, setExtraCats] = useState<string[]>([])
+  const [newCatInput, setNewCatInput] = useState('')
+  const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
+  const [addingAccount, setAddingAccount] = useState(false)
+  const [newAccName, setNewAccName] = useState('')
+  const [newAccType, setNewAccType] = useState<AccountType>('savings')
+  const [addingAccSaving, setAddingAccSaving] = useState(false)
+  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([])
+  const [addingInvestment, setAddingInvestment] = useState(false)
+  const [newInvName, setNewInvName] = useState('')
+  const [addingInvSaving, setAddingInvSaving] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const dragY = useMotionValue(0)
+
+  const activeTx = transactions.find((tx) => tx.id === activeId) ?? transactions[0] ?? null
+
+  const grouped = useMemo(() => groupTransactionsByMonth(transactions), [transactions])
+
+  useScrollLock(sheetOpen)
+
+  // reset edits when active tx changes
+  useEffect(() => {
+    if (activeTx) {
+      setEdits(txToFormState(activeTx))
+      setEditingField(null)
+      setShowAdvanced(false)
+      setExtraInvestments([])
+      setAddingInvestment(false)
+    }
+  }, [activeTx?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // redirect when all cleared
+  useEffect(() => {
+    const prev = prevCountRef.current
+    prevCountRef.current = transactions.length
+    if (transactions.length === 0 && prev > 0) {
+      const t = setTimeout(() => router.push('/'), 1500)
+      return () => clearTimeout(t)
+    }
+  }, [transactions.length, router])
+
+  // keep activeId valid
+  useEffect(() => {
+    if (transactions.length === 0) return
+    if (!transactions.find((tx) => tx.id === activeId)) {
+      setActiveId(transactions[0].id)
+    }
+  }, [transactions, activeId])
+
+  // desktop keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (editingField) return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      const idx = transactions.findIndex((tx) => tx.id === activeId)
+      if (e.key === 'ArrowDown' && idx < transactions.length - 1) {
+        e.preventDefault()
+        setActiveId(transactions[idx + 1].id)
+      }
+      if (e.key === 'ArrowUp' && idx > 0) {
+        e.preventDefault()
+        setActiveId(transactions[idx - 1].id)
+      }
+      if (e.key === 'ArrowRight') { e.preventDefault(); void handleConfirm() }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); void handleReject() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }) // no dep array — needs fresh closures for handleConfirm/handleReject
+
+  function computeNext(): Transaction | null {
+    const idx = transactions.findIndex((tx) => tx.id === activeId)
+    return transactions[idx + 1] ?? transactions[idx - 1] ?? null
+  }
+
+  async function handleConfirm() {
+    if (!activeTx || !edits || loading) return
+    const next = computeNext()
+    setLoading(activeTx.id)
+    try {
+      await updateAndConfirmTransaction(activeTx.id, formStateToPayload(edits))
+      setSheetOpen(false)
+      if (next) setActiveId(next.id)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleReject() {
+    if (!activeTx || loading) return
+    const next = computeNext()
+    setLoading(activeTx.id)
+    try {
+      await rejectTransaction(activeTx.id)
+      setSheetOpen(false)
+      if (next) setActiveId(next.id)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleBulkConfirm() {
+    setBulkLoading(true)
+    try {
+      await confirmAllPendingTransactions()
+      setBulkModal(null)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  async function handleBulkReject() {
+    setBulkLoading(true)
+    try {
+      await rejectAllPendingTransactions()
+      setBulkModal(null)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  function handleAddCat() {
+    const name = newCatInput.trim()
+    if (!name) return
+    const allCats = getAllCats()
+    if (!allCats.includes(name)) setExtraCats((prev) => [...prev, name])
+    if (edits) setEdits({ ...edits, category: name })
+    setNewCatInput('')
+    setEditingField(null)
+  }
+
+  async function handleAddAccount() {
+    const name = newAccName.trim()
+    if (!name) return
+    setAddingAccSaving(true)
+    try {
+      const newAcc = await createAccount({ name, type: newAccType, bank: null, currency: 'INR', opening_balance: 0 })
+      setExtraAccounts((prev) => [...prev, newAcc])
+      if (edits) setEdits({ ...edits, accountId: newAcc.id })
+      setAddingAccount(false)
+      setNewAccName('')
+      setNewAccType('savings')
+      setEditingField(null)
+    } finally {
+      setAddingAccSaving(false)
+    }
+  }
+
+  async function handleAddInvestment() {
+    const name = newInvName.trim()
+    if (!name) return
+    setAddingInvSaving(true)
+    try {
+      const created = await createInvestment(name)
+      const newInv: InvestmentWithTotal = { ...created, total_invested: 0 }
+      setExtraInvestments((prev) => [...prev, newInv])
+      if (edits) setEdits({ ...edits, investmentId: created.id })
+      setAddingInvestment(false)
+      setNewInvName('')
+    } finally {
+      setAddingInvSaving(false)
+    }
+  }
+
+  function getAllInvestments(): InvestmentWithTotal[] {
+    return [...investments, ...extraInvestments.filter((i) => !investments.find((x) => x.id === i.id))]
+  }
+
+  function getAllCats(): string[] {
+    const hint = activeTx ? getCategoryHint(activeTx) : null
+    const base = hint && !categories.includes(hint) ? [...categories, hint] : categories
+    return [...base, ...extraCats.filter((c) => !base.includes(c))]
+  }
+
+  function getAllAccounts(): Account[] {
+    return [...accounts, ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id))]
+  }
+
+  // ─── empty state ─────────────────────────────────────────────────────────
+
+  if (transactions.length === 0) {
+    return (
+      <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: 12, paddingBottom: 80 }}>
+        <BuddySVG size={80} mood="happy" />
+        <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--pb-ink)', margin: 0 }}>All caught up!</p>
+        <p style={{ fontSize: 14, color: 'var(--pb-ink-3)', margin: 0 }}>No transactions to review right now.</p>
+      </main>
+    )
+  }
+
+  // ─── shared sub-renders ───────────────────────────────────────────────────
+
+  const allCats = getAllCats()
+  const allAccounts = getAllAccounts()
+  const hint = activeTx ? getCategoryHint(activeTx) : null
+  const isLoading = activeTx ? loading === activeTx.id : false
+
+  function renderBulkButtons(size: 'sm' | 'md' = 'sm') {
+    const fs = size === 'sm' ? 12 : 12
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button
+          type="button"
+          onClick={() => setBulkModal('reject-all')}
+          disabled={bulkLoading}
+          style={{ fontSize: fs, fontWeight: 700, color: 'var(--pb-neg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          Reject all
+        </button>
+        <button
+          type="button"
+          onClick={() => setBulkModal('confirm-all')}
+          disabled={bulkLoading}
+          style={{ fontSize: fs, fontWeight: 700, color: '#fff', background: 'var(--pb-brand)', borderRadius: 10, padding: '7px 12px', border: 'none', cursor: 'pointer' }}
+        >
+          Confirm all
+        </button>
+      </div>
+    )
+  }
+
+  function renderListRow(tx: Transaction, isActive: boolean, onClick: () => void) {
+    const catColor = getCatColor(tx.category, categoryColors)
+    const tColor = typeColor(tx.type)
+    const isProc = loading === tx.id
+    return (
+      <button
+        key={tx.id}
+        type="button"
+        onClick={onClick}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+          padding: '13px 0', background: 'none', border: 'none', cursor: 'pointer',
+          opacity: isProc ? 0.5 : 1,
+        }}
+      >
+        <div style={{ width: 10, height: 10, borderRadius: 99, flexShrink: 0, background: catColor }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--pb-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {tx.merchant || tx.description}
+            </span>
+            <ReviewTypeBadge type={tx.type} small />
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--pb-ink-3)', marginBottom: 1 }}>
+            {tx.category && <span style={{ color: catColor, fontWeight: 700 }}>{tx.category}</span>}
+            {tx.category && tx.description && <span> · </span>}
+            <span>{tx.description}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}>
+            {formatDate(tx.date)}{tx.account_id ? ' · ' + (allAccounts.find((a) => a.id === tx.account_id)?.name ?? '') : ''}
+          </div>
+        </div>
+        <div style={{ fontFamily: 'var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 15, color: tColor, flexShrink: 0 }}>
+          {formatDisplay(tx.amount, tx.type)}
+        </div>
+      </button>
+    )
+  }
+
+  function renderEditFields(forceAdvanced = false) {
+    if (!edits) return null
+    const merchantLabel = edits.type === 'credit' ? 'Sender' : edits.type === 'transfer' ? 'Account' : 'Recipient'
+    const tColor = typeColor(edits.type)
+
+    return (
+      <>
+        {/* Recipient */}
+        <EditField
+          icon={<UserIcon />}
+          label={merchantLabel.toUpperCase()}
+          isEditing={editingField === 'merchant'}
+          onEdit={() => setEditingField('merchant')}
+          valueNode={
+            editingField === 'merchant' ? (
+              <input
+                autoFocus
+                type="text"
+                value={edits.merchant}
+                onChange={(e) => setEdits({ ...edits, merchant: e.target.value })}
+                onBlur={() => setEditingField(null)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
+                style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', width: '100%', padding: 0 }}
+              />
+            ) : (
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.merchant ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                {edits.merchant || 'Not set'}
+              </span>
+            )
+          }
+        />
+
+        {/* Category */}
+        <EditField
+          icon={<TagIcon />}
+          label="CATEGORY"
+          isEditing={editingField === 'category'}
+          onEdit={() => setEditingField(editingField === 'category' ? null : 'category')}
+          valueNode={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {edits.category && (
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: getCatColor(edits.category, categoryColors), flexShrink: 0 }} />
+              )}
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.category ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                {edits.category || 'Not set'}
+              </span>
+            </div>
+          }
+        >
+          <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {allCats.map((cat) => {
+                const isHint = cat === hint && !activeTx?.category
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => { setEdits({ ...edits, category: cat === edits.category ? '' : cat }); setEditingField(null) }}
+                    style={
+                      edits.category === cat
+                        ? { background: tColor, color: '#fff', borderRadius: 99, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }
+                        : isHint
+                          ? { background: 'var(--pb-bg, var(--pb-brand-pale))', color: 'var(--pb-ink-3)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: `1px dashed ${tColor}`, cursor: 'pointer' }
+                          : { background: 'var(--bg, var(--pb-brand-pale))', color: 'var(--pb-ink)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                    }
+                  >
+                    {cat}{isHint && edits.category !== cat ? ' ✦' : ''}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'var(--pb-bg, #F4F6F2)', border: '1px solid var(--pb-line)' }}>
+              <input
+                type="text"
+                placeholder="New category…"
+                value={newCatInput}
+                onChange={(e) => setNewCatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCat() } }}
+                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--pb-ink)' }}
+              />
+              <button
+                type="button"
+                onClick={handleAddCat}
+                disabled={!newCatInput.trim()}
+                style={{ fontSize: 12, fontWeight: 700, color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer', opacity: newCatInput.trim() ? 1 : 0.4 }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </EditField>
+
+        {/* Investment (only when category = Investment) */}
+        {edits.category === 'Investment' && (() => {
+          const allInvestments = getAllInvestments()
+          return (
+            <EditField
+              icon={
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                  <polyline points="16 7 22 7 22 13" />
+                </svg>
+              }
+              label="INVESTMENT"
+              isEditing={editingField === 'investment'}
+              onEdit={() => setEditingField(editingField === 'investment' ? null : 'investment')}
+              valueNode={
+                <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.investmentId ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                  {allInvestments.find((i) => i.id === edits.investmentId)?.name || 'Not set'}
+                </span>
+              }
+            >
+              <div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {allInvestments.map((inv) => (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      onClick={() => { setEdits({ ...edits, investmentId: inv.id === edits.investmentId ? '' : inv.id }); setEditingField(null) }}
+                      style={
+                        edits.investmentId === inv.id
+                          ? { background: '#C99A2E', color: '#fff', borderRadius: 99, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }
+                          : { background: 'var(--bg, var(--pb-brand-pale))', color: 'var(--pb-ink)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                      }
+                    >
+                      {inv.name}
+                    </button>
+                  ))}
+                </div>
+                {addingInvestment ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'var(--pb-bg, #F4F6F2)', border: '1px solid var(--pb-line)' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Investment name…"
+                      value={newInvName}
+                      onChange={(e) => setNewInvName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddInvestment() } if (e.key === 'Escape') setAddingInvestment(false) }}
+                      style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--pb-ink)' }}
+                    />
+                    <button type="button" onClick={() => setAddingInvestment(false)} style={{ fontSize: 12, color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleAddInvestment()}
+                      disabled={!newInvName.trim() || addingInvSaving}
+                      style={{ fontSize: 12, fontWeight: 700, color: '#C99A2E', background: 'none', border: 'none', cursor: 'pointer', opacity: (!newInvName.trim() || addingInvSaving) ? 0.4 : 1 }}
+                    >
+                      {addingInvSaving ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingInvestment(true)}
+                    style={{ fontSize: 13, color: 'var(--pb-ink-3)', background: 'none', border: '1px dashed var(--pb-line)', borderRadius: 99, padding: '4px 12px', cursor: 'pointer' }}
+                  >
+                    + Add investment
+                  </button>
+                )}
+              </div>
+            </EditField>
+          )
+        })()}
+
+        {/* Notes */}
+        <EditField
+          icon={<NoteIcon />}
+          label="NOTES"
+          isEditing={editingField === 'description'}
+          onEdit={() => setEditingField('description')}
+          valueNode={
+            editingField === 'description' ? (
+              <input
+                autoFocus
+                type="text"
+                value={edits.description}
+                onChange={(e) => setEdits({ ...edits, description: e.target.value })}
+                onBlur={() => setEditingField(null)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
+                style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', width: '100%', padding: 0 }}
+              />
+            ) : (
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.description ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                {edits.description || 'Not set'}
+              </span>
+            )
+          }
+        />
+
+        {/* Account */}
+        <EditField
+          icon={<BankIcon />}
+          label="ACCOUNT"
+          isEditing={editingField === 'account'}
+          onEdit={() => setEditingField(editingField === 'account' ? null : 'account')}
+          valueNode={
+            <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.accountId ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+              {allAccounts.find((a) => a.id === edits.accountId)?.name || 'Not set'}
+            </span>
+          }
+        >
+          <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {allAccounts.map((acc) => (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => { setEdits({ ...edits, accountId: acc.id === edits.accountId ? '' : acc.id }); setEditingField(null) }}
+                  style={
+                    edits.accountId === acc.id
+                      ? { background: tColor, color: '#fff', borderRadius: 99, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }
+                      : { background: 'var(--bg, var(--pb-brand-pale))', color: 'var(--pb-ink)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                  }
+                >
+                  {acc.name}
+                </button>
+              ))}
+            </div>
+            {addingAccount ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--pb-bg, #F4F6F2)', border: '1px solid var(--pb-line)' }}>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Account name"
+                  value={newAccName}
+                  onChange={(e) => setNewAccName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setAddingAccount(false) }}
+                  style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--pb-ink)' }}
+                />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {(['savings', 'current', 'credit', 'wallet', 'other'] as AccountType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setNewAccType(t)}
+                      style={
+                        newAccType === t
+                          ? { background: 'var(--pb-brand)', color: '#fff', borderRadius: 99, padding: '4px 10px', fontSize: 12, border: 'none', cursor: 'pointer' }
+                          : { background: 'var(--pb-surface)', color: 'var(--pb-ink)', borderRadius: 99, padding: '4px 10px', fontSize: 12, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                      }
+                    >
+                      {ACCOUNT_TYPE_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => setAddingAccount(false)} style={{ flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 12, color: 'var(--pb-ink-3)', border: '1px solid var(--pb-line)', background: 'none', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} style={{ flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#fff', background: 'var(--pb-brand)', border: 'none', cursor: 'pointer', opacity: (!newAccName.trim() || addingAccSaving) ? 0.4 : 1 }}>
+                    {addingAccSaving ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingAccount(true)}
+                style={{ fontSize: 13, color: 'var(--pb-ink-3)', background: 'none', border: '1px dashed var(--pb-line)', borderRadius: 99, padding: '4px 12px', cursor: 'pointer' }}
+              >
+                + Add account
+              </button>
+            )}
+          </div>
+        </EditField>
+
+        {/* To Account (transfer only) */}
+        {edits.type === 'transfer' && (
+          <EditField
+            icon={<BankIcon />}
+            label="TO ACCOUNT"
+            isEditing={editingField === 'toAccount'}
+            onEdit={() => setEditingField(editingField === 'toAccount' ? null : 'toAccount')}
+            valueNode={
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.toAccountId ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                {allAccounts.find((a) => a.id === edits.toAccountId)?.name || 'Not set'}
+              </span>
+            }
+          >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {allAccounts.filter((a) => a.id !== edits.accountId).map((acc) => (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => { setEdits({ ...edits, toAccountId: acc.id === edits.toAccountId ? '' : acc.id }); setEditingField(null) }}
+                  style={
+                    edits.toAccountId === acc.id
+                      ? { background: tColor, color: '#fff', borderRadius: 99, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }
+                      : { background: 'var(--bg, var(--pb-brand-pale))', color: 'var(--pb-ink)', borderRadius: 99, padding: '6px 12px', fontSize: 13, border: '1px solid var(--pb-line)', cursor: 'pointer' }
+                  }
+                >
+                  {acc.name}
+                </button>
+              ))}
+            </div>
+          </EditField>
+        )}
+
+        {/* Date */}
+        <EditField
+          icon={<CalendarIcon />}
+          label="DATE"
+          isEditing={editingField === 'date'}
+          onEdit={() => setEditingField('date')}
+          valueNode={
+            editingField === 'date' ? (
+              <input
+                autoFocus
+                type="date"
+                value={edits.date}
+                onChange={(e) => setEdits({ ...edits, date: e.target.value })}
+                onBlur={() => setEditingField(null)}
+                style={{ fontSize: 14, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', padding: 0 }}
+              />
+            ) : (
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--pb-ink)' }}>
+                {formatDate(edits.date)}
+              </span>
+            )
+          }
+        />
+
+        {/* Advanced section */}
+        {!forceAdvanced && (
+          <div style={{ borderTop: '1px solid var(--pb-line)', paddingTop: 10, paddingBottom: showAdvanced ? 0 : 4 }}>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--pb-ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              {showAdvanced ? '▲' : '▼'} Advanced
+            </button>
+          </div>
+        )}
+
+        {(forceAdvanced || showAdvanced) && (
+          <>
+            {/* Time */}
+            <EditField
+              icon={<ClockIcon />}
+              label="TIME"
+              isEditing={editingField === 'time'}
+              onEdit={() => setEditingField('time')}
+              valueNode={
+                editingField === 'time' ? (
+                  <input
+                    autoFocus
+                    type="time"
+                    value={edits.time}
+                    onChange={(e) => setEdits({ ...edits, time: e.target.value })}
+                    onBlur={() => setEditingField(null)}
+                    style={{ fontSize: 14, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', padding: 0 }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.time ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                    {edits.time || 'Not set'}
+                  </span>
+                )
+              }
+            />
+
+            {/* Bank */}
+            <EditField
+              icon={<CardIcon />}
+              label="BANK"
+              isEditing={editingField === 'bank'}
+              onEdit={() => setEditingField('bank')}
+              valueNode={
+                editingField === 'bank' ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={edits.bank}
+                    onChange={(e) => setEdits({ ...edits, bank: e.target.value })}
+                    onBlur={() => setEditingField(null)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
+                    style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', width: '100%', padding: 0 }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: edits.bank ? 'var(--pb-ink)' : 'var(--pb-ink-3)' }}>
+                    {edits.bank || 'Not set'}
+                  </span>
+                )
+              }
+            />
+
+            {/* UPI Ref */}
+            <EditField
+              icon={<HashIcon />}
+              label="UPI REF"
+              isEditing={editingField === 'upiRef'}
+              onEdit={() => setEditingField('upiRef')}
+              valueNode={
+                editingField === 'upiRef' ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={edits.upiRef}
+                    onChange={(e) => setEdits({ ...edits, upiRef: e.target.value })}
+                    onBlur={() => setEditingField(null)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
+                    style={{ fontSize: 14, fontWeight: 600, color: 'var(--pb-ink)', background: 'none', border: 'none', outline: 'none', width: '100%', padding: 0, fontFamily: 'var(--font-space-mono, monospace)' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: edits.upiRef ? 'var(--pb-ink)' : 'var(--pb-ink-3)', fontFamily: edits.upiRef ? 'var(--font-space-mono, monospace)' : 'inherit' }}>
+                    {edits.upiRef || 'Not set'}
+                  </span>
+                )
+              }
+            />
+
+            {/* Recurring toggle */}
+            <div style={{ borderTop: '1px solid var(--pb-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flexShrink: 0, color: 'var(--pb-ink-3)', display: 'flex' }}><RepeatIcon /></div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--pb-ink)' }}>Recurring</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEdits({ ...edits, isRecurring: !edits.isRecurring })}
+                style={{
+                  position: 'relative', width: 40, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
+                  background: edits.isRecurring ? 'var(--pb-pos)' : 'var(--pb-line)',
+                  transition: 'background 0.2s',
+                }}
+                aria-pressed={edits.isRecurring}
+              >
+                <span style={{
+                  position: 'absolute', top: 4, left: 4, width: 16, height: 16, borderRadius: 99, background: '#fff',
+                  transform: edits.isRecurring ? 'translateX(16px)' : 'translateX(0)',
+                  transition: 'transform 0.2s',
+                }} />
+              </button>
+            </div>
+          </>
+        )}
+      </>
+    )
+  }
+
+  function renderAmountHeader(large: boolean) {
+    if (!edits || !activeTx) return null
+    const tColor = typeColor(edits.type)
+    const fontSize = large ? 44 : 34
+    return editingField === 'amount' ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontFamily: 'var(--font-space-mono, monospace)', fontWeight: 700, fontSize, color: tColor }}>₹</span>
+        <input
+          autoFocus
+          type="text"
+          inputMode="decimal"
+          value={formatDisplayAmount(edits.amountStr)}
+          onChange={(e) => { if (edits) setEdits({ ...edits, amountStr: sanitizeAmountInput(e.target.value) }) }}
+          onBlur={() => setEditingField(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
+          style={{
+            fontFamily: 'var(--font-space-mono, monospace)', fontWeight: 700, fontSize,
+            color: tColor, WebkitTextFillColor: tColor, background: 'none', border: 'none', outline: 'none', padding: 0,
+            width: `${Math.max(4, edits.amountStr.length + 1)}ch`,
+          }}
+        />
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setEditingField('amount')}
+        style={{
+          fontFamily: 'var(--font-space-mono, monospace)', fontWeight: 700, fontSize,
+          color: tColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
+        }}
+      >
+        ₹{formatDisplayAmount(edits.amountStr)}
+      </button>
+    )
+  }
+
+  function renderActionButtons() {
+    const canConfirm = edits ? isTransactionConfirmable(edits) : false
+    return (
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          type="button"
+          onClick={handleReject}
+          disabled={isLoading}
+          style={{
+            flex: 1, padding: '14px 0', borderRadius: 14, fontSize: 14, fontWeight: 700,
+            color: 'var(--pb-neg)',
+            border: '1.5px solid color-mix(in srgb, var(--pb-neg) 20%, var(--pb-surface))',
+            background: 'color-mix(in srgb, var(--pb-neg) 8%, var(--pb-surface))',
+            cursor: 'pointer', opacity: isLoading ? 0.5 : 1,
+          }}
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!canConfirm || isLoading}
+          style={{
+            flex: 2, padding: '14px 0', borderRadius: 14, fontSize: 14, fontWeight: 700,
+            color: '#fff', background: 'var(--pb-brand)',
+            boxShadow: '0 6px 16px color-mix(in srgb, var(--pb-brand) 35%, transparent)',
+            border: 'none', cursor: 'pointer', opacity: (!canConfirm || isLoading) ? 0.5 : 1,
+          }}
+        >
+          {isLoading ? 'Saving…' : `Confirm & next →`}
+        </button>
+      </div>
+    )
+  }
+
+  const activeIdx = transactions.findIndex((tx) => tx.id === activeId)
+
+  // ─── render ───────────────────────────────────────────────────────────────
+
+  return (
+    <>
+      {/* ── Mobile layout ── */}
+      <main className="lg:hidden md:pt-[66px] max-w-[560px] md:max-w-none mx-auto md:mx-0" style={{ paddingBottom: 80 }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--pb-ink-3)', display: 'flex', alignItems: 'center' }}
+              aria-label="Go back"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--pb-ink)' }}>Review</span>
+              <span style={{ background: 'var(--pb-neg)', color: '#fff', borderRadius: 99, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>
+                {transactions.length}
+              </span>
+            </div>
+          </div>
+          {renderBulkButtons('sm')}
+        </div>
+
+        {/* Helper */}
+        <p style={{ fontSize: 12, color: 'var(--pb-ink-3)', margin: '8px 18px 0' }}>
+          Tap any transaction to review and edit details
+        </p>
+
+        {/* List */}
+        <div style={{ padding: '0 18px', marginTop: 12 }}>
+          {grouped.map(({ month, txs }) => (
+            <div key={month}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 4px' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--pb-ink-3)' }}>
+                  {formatMonthLabel(month)}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--pb-ink-3)', background: 'color-mix(in srgb, var(--pb-neg) 10%, var(--pb-surface))', borderRadius: 99, padding: '1px 7px' }}>
+                  {txs.length}
+                </span>
+              </div>
+              {txs.map((tx, i) => (
+                <div key={tx.id} style={{ borderTop: i > 0 ? '1px solid var(--pb-line)' : 'none' }}>
+                  {renderListRow(tx, tx.id === activeId, () => {
+                    setActiveId(tx.id)
+                    setSheetOpen(true)
+                  })}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </main>
+
+      {/* ── Mobile bottom sheet ── */}
+      <AnimatePresence>
+        {sheetOpen && activeTx && edits && (() => {
+          const tColor = typeColor(edits.type)
+          const merchantLabel = edits.type === 'credit' ? 'Sender' : edits.type === 'transfer' ? 'Account' : 'Recipient'
+
+          const inputCls = 'px-3 py-2.5 rounded-xl text-sm outline-none w-full'
+          const inputStyle: React.CSSProperties = { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+          const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer', appearance: 'none' }
+          const labelCls = 'text-xs font-medium'
+          const labelStyle: React.CSSProperties = { color: 'var(--muted)' }
+
+          const TYPE_META = [
+            { value: 'debit' as TransactionType, label: 'Debit', color: 'var(--pb-neg)' },
+            { value: 'credit' as TransactionType, label: 'Credit', color: 'var(--pb-pos)' },
+            { value: 'transfer' as TransactionType, label: 'Transfer', color: 'var(--pb-transfer)' },
+          ]
+
+          return (
+            <>
+              <motion.div
+                className="lg:hidden"
+                style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.4)' }}
+                {...OVERLAY_ANIM}
+                onClick={() => setSheetOpen(false)}
+              />
+              <motion.div
+                className="lg:hidden"
+                style={{
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+                  background: 'var(--surface)', borderRadius: '22px 22px 0 0',
+                  boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
+                  maxHeight: 'min(94dvh, 820px)', overflowY: 'auto', overflowX: 'hidden',
+                  y: dragY,
+                }}
+                {...SHEET_MOBILE_ANIM}
+              >
+                {/* drag handle */}
+                <motion.div
+                  className="flex justify-center pt-3 pb-4 touch-none"
+                  style={{ cursor: 'grab' }}
+                  drag="y"
+                  dragConstraints={{ top: 0, bottom: 0 }}
+                  dragElastic={0}
+                  onDrag={(_, info) => { dragY.set(Math.max(0, info.offset.y)) }}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.y > 80 || info.velocity.y > 400) {
+                      setSheetOpen(false)
+                    } else {
+                      animate(dragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                    }
+                  }}
+                >
+                  <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} whileDrag={{ scaleX: 0.6 }} />
+                </motion.div>
+
+                <div className="px-4 pb-8 flex flex-col gap-4">
+                  {/* header */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">Edit & Confirm</h2>
+                    <button type="button" onClick={() => setSheetOpen(false)} className="text-sm" style={{ color: 'var(--muted)' }}>Cancel</button>
+                  </div>
+
+                  {/* type selector */}
+                  <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
+                    {TYPE_META.map(({ value, label, color }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setEdits({ ...edits, type: value })}
+                        className="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
+                        style={
+                          edits.type === value
+                            ? { background: 'var(--surface)', color, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                            : { color: 'var(--muted)' }
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* amount — centered, matching add-transaction layout */}
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <span className="font-light" style={{ color: tColor, fontSize: '2.25rem' }}>₹</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formatDisplayAmount(edits.amountStr)}
+                      onChange={(e) => { if (edits) setEdits({ ...edits, amountStr: sanitizeAmountInput(e.target.value) }) }}
+                      className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
+                      style={{ color: tColor, WebkitTextFillColor: tColor, fontSize: '2.25rem' }}
+                    />
+                    <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '2.25rem' }}>₹</span>
+                  </div>
+
+                  {/* Merchant */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>{merchantLabel.toUpperCase()}</label>
+                    <input type="text" value={edits.merchant} onChange={(e) => setEdits({ ...edits, merchant: e.target.value })} placeholder="e.g. Swiggy, Amazon" className={inputCls} style={inputStyle} />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>NOTES <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <input type="text" value={edits.description} onChange={(e) => setEdits({ ...edits, description: e.target.value })} className={inputCls} style={inputStyle} required />
+                  </div>
+
+                  {/* Date */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>DATE</label>
+                    <input type="date" value={edits.date} onChange={(e) => setEdits({ ...edits, date: e.target.value })} className={inputCls} style={inputStyle} required />
+                  </div>
+
+                  {/* Category */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>CATEGORY <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <select
+                      value={editingField === 'newCat' ? '__new__' : edits.category}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setEditingField('newCat') }
+                        else { setEdits({ ...edits, category: e.target.value }); setEditingField(null) }
+                      }}
+                      className={inputCls}
+                      style={selectStyle}
+                    >
+                      <option value="">— Select category —</option>
+                      {allCats.map((cat) => (
+                        <option key={cat} value={cat}>{cat}{cat === hint && !activeTx.category ? ' ✦' : ''}</option>
+                      ))}
+                      <option value="__new__">+ Add new…</option>
+                    </select>
+                    {editingField === 'newCat' && (
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          autoFocus type="text" placeholder="New category name" value={newCatInput}
+                          onChange={(e) => setNewCatInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCat() } if (e.key === 'Escape') setEditingField(null) }}
+                          className={`${inputCls} flex-1`} style={inputStyle}
+                        />
+                        <button type="button" onClick={handleAddCat} disabled={!newCatInput.trim()} className="px-4 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                          Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Investment (only when category = Investment) */}
+                  {edits.category === 'Investment' && (() => {
+                    const allInvestments = getAllInvestments()
+                    return (
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>INVESTMENT</label>
+                        <select
+                          value={addingInvestment ? '__new__' : edits.investmentId}
+                          onChange={(e) => {
+                            if (e.target.value === '__new__') { setAddingInvestment(true) }
+                            else { setEdits({ ...edits, investmentId: e.target.value }); setAddingInvestment(false) }
+                          }}
+                          className={inputCls}
+                          style={selectStyle}
+                        >
+                          <option value="">— Select investment —</option>
+                          {allInvestments.map((inv) => (
+                            <option key={inv.id} value={inv.id}>{inv.name}</option>
+                          ))}
+                          <option value="__new__">+ Add new…</option>
+                        </select>
+                        {addingInvestment && (
+                          <div className="flex gap-2 mt-1">
+                            <input
+                              autoFocus type="text" placeholder="Investment name" value={newInvName}
+                              onChange={(e) => setNewInvName(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddInvestment() } if (e.key === 'Escape') setAddingInvestment(false) }}
+                              className={`${inputCls} flex-1`} style={inputStyle}
+                            />
+                            <button type="button" onClick={() => void handleAddInvestment()} disabled={!newInvName.trim() || addingInvSaving} className="px-4 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: '#C99A2E', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                              {addingInvSaving ? 'Adding…' : 'Add'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  {/* Account */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls} style={labelStyle}>ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                    <select
+                      value={edits.accountId}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setAddingAccount(true) }
+                        else { setEdits({ ...edits, accountId: e.target.value }) }
+                      }}
+                      className={inputCls}
+                      style={selectStyle}
+                    >
+                      <option value="">— Select account —</option>
+                      {allAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
+                      ))}
+                      <option value="__new__">+ Add new account…</option>
+                    </select>
+                    {addingAccount && (
+                      <div className="flex flex-col gap-2 p-3 rounded-xl mt-1" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <input autoFocus type="text" placeholder="Account name" value={newAccName} onChange={(e) => setNewAccName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setAddingAccount(false) }} className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }} />
+                        <div className="flex flex-wrap gap-1.5">
+                          {(['savings', 'current', 'credit', 'wallet', 'other'] as AccountType[]).map((t) => (
+                            <button key={t} type="button" onClick={() => setNewAccType(t)} className="px-2.5 py-1 rounded-full text-xs transition-all" style={newAccType === t ? { background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                              {ACCOUNT_TYPE_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)', background: 'none', cursor: 'pointer' }}>Cancel</button>
+                          <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                            {addingAccSaving ? 'Adding…' : 'Add'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* To Account (transfer only) */}
+                  {edits.type === 'transfer' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls} style={labelStyle}>TO ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span></label>
+                      <select value={edits.toAccountId} onChange={(e) => setEdits({ ...edits, toAccountId: e.target.value })} className={inputCls} style={selectStyle}>
+                        <option value="">— Select account —</option>
+                        {allAccounts.filter((a) => a.id !== edits.accountId).map((acc) => (
+                          <option key={acc.id} value={acc.id}>{acc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Advanced toggle */}
+                  <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="self-start text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {showAdvanced ? '▲' : '▼'} Advanced
+                  </button>
+
+                  {showAdvanced && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>TIME</label>
+                        <input type="time" value={edits.time} onChange={(e) => setEdits({ ...edits, time: e.target.value })} className={inputCls} style={inputStyle} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>BANK</label>
+                        <input type="text" value={edits.bank} onChange={(e) => setEdits({ ...edits, bank: e.target.value })} className={inputCls} style={inputStyle} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls} style={labelStyle}>UPI REF</label>
+                        <input type="text" value={edits.upiRef} onChange={(e) => setEdits({ ...edits, upiRef: e.target.value })} className={`${inputCls} font-mono`} style={inputStyle} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <span className="text-sm" style={{ color: 'var(--text)' }}>Recurring transaction</span>
+                        <button type="button" onClick={() => setEdits({ ...edits, isRecurring: !edits.isRecurring })} className="relative w-10 h-6 rounded-full transition-colors shrink-0" style={{ background: edits.isRecurring ? 'var(--pb-pos)' : 'var(--border)', border: 'none', cursor: 'pointer' }} aria-pressed={edits.isRecurring}>
+                          <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: edits.isRecurring ? 'translateX(16px)' : 'translateX(0)' }} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* actions */}
+                  {renderActionButtons()}
+                </div>
+              </motion.div>
+            </>
+          )
+        })()}
+      </AnimatePresence>
+
+      {/* ── Desktop split view ── */}
+      <div
+        className="hidden lg:grid"
+        style={{
+          gridTemplateColumns: '400px 1fr',
+          marginTop: 66,
+          height: 'calc(100dvh - 66px)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Left: list */}
+        <div style={{ borderRight: '1px solid var(--pb-line)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* panel header */}
+          <div style={{ padding: '20px 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--pb-ink)' }}>Review</span>
+              <span style={{
+                background: 'var(--pb-neg)', color: '#fff', borderRadius: 99,
+                padding: '2px 9px', fontSize: 11, fontWeight: 800,
+              }}>
+                {transactions.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <button
+                type="button"
+                onClick={() => setBulkModal('reject-all')}
+                disabled={bulkLoading}
+                style={{ fontSize: 12, fontWeight: 700, color: 'var(--pb-neg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Reject all
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkModal('confirm-all')}
+                disabled={bulkLoading}
+                style={{ fontSize: 12, fontWeight: 700, color: 'var(--pb-brand)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Confirm all
+              </button>
+            </div>
+          </div>
+
+          {/* list */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {grouped.map(({ month, txs }) => (
+              <div key={month}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 22px 4px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--pb-ink-3)' }}>
+                    {formatMonthLabel(month)}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--pb-ink-3)', background: 'color-mix(in srgb, var(--pb-neg) 10%, var(--pb-surface))', borderRadius: 99, padding: '1px 7px' }}>
+                    {txs.length}
+                  </span>
+                </div>
+                {txs.map((tx) => {
+                  const active = tx.id === activeId
+                  const catColor = getCatColor(tx.category, categoryColors)
+                  const tColor = typeColor(tx.type)
+                  const isProc = loading === tx.id
+                  return (
+                    <button
+                      key={tx.id}
+                      type="button"
+                      onClick={() => setActiveId(tx.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 13, width: '100%', textAlign: 'left',
+                        padding: '14px 22px',
+                        background: active ? 'var(--pb-brand-pale)' : 'transparent',
+                        borderTop: 'none', borderRight: 'none',
+                        borderLeft: active ? '3px solid var(--pb-brand)' : '3px solid transparent',
+                        borderBottom: '1px solid var(--pb-line)',
+                        cursor: 'pointer', opacity: isProc ? 0.5 : 1,
+                      }}
+                    >
+                      <div style={{ width: 10, height: 10, borderRadius: 99, flexShrink: 0, background: catColor }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--pb-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {tx.merchant || tx.description}
+                          </span>
+                          <ReviewTypeBadge type={tx.type} small />
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--pb-ink-3)', marginBottom: 1 }}>
+                          {tx.category && <span style={{ color: catColor, fontWeight: 700 }}>{tx.category}</span>}
+                          {tx.category && tx.description && <span> · </span>}
+                          <span>{tx.description}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--pb-ink-3)' }}>
+                          {formatDate(tx.date)}{tx.account_id ? ' · ' + (allAccounts.find((a) => a.id === tx.account_id)?.name ?? '') : ''}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-space-mono, monospace)', fontWeight: 700, fontSize: 14.5, color: tColor, flexShrink: 0 }}>
+                        {formatDisplay(tx.amount, tx.type)}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: detail */}
+        <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '28px 40px' }}>
+          {activeTx && edits && (
+            <>
+              {/* header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const types: TransactionType[] = ['debit', 'credit', 'transfer']
+                      const next = types[(types.indexOf(edits.type) + 1) % types.length]
+                      setEdits({ ...edits, type: next })
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <ReviewTypeBadge type={edits.type} />
+                  </button>
+                  <span style={{ fontSize: 13, color: 'var(--pb-ink-3)' }}>{activeIdx + 1} of {transactions.length}</span>
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--pb-ink-3)' }}>{formatDate(activeTx.date)}</span>
+              </div>
+
+              {/* amount */}
+              <div style={{ margin: '8px 0 20px' }}>
+                {renderAmountHeader(true)}
+              </div>
+
+              {/* fields card */}
+              <div style={{
+                background: 'var(--pb-surface)', border: '1px solid var(--pb-line)',
+                borderRadius: 16, padding: '0 22px', marginBottom: 22,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+              }}>
+                {renderEditFields(true)}
+                <div style={{ height: 1 }} />
+              </div>
+
+              <div style={{ flex: 1 }} />
+
+              {/* actions */}
+              <div style={{ display: 'flex', gap: 14 }}>
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  disabled={isLoading}
+                  style={{
+                    padding: '14px 30px', borderRadius: 14, fontSize: 15, fontWeight: 700,
+                    color: 'var(--pb-neg)',
+                    border: '1.5px solid color-mix(in srgb, var(--pb-neg) 20%, var(--pb-surface))',
+                    background: 'color-mix(in srgb, var(--pb-neg) 8%, var(--pb-surface))',
+                    cursor: 'pointer', opacity: isLoading ? 0.5 : 1,
+                  }}
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={!(edits && isTransactionConfirmable(edits)) || isLoading}
+                  style={{
+                    flex: 1, padding: '14px 0', borderRadius: 14, fontSize: 15, fontWeight: 700,
+                    color: '#fff', background: 'var(--pb-brand)', textAlign: 'center',
+                    boxShadow: '0 8px 18px color-mix(in srgb, var(--pb-brand) 35%, transparent)',
+                    border: 'none', cursor: 'pointer',
+                    opacity: (!(edits && isTransactionConfirmable(edits)) || isLoading) ? 0.5 : 1,
+                  }}
+                >
+                  {isLoading ? 'Saving…' : 'Confirm & next →'}
+                </button>
+              </div>
+
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Bulk modals ── */}
+      <ConfirmModal
+        open={bulkModal === 'confirm-all'}
+        title={`Confirm all ${transactions.length} transactions?`}
+        message="All pending transactions will be confirmed with their current values."
+        confirmLabel="Confirm all"
+        confirmColor="var(--pb-brand)"
+        onConfirm={handleBulkConfirm}
+        onCancel={() => setBulkModal(null)}
+      />
+      <ConfirmModal
+        open={bulkModal === 'reject-all'}
+        title={`Reject all ${transactions.length} transactions?`}
+        message="All pending transactions will be permanently deleted."
+        confirmLabel="Reject all"
+        confirmColor="var(--pb-neg)"
+        onConfirm={handleBulkReject}
+        onCancel={() => setBulkModal(null)}
+      />
+    </>
+  )
+}

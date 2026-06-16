@@ -1,0 +1,624 @@
+﻿'use client'
+
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
+import { OVERLAY_ANIM, SHEET_MOBILE_ANIM, DIALOG_ANIM } from '@/lib/modal-animations'
+import { useScrollLock } from '@/lib/hooks/useScrollLock'
+import { useIsMobile } from '@/lib/hooks/useIsMobile'
+import { today } from '@/lib/utils'
+import { insertTransaction } from '@/app/actions/transactions'
+import { addCategory } from '@/app/actions/categories'
+import { createAccount } from '@/app/actions/accounts'
+import { createInvestment } from '@/app/actions/investments'
+import type { TransactionType } from '@paisa-buddy/shared/types/transaction'
+import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
+import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
+import type { InvestmentWithTotal } from '@/lib/db/types'
+import ImportTab from '@/components/ImportTab'
+import { parseAmountToPaise, formatDisplayAmount } from '@paisa-buddy/shared/logic/amount'
+import { getSettlementFromAccounts, getSettlementToAccounts } from '@paisa-buddy/shared/logic/settlement'
+import { useTransactionForm } from '@/lib/hooks/useTransactionForm'
+import { useSettlementEffects } from '@/lib/hooks/useSettlementEffects'
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  categories: string[]
+  recentCategories?: string[]
+  accounts: Account[]
+  investments: InvestmentWithTotal[]
+  month?: string // YYYY-MM — defaults to current month
+  initialCategory?: string
+  initialInvestmentId?: string
+}
+
+const TYPES: { value: TransactionType; label: string; color: string }[] = [
+  { value: 'credit', label: 'Credit', color: 'var(--pb-pos)' },
+  { value: 'debit', label: 'Debit', color: 'var(--pb-neg)' },
+  { value: 'transfer', label: 'Transfer', color: 'var(--pb-transfer)' },
+]
+
+function defaultDateForMonth(month?: string): string {
+  const current = today()
+  if (!month || current.startsWith(month)) return current
+  return `${month}-01`
+}
+
+export default function TransactionModal({ open, onClose, categories, recentCategories, accounts, investments: initialInvestments, month, initialCategory, initialInvestmentId }: Props) {
+  useScrollLock(open)
+  const isMobile = useIsMobile()
+  const dragY = useMotionValue(0)
+  const [activeTab, setActiveTab] = useState<'manual' | 'import'>('manual')
+  const [addingCat, setAddingCat] = useState(false)
+  const [newCatInput, setNewCatInput] = useState('')
+  const [addingAccount, setAddingAccount] = useState(false)
+  const [newAccName, setNewAccName] = useState('')
+  const [newAccType, setNewAccType] = useState<AccountType>('savings')
+  const [addingAccSaving, setAddingAccSaving] = useState(false)
+  const [addingInvestment, setAddingInvestment] = useState(false)
+  const [newInvName, setNewInvName] = useState('')
+  const [addingInvSaving, setAddingInvSaving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const form = useTransactionForm(accounts, initialInvestments, categories)
+  const { type, amountStr, merchant, category, accountId, toAccountId, date, investmentId } = form.fields
+  const notes = form.fields.description
+  const allAccounts = form.allAccounts
+  const allInvestments = form.allInvestments
+
+  const setType = (v: TransactionType) => form.setField('type', v)
+  const setMerchant = (v: string) => form.setField('merchant', v)
+  const setCategory = (v: string) => form.setField('category', v)
+  const setAccountId = (v: string) => form.setField('accountId', v)
+  const setToAccountId = (v: string) => form.setField('toAccountId', v)
+  const setNotes = (v: string) => form.setField('description', v)
+  const setDate = (v: string) => form.setField('date', v)
+  const setInvestmentId = (v: string) => form.setField('investmentId', v)
+
+  useSettlementEffects({
+    category,
+    type,
+    accountId,
+    toAccountId,
+    accounts: allAccounts,
+    setField: form.setField,
+  })
+  const amountRef = useRef<HTMLInputElement>(null)
+  const tabContentRef = useRef<HTMLDivElement>(null)
+  const [tabHeight, setTabHeight] = useState<number | 'auto'>('auto')
+
+  // Set baseline pixel height synchronously before first paint
+  useLayoutEffect(() => {
+    if (tabContentRef.current) setTabHeight(tabContentRef.current.offsetHeight)
+  }, [])
+
+  // Keep height in sync with content — covers both tab switches and
+  // ImportTab's internal step changes (account → upload → mapping → done)
+  useEffect(() => {
+    const el = tabContentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setTabHeight(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        category: initialCategory ?? '',
+        investmentId: initialInvestmentId ?? '',
+        date: defaultDateForMonth(month),
+      })
+      setActiveTab('manual')
+      setAddingCat(false)
+      setNewCatInput('')
+      setAddingAccount(false)
+      setNewAccName('')
+      setNewAccType('savings')
+      setAddingInvestment(false)
+      setNewInvName('')
+      setTimeout(() => amountRef.current?.focus(), 100)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const paise = parseAmountToPaise(amountStr)
+    const needsToAccount = type === 'transfer'
+    if (!paise || paise <= 0 || !merchant.trim() || !category || !accountId || (needsToAccount && !toAccountId)) return
+    setSubmitting(true)
+    try {
+      await insertTransaction({
+        type,
+        amount: paise,
+        currency: 'INR',
+        date,
+        time: null,
+        merchant: merchant.trim(),
+        description: notes.trim(),
+        upi_ref: null,
+        bank: null,
+        category,
+        account_id: accountId,
+        to_account_id: needsToAccount ? toAccountId : null,
+        investment_id: category === 'Investment' && investmentId ? investmentId : null,
+        source: 'manual',
+        raw_ai_response: null,
+        confidence: null,
+        reviewed: true,
+        is_recurring: false,
+        recurrence_group: null,
+      })
+      onClose()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleAddAccount() {
+    const name = newAccName.trim()
+    if (!name) return
+    setAddingAccSaving(true)
+    try {
+      const newAcc = await createAccount({ name, type: newAccType, bank: null, currency: 'INR', opening_balance: 0 })
+      form.addExtraAccount(newAcc)
+      setAddingAccount(false)
+      setNewAccName('')
+      setNewAccType('savings')
+    } finally {
+      setAddingAccSaving(false)
+    }
+  }
+
+  async function handleAddInvestment() {
+    const name = newInvName.trim()
+    if (!name) return
+    setAddingInvSaving(true)
+    try {
+      const newInv = await createInvestment(name)
+      form.addExtraInvestment({ ...newInv, total_invested: 0 })
+      setAddingInvestment(false)
+      setNewInvName('')
+    } finally { setAddingInvSaving(false) }
+  }
+
+  async function handleAddCustomCategory() {
+    const name = newCatInput.trim()
+    if (!name) return
+    await addCategory(name)
+    form.addExtraCat(name)
+    setAddingCat(false)
+    setNewCatInput('')
+  }
+
+  const isSettlement = category === 'Settlement'
+  const fromAccounts = isSettlement ? getSettlementFromAccounts(allAccounts) : allAccounts
+  const toAccounts = isSettlement
+    ? getSettlementToAccounts(allAccounts, accountId)
+    : allAccounts.filter((a) => a.id !== accountId)
+
+  const activeType = TYPES.find((t) => t.value === type)!
+  const merchantLabel = type === 'credit' ? 'SENDER' : type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'
+  const merchantPlaceholder = type === 'credit' ? 'Who sent this?' : type === 'transfer' ? 'Which account?' : 'Who did you pay?'
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    form.handleAmountChange(e.target.value)
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-50"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            {...OVERLAY_ANIM}
+            onClick={onClose}
+          />
+
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
+            <motion.div
+              className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
+              style={isMobile ? { background: 'var(--surface)', y: dragY } : { background: 'var(--surface)' }}
+              {...(isMobile
+                ? { ...SHEET_MOBILE_ANIM, transition: { ...SHEET_MOBILE_ANIM.transition, layout: { type: 'spring', damping: 36, stiffness: 340 } } }
+                : { ...DIALOG_ANIM, transition: { layout: { type: 'spring', damping: 36, stiffness: 340 } } }
+              )}
+            >
+              <motion.div
+                className="flex justify-center pt-3 pb-4 md:hidden touch-none"
+                style={{ cursor: 'grab' }}
+                drag={isMobile ? 'y' : false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0}
+                onDrag={(_, info) => { dragY.set(Math.max(0, info.offset.y)) }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 80 || info.velocity.y > 400) {
+                    onClose()
+                  } else {
+                    animate(dragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                  }
+                }}
+              >
+                <motion.div
+                  className="w-10 h-1 rounded-full"
+                  style={{ background: 'var(--border)' }}
+                  whileDrag={{ scaleX: 0.6 }}
+                />
+              </motion.div>
+
+              <div style={{ maxHeight: 'calc(90dvh - 24px)', overflowY: 'auto' }}>
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
+              {(['manual', 'import'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className="flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize"
+                  style={
+                    activeTab === tab
+                      ? { background: 'var(--surface)', color: 'var(--text)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                      : { color: 'var(--muted)' }
+                  }
+                >
+                  {tab === 'manual' ? 'Manual' : 'Import File'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <motion.div
+            initial={false}
+            animate={{ height: tabHeight }}
+            transition={{ type: 'spring', damping: 36, stiffness: 340 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div ref={tabContentRef}>
+          {activeTab === 'import' ? (
+            <div className="px-4 pb-8 pt-3">
+              <ImportTab accounts={accounts} onClose={onClose} />
+            </div>
+          ) : (
+          <form onSubmit={handleSubmit} className="px-4 pb-8 pt-2 flex flex-col gap-5">
+            <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--bg)' }}>
+              {TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setType(t.value)}
+                  className="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
+                  style={
+                    type === t.value
+                      ? { background: 'var(--surface)', color: t.color, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                      : { color: 'var(--muted)' }
+                  }
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-2">
+              <span className="font-light" style={{ color: activeType.color, fontSize: '3.5rem' }}>₹</span>
+              <input
+                ref={amountRef}
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={formatDisplayAmount(amountStr)}
+                onChange={handleAmountChange}
+                className="font-semibold bg-transparent border-none outline-none w-64 text-center tabular-nums"
+                style={{ color: activeType.color, WebkitTextFillColor: activeType.color, fontSize: '3.5rem' }}
+              />
+              <span className="font-light invisible select-none" aria-hidden="true" style={{ fontSize: '3.5rem' }}>₹</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                CATEGORY
+              </label>
+              {recentCategories && recentCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  {recentCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        category === cat
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(cat)}
+                    className="px-3 py-1.5 rounded-full text-sm transition-all"
+                    style={
+                      category === cat
+                        ? { background: activeType.color, color: '#fff' }
+                        : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                    }
+                  >
+                    {cat}
+                  </button>
+                ))}
+                {addingCat ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Category name"
+                      value={newCatInput}
+                      onChange={(e) => setNewCatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleAddCustomCategory() }
+                        if (e.key === 'Escape') setAddingCat(false)
+                      }}
+                      className="px-3 py-1.5 rounded-full text-sm border outline-none w-32"
+                      style={{ background: 'var(--bg)', color: 'var(--text)', borderColor: 'var(--border)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomCategory}
+                      className="px-2 py-1.5 rounded-full text-sm"
+                      style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingCat(true)}
+                    className="px-3 py-1.5 rounded-full text-sm"
+                    style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}
+                  >
+                    + Custom
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Investment (shown when category = Investment) */}
+            {category === 'Investment' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>INVESTMENT</label>
+                {allInvestments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {allInvestments.map((inv) => (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        onClick={() => setInvestmentId(inv.id === investmentId ? '' : inv.id)}
+                        className="px-3 py-1.5 rounded-full text-sm transition-all"
+                        style={
+                          investmentId === inv.id
+                            ? { background: '#C99A2E', color: '#fff' }
+                            : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                        }
+                      >
+                        {inv.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {addingInvestment ? (
+                  <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Investment name (e.g. Zerodha)"
+                      value={newInvName}
+                      onChange={(e) => setNewInvName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setAddingInvestment(false) }}
+                      className="px-3 py-2 rounded-lg text-sm outline-none"
+                      style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setAddingInvestment(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={handleAddInvestment} disabled={!newInvName.trim() || addingInvSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: '#C99A2E', color: '#fff' }}>
+                        {addingInvSaving ? 'Adding…' : 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingInvestment(true)}
+                    className="self-start px-3 py-1.5 rounded-full text-sm"
+                    style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}
+                  >
+                    + Add investment
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Account */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span>
+              </label>
+              {fromAccounts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {fromAccounts.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setAccountId(acc.id === accountId ? '' : acc.id)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        accountId === acc.id
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {acc.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {addingAccount ? (
+                <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Account name"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setAddingAccount(false) }}
+                    className="px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['savings', 'current', 'credit', 'wallet', 'other'] as AccountType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNewAccType(t)}
+                        className="px-2.5 py-1 rounded-full text-xs transition-all"
+                        style={newAccType === t ? { background: 'var(--pb-brand)', color: '#fff' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                      >
+                        {ACCOUNT_TYPE_LABELS[t]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setAddingAccount(false)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                      Cancel
+                    </button>
+                    <button type="button" onClick={handleAddAccount} disabled={!newAccName.trim() || addingAccSaving} className="flex-1 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ background: 'var(--pb-brand)', color: '#fff' }}>
+                      {addingAccSaving ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingAccount(true)}
+                  className="self-start px-3 py-1.5 rounded-full text-sm"
+                  style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px dashed var(--border)' }}
+                >
+                  + Add account
+                </button>
+              )}
+            </div>
+
+            {/* To Account (transfers only) */}
+            {type === 'transfer' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                  TO ACCOUNT <span style={{ color: 'var(--pb-neg)' }}>*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {toAccounts.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setToAccountId(acc.id === toAccountId ? '' : acc.id)}
+                      className="px-3 py-1.5 rounded-full text-sm transition-all"
+                      style={
+                        toAccountId === acc.id
+                          ? { background: activeType.color, color: '#fff' }
+                          : { background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {acc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                {merchantLabel} <span style={{ color: 'var(--pb-neg)' }}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder={merchantPlaceholder}
+                value={merchant}
+                onChange={(e) => setMerchant(e.target.value)}
+                readOnly={type === 'transfer' && !!toAccountId}
+                className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{
+                  background: type === 'transfer' && toAccountId ? 'var(--bg)' : 'var(--bg)',
+                  color: type === 'transfer' && toAccountId ? 'var(--muted)' : 'var(--text)',
+                  border: '1px solid var(--border)',
+                  cursor: type === 'transfer' && toAccountId ? 'default' : undefined,
+                }}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                NOTES
+              </label>
+              <input
+                type="text"
+                placeholder="What was this for?"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                DATE
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!amountStr || !merchant.trim() || !category || !accountId || (type === 'transfer' && !toAccountId) || submitting}
+              className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+              style={{ background: activeType.color, color: '#fff' }}
+            >
+              {submitting ? 'Saving…' : 'Add Transaction'}
+            </button>
+          </form>
+          )}
+            </div>
+          </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
+
