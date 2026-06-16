@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -69,6 +70,7 @@ export function TransactionDetailSheet({
   const [isRecurring, setIsRecurring] = useState(false)
 
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pendingDate, setPendingDate] = useState(new Date())
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -255,6 +257,7 @@ export function TransactionDetailSheet({
                     onChange: (_, selected) => { if (selected) setDateStr(selected.toISOString().slice(0, 10)) },
                   })
                 } else {
+                  setPendingDate(formDate)
                   setShowDatePicker(true)
                 }
               }}
@@ -263,15 +266,6 @@ export function TransactionDetailSheet({
                 {date ? new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
               </Text>
             </Pressable>
-            {showDatePicker && Platform.OS === 'ios' && (
-              <DateTimePicker
-                value={formDate}
-                mode="date"
-                display="inline"
-                onChange={(_, selected) => { if (selected) setDateStr(selected.toISOString().slice(0, 10)) }}
-                maximumDate={new Date()}
-              />
-            )}
           </View>
           <View style={s.colField}>
             <Text style={s.label}>TIME</Text>
@@ -502,6 +496,32 @@ export function TransactionDetailSheet({
           }
         </Pressable>
       </ScrollView>
+
+      {/* iOS date picker modal */}
+      {Platform.OS === 'ios' && (
+        <Modal visible={showDatePicker} transparent animationType="fade">
+          <Pressable style={s.modalOverlay} onPress={() => setShowDatePicker(false)}>
+            <View style={s.modalCard}>
+              <View style={s.pickerWrapper}>
+                <DateTimePicker
+                  value={pendingDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={(_, selected) => { if (selected) setPendingDate(selected) }}
+                  maximumDate={new Date()}
+                  textColor={C.ink}
+                />
+              </View>
+              <Pressable
+                style={s.modalDoneBtn}
+                onPress={() => { setDateStr(pendingDate.toISOString().slice(0, 10)); setShowDatePicker(false) }}
+              >
+                <Text style={s.modalDoneText}>Done</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </Sheet>
   )
 }
@@ -673,4 +693,29 @@ const s = StyleSheet.create({
   // Delete link
   deleteLink: { alignItems: 'center', paddingVertical: 4 },
   deleteLinkText: { fontSize: 13, fontFamily: F.regular, color: C.neg },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  pickerWrapper: {
+    alignItems: 'center',
+    backgroundColor: C.surface,
+  },
+  modalDoneBtn: {
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: C.brand,
+  },
+  modalDoneText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 })

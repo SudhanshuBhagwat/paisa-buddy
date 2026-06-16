@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -77,6 +78,7 @@ export function AddTransactionSheet({
   const [toAccountId, setToAccountId] = useState('')
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pendingDate, setPendingDate] = useState(new Date())
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -433,7 +435,7 @@ export function AddTransactionSheet({
         <View style={s.field}>
           <Text style={s.label}>DATE</Text>
           <Pressable
-            style={s.datePressable}
+            style={s.textInput}
             onPress={() => {
               if (Platform.OS === 'android') {
                 DateTimePickerAndroid.open({
@@ -443,6 +445,7 @@ export function AddTransactionSheet({
                   onChange: (_, selected) => { if (selected) setDate(selected) },
                 })
               } else {
+                setPendingDate(date)
                 setShowDatePicker(true)
               }
             }}
@@ -451,15 +454,6 @@ export function AddTransactionSheet({
               {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </Text>
           </Pressable>
-          {showDatePicker && Platform.OS === 'ios' && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="inline"
-              onChange={(_, selected) => { if (selected) setDate(selected) }}
-              maximumDate={new Date()}
-            />
-          )}
         </View>
 
         {/* ── Submit ── */}
@@ -474,6 +468,32 @@ export function AddTransactionSheet({
           }
         </Pressable>
       </ScrollView>
+
+      {/* iOS date picker modal */}
+      {Platform.OS === 'ios' && (
+        <Modal visible={showDatePicker} transparent animationType="fade">
+          <Pressable style={s.modalOverlay} onPress={() => setShowDatePicker(false)}>
+            <View style={s.modalCard}>
+              <View style={s.pickerWrapper}>
+                <DateTimePicker
+                  value={pendingDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={(_, selected) => { if (selected) setPendingDate(selected) }}
+                  maximumDate={new Date()}
+                  textColor={C.ink}
+                />
+              </View>
+              <Pressable
+                style={s.modalDoneBtn}
+                onPress={() => { setDate(pendingDate); setShowDatePicker(false) }}
+              >
+                <Text style={s.modalDoneText}>Done</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </Sheet>
   )
 }
@@ -636,14 +656,6 @@ const s = StyleSheet.create({
   },
   textInputReadOnly: { color: C.ink3 },
 
-  datePressable: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
   dateText: { fontSize: 14, fontFamily: F.regular, color: C.ink },
 
   // py-3.5 = 14, rounded-xl = 12, text-sm = 14
@@ -653,4 +665,29 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   submitBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  pickerWrapper: {
+    alignItems: 'center',
+    backgroundColor: C.surface,
+  },
+  modalDoneBtn: {
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: C.brand,
+  },
+  modalDoneText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 })
