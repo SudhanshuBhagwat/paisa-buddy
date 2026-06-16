@@ -57,6 +57,7 @@ export function SettingsScreen() {
   const [nameSaved, setNameSaved] = useState(false)
   const [incomeInput, setIncomeInput] = useState('')
   const [incomeSaved, setIncomeSaved] = useState(false)
+  const [email, setEmail] = useState<string | null>(null)
 
   // UPI
   const [newUpi, setNewUpi] = useState('')
@@ -72,10 +73,11 @@ export function SettingsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetchSettings()
+      const [d, { data: { session } }] = await Promise.all([fetchSettings(), supabase.auth.getSession()])
       setData(d)
       setNameInput(d.displayName ?? '')
       setIncomeInput(d.expectedMonthlyIncome > 0 ? String(Math.round(d.expectedMonthlyIncome / 100)) : '')
+      setEmail(session?.user?.email ?? null)
     } catch {
       setData(null)
     }
@@ -269,8 +271,12 @@ export function SettingsScreen() {
                         returnKeyType="done"
                         onSubmitEditing={handleSaveName}
                       />
+                      <View style={s.txPill}>
+                        <Text style={s.txPillText}>{data?.txCount ?? 0} transactions</Text>
+                      </View>
                       {nameSaved && <Text style={s.savedBadge}>Saved</Text>}
                     </View>
+                    {email ? <Text style={s.emailText} numberOfLines={1}>{email}</Text> : null}
                   </View>
                 </View>
               </Card>
@@ -353,12 +359,14 @@ export function SettingsScreen() {
                     <View key={cat.name}>
                       <View style={s.catRow}>
                         <View style={[s.catDot, { backgroundColor: cat.color }]} />
-                        <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
-                        {cat.transactionCount > 0 && (
-                          <View style={s.catBadge}>
-                            <Text style={s.catBadgeText}>{cat.transactionCount} tx</Text>
-                          </View>
-                        )}
+                        <View style={s.catNameGroup}>
+                          <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
+                          {cat.transactionCount > 0 && (
+                            <View style={s.catBadge}>
+                              <Text style={s.catBadgeText}>{cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}</Text>
+                            </View>
+                          )}
+                        </View>
                         <Pressable onPress={() => handleRemoveCategory(cat)} hitSlop={8}>
                           <Text style={s.removeText}>Remove</Text>
                         </Pressable>
@@ -457,6 +465,9 @@ const s = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nameInput: { flex: 1, fontSize: 16, fontFamily: F.bold, color: C.ink, padding: 0 },
   savedBadge: { fontSize: 11.5, fontFamily: F.semibold, color: C.pos, flexShrink: 0 },
+  emailText: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 2 },
+  txPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, flexShrink: 0 },
+  txPillText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
 
   // UPI / shared row patterns
   emptyRow: { padding: 14 },
@@ -472,7 +483,8 @@ const s = StyleSheet.create({
   // Categories
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, paddingHorizontal: 16 },
   catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-  catName: { flex: 1, fontSize: 13.5, fontFamily: F.regular, color: C.ink },
+  catNameGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  catName: { fontSize: 13.5, fontFamily: F.regular, color: C.ink, flexShrink: 1 },
   catBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
   catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
   predefined: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   RefreshControl,
@@ -41,6 +42,7 @@ import {
 } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
+import { deleteTransaction } from '../lib/api'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
@@ -104,11 +106,13 @@ function TxItem({
   accountMap,
   catColors,
   onPress,
+  onDelete,
 }: {
   tx: Transaction
   accountMap: Record<string, string>
   catColors: Record<string, string>
   onPress: () => void
+  onDelete: () => void
 }) {
   const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
@@ -121,13 +125,15 @@ function TxItem({
         <Text style={ti.name} numberOfLines={1}>
           {tx.merchant || tx.description || '—'}
         </Text>
-        <Text style={ti.sub} numberOfLines={1}>
-          {tx.category ? (
-            <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
-          ) : null}
-          {tx.category && accountName ? ' · ' : ''}
-          {accountName ?? ''}
-        </Text>
+        {tx.reviewed && (
+          <Text style={ti.sub} numberOfLines={1}>
+            {tx.category ? (
+              <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
+            ) : null}
+            {tx.category && accountName ? ' · ' : ''}
+            {accountName ?? ''}
+          </Text>
+        )}
       </View>
       {tx.is_recurring && <Text style={ti.recurring}>↻</Text>}
       <View style={ti.right}>
@@ -135,6 +141,14 @@ function TxItem({
         <Text style={[ti.amount, { color: typeColor }]}>
           {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
         </Text>
+        <Pressable onPress={onDelete} hitSlop={8} style={ti.deleteBtn}>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Polyline points="3 6 5 6 21 6" />
+            <Path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <Path d="M10 11v6M14 11v6" />
+            <Path d="M9 6V4h6v2" />
+          </Svg>
+        </Pressable>
       </View>
     </Pressable>
   )
@@ -158,6 +172,7 @@ const ti = StyleSheet.create({
   right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
   unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.neg },
   amount: { fontSize: 14, fontFamily: F.monoBold },
+  deleteBtn: { padding: 2, marginLeft: 2 },
 })
 
 // ─── HomeScreen ────────────────────────────────────────────────────────────────
@@ -457,6 +472,22 @@ export function HomeScreen() {
                   accountMap={accountMap}
                   catColors={catColors}
                   onPress={() => setDetailTx(tx)}
+                  onDelete={() => {
+                    Alert.alert('Delete transaction?', 'This cannot be undone.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete', style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteTransaction(tx.id)
+                            removeTx(tx.id)
+                          } catch {
+                            Alert.alert('Error', 'Could not delete transaction.')
+                          }
+                        },
+                      },
+                    ])
+                  }}
                 />
               ))}
             </View>
