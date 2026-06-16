@@ -14,20 +14,21 @@ import Svg, { Circle, Path } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { requestOtp, confirmOtp } from '../lib/api'
+import { C, F, RADIUS } from '../lib/tokens'
 
 function BuddySVG({ size = 64 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill="#1A936F" />
+      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={C.brand} />
       <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
-      <Path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="32" cy="36" r="22" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
-      <Circle cx="32" cy="36" r="17" stroke="#1A936F" strokeWidth="1.5" strokeOpacity="0.3" />
+      <Path d="M32 16 L 32 11" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke={C.brand} strokeWidth="1.5" strokeOpacity="0.3" />
       <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
       <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <Circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
-      <Circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
-      <Path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Circle cx="25.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Circle cx="38.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Path d="M25 41 Q32 47 39 41" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
     </Svg>
   )
 }
@@ -35,15 +36,15 @@ function BuddySVG({ size = 64 }: { size?: number }) {
 function Sprouts() {
   return (
     <Svg width={120} height={60} viewBox="0 0 120 60" fill="none" opacity={0.18}>
-      <Path d="M20 50 C20 35 10 30 5 35 C2 40 10 48 20 50Z" fill="#1A936F" />
+      <Path d="M20 50 C20 35 10 30 5 35 C2 40 10 48 20 50Z" fill={C.brand} />
       <Path d="M20 50 C20 36 28 32 32 36 C34 40 27 49 20 50Z" fill="#2BA77F" />
-      <Path d="M20 55 L20 47" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Path d="M60 45 C60 32 52 28 48 32 C46 36 53 44 60 45Z" fill="#1A936F" />
+      <Path d="M20 55 L20 47" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M60 45 C60 32 52 28 48 32 C46 36 53 44 60 45Z" fill={C.brand} />
       <Path d="M60 45 C60 33 67 30 70 33 C72 37 66 45 60 45Z" fill="#2BA77F" />
-      <Path d="M60 50 L60 42" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Path d="M100 48 C100 36 92 32 88 36 C86 39 93 47 100 48Z" fill="#1A936F" />
+      <Path d="M60 50 L60 42" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M100 48 C100 36 92 32 88 36 C86 39 93 47 100 48Z" fill={C.brand} />
       <Path d="M100 48 C100 37 107 34 110 37 C111 40 105 48 100 48Z" fill="#2BA77F" />
-      <Path d="M100 53 L100 45" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M100 53 L100 45" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   )
 }
@@ -85,7 +86,6 @@ export function LoginScreen() {
         type: 'magiclink',
       })
       if (sessionErr) setError(sessionErr.message)
-      // On success: onAuthStateChange in RootNavigator handles navigation
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code.')
     } finally {
@@ -123,17 +123,18 @@ export function LoginScreen() {
           </View>
 
           {/* Form */}
-          <View style={s.form}>{step === 'email' ? (
+          <View style={s.form}>
+            {step === 'email' ? (
               <>
                 <Text style={s.formTitle}>Sign in</Text>
                 <Text style={s.formSub}>We'll send a one-time code to your email.</Text>
                 <View style={s.field}>
-                  <Text style={s.label}>Email address</Text>
+                  <Text style={s.fieldLabel}>Email address</Text>
                   <View style={s.inputBox}>
                     <TextInput
                       style={s.input}
                       placeholder="you@example.com"
-                      placeholderTextColor="#94A199"
+                      placeholderTextColor={C.ink3}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -176,12 +177,12 @@ export function LoginScreen() {
                   <Text style={s.bold}>{email.trim().toLowerCase()}</Text>
                 </Text>
                 <View style={s.field}>
-                  <Text style={s.label}>Login code</Text>
+                  <Text style={s.fieldLabel}>Login code</Text>
                   <View style={s.inputBox}>
                     <TextInput
                       style={[s.input, s.otpInput]}
                       placeholder="123456"
-                      placeholderTextColor="#94A199"
+                      placeholderTextColor={C.ink3}
                       value={otp}
                       onChangeText={setOtp}
                       keyboardType="number-pad"
@@ -211,7 +212,6 @@ export function LoginScreen() {
             )}
           </View>
 
-          {/* Terms — inside scroll so keyboard never covers it */}
           <View style={[s.termsWrap, { paddingBottom: bottomPad }]}>
             <Text style={s.terms}>
               By continuing, you agree to our{' '}
@@ -227,63 +227,58 @@ export function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F4F6F2' },
+  root: { flex: 1, backgroundColor: C.bg },
   kav: { flex: 1 },
-  scroll: {
-    paddingHorizontal: 32,
-    paddingTop: 160,
-  },
+  scroll: { paddingHorizontal: 32, paddingTop: 160 },
 
-  // Hero
   hero: { alignItems: 'center', marginBottom: 36 },
   buddyWrap: { marginBottom: 8 },
   sproutsPos: { position: 'absolute', top: -20, left: -44, zIndex: 0 },
   wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 12 },
   wordmarkPaisa: {
     fontSize: 24,
-    fontWeight: '800',
+    fontFamily: F.extrabold,
     letterSpacing: -0.48,
-    color: '#16201A',
+    color: C.ink,
   },
   wordmarkBuddy: {
     fontSize: 24,
-    fontWeight: '800',
+    fontFamily: F.extrabold,
     letterSpacing: -0.48,
-    color: '#1A936F',
+    color: C.brand,
   },
-  tagline: { fontSize: 14, color: '#94A199', marginTop: 8, textAlign: 'center' },
+  tagline: { fontSize: 14, fontFamily: F.regular, color: C.ink3, marginTop: 8, textAlign: 'center' },
 
-  // Form
   form: { width: '100%' },
-  formTitle: { fontSize: 22, fontWeight: '800', color: '#16201A', marginBottom: 6 },
-  formSub: { fontSize: 13.5, color: '#94A199', marginBottom: 22, lineHeight: 19 },
-  bold: { color: '#16201A', fontWeight: '700' },
+  formTitle: { fontSize: 22, fontFamily: F.extrabold, color: C.ink, marginBottom: 6 },
+  formSub: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3, marginBottom: 22, lineHeight: 19 },
+  bold: { fontFamily: F.bold, color: C.ink },
   field: { marginBottom: 16 },
-  label: {
+  fieldLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#94A199',
+    fontFamily: F.bold,
+    color: C.ink3,
     textTransform: 'uppercase',
     letterSpacing: 0.48,
     marginBottom: 8,
   },
   inputBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: '#E7ECE5',
+    borderColor: C.line,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
-  input: { fontSize: 15, color: '#16201A', padding: 0 },
-  otpInput: { fontSize: 20, letterSpacing: 5 },
+  input: { fontSize: 15, fontFamily: F.regular, color: C.ink, padding: 0 },
+  otpInput: { fontSize: 20, fontFamily: F.mono, letterSpacing: 5 },
   btn: {
-    backgroundColor: '#1A936F',
-    borderRadius: 14,
+    backgroundColor: C.brand,
+    borderRadius: RADIUS,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#1A936F',
+    shadowColor: C.brand,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -291,16 +286,14 @@ const s = StyleSheet.create({
   },
   btnOff: { opacity: 0.5 },
   btnPress: { opacity: 0.85 },
-  btnText: { color: '#ffffff', fontSize: 15.5, fontWeight: '700' },
-  err: { fontSize: 12, color: '#DB5A4B', marginTop: 6 },
+  btnText: { color: '#ffffff', fontSize: 15.5, fontFamily: F.bold },
+  err: { fontSize: 12, fontFamily: F.regular, color: C.neg, marginTop: 6 },
 
-  // OTP header
   otpHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
-  backArrow: { fontSize: 20, color: '#94A199', lineHeight: 26 },
-  otpTitle: { fontSize: 22, fontWeight: '800', color: '#16201A' },
+  backArrow: { fontSize: 20, fontFamily: F.regular, color: C.ink3, lineHeight: 26 },
+  otpTitle: { fontSize: 22, fontFamily: F.extrabold, color: C.ink },
 
-  // Terms
   termsWrap: { paddingHorizontal: 32, paddingTop: 16 },
-  terms: { fontSize: 12, color: '#94A199', textAlign: 'center', lineHeight: 18 },
-  termsLink: { color: '#1A936F', fontWeight: '600' },
+  terms: { fontSize: 12, fontFamily: F.regular, color: C.ink3, textAlign: 'center', lineHeight: 18 },
+  termsLink: { fontFamily: F.semibold, color: C.brand },
 })

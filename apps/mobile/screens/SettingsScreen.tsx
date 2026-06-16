@@ -2,6 +2,7 @@ import React from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
+import { C, F, RADIUS } from '../lib/tokens'
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
@@ -31,14 +32,14 @@ export function SettingsScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F4F6F2', paddingHorizontal: 20 },
-  heading: { fontSize: 22, fontWeight: '800', color: '#16201A', marginBottom: 32 },
+  root: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 20 },
+  heading: { fontSize: 22, fontFamily: F.extrabold, color: C.ink, marginBottom: 32 },
   logoutBtn: {
     paddingVertical: 15,
-    borderRadius: 14,
+    borderRadius: RADIUS,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#DB5A4B',
+    borderColor: C.neg,
   },
-  logoutText: { fontSize: 15, fontWeight: '700', color: '#DB5A4B' },
+  logoutText: { fontSize: 15, fontFamily: F.bold, color: C.neg },
 })

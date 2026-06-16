@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -38,6 +37,7 @@ import {
   formatDateLabel,
 } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
+import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 
 type HomeData = {
   transactions: Transaction[]
@@ -46,34 +46,21 @@ type HomeData = {
   categoryColors: Record<string, string>
 }
 
-const INK = '#16201A'
-const INK3 = '#94A199'
-const BRAND = '#1A936F'
-const BRAND_PALE = '#E4F1EA'
-const LINE = '#E7ECE5'
-const NEG = '#DB5A4B'
-const BG = '#F4F6F2'
-const SURFACE = '#FFFFFF'
-const GOLD = '#C99A2E'
-const POS = '#1A936F'
-const TRANSFER_COLOR = '#3B82C4'
-const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace'
-
 // ─── SVG Components ────────────────────────────────────────────────────────────
 
 function BuddySVG({ size = 48 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={BRAND} />
+      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={C.brand} />
       <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
-      <Path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="32" cy="36" r="22" fill={BRAND_PALE} stroke={BRAND} strokeWidth="2.5" />
-      <Circle cx="32" cy="36" r="17" stroke={BRAND} strokeWidth="1.5" strokeOpacity="0.3" />
+      <Path d="M32 16 L 32 11" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke={C.brand} strokeWidth="1.5" strokeOpacity="0.3" />
       <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
       <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <Circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
-      <Circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
-      <Path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Circle cx="25.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Circle cx="38.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Path d="M25 41 Q32 47 39 41" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
     </Svg>
   )
 }
@@ -81,23 +68,23 @@ function BuddySVG({ size = 48 }: { size?: number }) {
 function EmptyBuddy({ size = 104 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Rect x="40" y="6" width="20" height="14" rx="5" fill={BRAND} />
-      <Path d="M45 19 L45 24 L50 19 Z" fill={BRAND} />
+      <Rect x="40" y="6" width="20" height="14" rx="5" fill={C.brand} />
+      <Path d="M45 19 L45 24 L50 19 Z" fill={C.brand} />
       <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="bold">hi!</SvgText>
-      <Path d="M10 16 C 10 18, 12 20, 14 20 C 12 20, 10 22, 10 24 C 10 22, 8 20, 6 20 C 8 20, 10 18, 10 16 Z" fill="#E0A33C" />
+      <Path d="M10 16 C 10 18, 12 20, 14 20 C 12 20, 10 22, 10 24 C 10 22, 8 20, 6 20 C 8 20, 10 18, 10 16 Z" fill={C.gold} />
       <Path d="M58 34 C 58 35.6, 59.6 37, 61 37 C 59.6 37, 58 38.4, 58 40 C 58 38.4, 56.4 37, 55 37 C 56.4 37, 58 35.6, 58 34 Z" fill="#2BA77F" />
-      <Path d="M27 22 C 27 16, 22 13, 19 16 C 17 19, 22 22, 27 22 Z" fill={BRAND} />
+      <Path d="M27 22 C 27 16, 22 13, 19 16 C 17 19, 22 22, 27 22 Z" fill={C.brand} />
       <Path d="M27 22 C 27 17, 32 15, 34 18 C 35 20, 31 23, 27 22 Z" fill="#2BA77F" />
-      <Path d="M27 25 L 27 20" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="27" cy="44" r="19" fill={BRAND_PALE} stroke={BRAND} strokeWidth="2.5" />
-      <Circle cx="27" cy="44" r="14.5" stroke={BRAND} strokeWidth="1.3" strokeOpacity="0.3" />
+      <Path d="M27 25 L 27 20" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="27" cy="44" r="19" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
+      <Circle cx="27" cy="44" r="14.5" stroke={C.brand} strokeWidth="1.3" strokeOpacity="0.3" />
       <Circle cx="18.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
       <Circle cx="35.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
-      <Circle cx="21.5" cy="41" r="2.5" fill="#0F5132" />
-      <Circle cx="32.5" cy="41" r="2.5" fill="#0F5132" />
-      <Path d="M20.5 46 Q27 53 33.5 46" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill="#0F5132" />
-      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill={BRAND} />
+      <Circle cx="21.5" cy="41" r="2.5" fill={C.brandDeep} />
+      <Circle cx="32.5" cy="41" r="2.5" fill={C.brandDeep} />
+      <Path d="M20.5 46 Q27 53 33.5 46" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill={C.brandDeep} />
+      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill={C.brand} />
     </Svg>
   )
 }
@@ -105,7 +92,7 @@ function EmptyBuddy({ size = 104 }: { size?: number }) {
 // ─── TxItem ────────────────────────────────────────────────────────────────────
 
 const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
-const TYPE_COLOR: Record<string, string> = { credit: POS, debit: NEG, transfer: TRANSFER_COLOR }
+const TYPE_COLOR: Record<string, string> = { credit: C.pos, debit: C.neg, transfer: C.transfer }
 
 function TxItem({
   tx,
@@ -117,7 +104,7 @@ function TxItem({
   catColors: Record<string, string>
 }) {
   const catC = categoryColor(tx.category, catColors)
-  const typeColor = TYPE_COLOR[tx.type] ?? INK
+  const typeColor = TYPE_COLOR[tx.type] ?? C.ink
   const accountName = tx.account_id ? accountMap[tx.account_id] : null
 
   return (
@@ -129,7 +116,7 @@ function TxItem({
         </Text>
         <Text style={ti.sub} numberOfLines={1}>
           {tx.category ? (
-            <Text style={{ color: catC, fontWeight: '700' }}>{tx.category}</Text>
+            <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
           ) : null}
           {tx.category && accountName ? ' · ' : ''}
           {accountName ?? ''}
@@ -151,19 +138,19 @@ const ti = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: ROW_PAD,
     borderBottomWidth: 1,
-    borderBottomColor: LINE,
+    borderBottomColor: C.line,
     gap: 10,
   },
   dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   info: { flex: 1, minWidth: 0 },
-  name: { fontSize: 14, fontWeight: '600', color: INK },
-  sub: { fontSize: 12, color: INK3, marginTop: 1 },
-  recurring: { fontSize: 12, color: INK3, fontWeight: '600', flexShrink: 0 },
+  name: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
+  sub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 1 },
+  recurring: { fontSize: 12, fontFamily: F.semibold, color: C.ink3, flexShrink: 0 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
-  unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: NEG },
-  amount: { fontSize: 14, fontWeight: '700', fontFamily: MONO },
+  unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.neg },
+  amount: { fontSize: 14, fontFamily: F.monoBold },
 })
 
 // ─── HomeScreen ────────────────────────────────────────────────────────────────
@@ -218,11 +205,11 @@ export function HomeScreen() {
   const expectedIncome = settings?.expected_monthly_income ?? 0
   const hasIncomeTarget = expectedIncome > 0
   const displayBalance = hasIncomeTarget ? expectedIncome - expense : balance
-  const displayBalanceColor = displayBalance >= 0 ? BRAND : NEG
+  const displayBalanceColor = displayBalance >= 0 ? C.pos : C.neg
   const incomeSpentPct = hasIncomeTarget
     ? Math.min(100, Math.round((expense / expectedIncome) * 100))
     : 0
-  const incomeBarColor = incomeSpentPct >= 100 ? NEG : incomeSpentPct >= 80 ? GOLD : BRAND
+  const incomeBarColor = incomeSpentPct >= 100 ? C.neg : incomeSpentPct >= 80 ? C.gold : C.brand
   const pendingCount = allTxs.filter((t) => !t.reviewed).length
   const filteredTxs = filterTransactions(monthTxs, {
     search: searchQuery,
@@ -245,7 +232,6 @@ export function HomeScreen() {
     ...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[]),
   ]
 
-  // Balance number split: integer part and decimal part
   const absFmt = formatAmount(Math.abs(displayBalance))
   const balSign = displayBalance < 0 ? '−' : ''
   const dotIdx = absFmt.lastIndexOf('.')
@@ -261,8 +247,8 @@ export function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG }}>
-        <ActivityIndicator size="large" color={BRAND} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
+        <ActivityIndicator size="large" color={C.brand} />
       </View>
     )
   }
@@ -274,7 +260,7 @@ export function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.brand} />
         }
       >
         {/* ── Greeting header ── */}
@@ -289,7 +275,7 @@ export function HomeScreen() {
         {/* ── Month picker ── */}
         <View style={s.monthPicker}>
           <Pressable onPress={() => setMonth(addMonths(month, -1))} hitSlop={8} style={s.monthArrow}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="15 18 9 12 15 6" />
             </Svg>
           </Pressable>
@@ -300,7 +286,7 @@ export function HomeScreen() {
             </Text>
           </View>
           <Pressable onPress={() => setMonth(addMonths(month, 1))} hitSlop={8} style={s.monthArrow}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
             </Svg>
           </Pressable>
@@ -317,7 +303,7 @@ export function HomeScreen() {
                 {balSign}{balInt}
               </Text>
               {balDec ? (
-                <Text style={[s.balDec, { color: INK3 }]}>{balDec}</Text>
+                <Text style={[s.balDec, { color: C.ink3 }]}>{balDec}</Text>
               ) : null}
             </View>
             {hasIncomeTarget && (
@@ -345,9 +331,9 @@ export function HomeScreen() {
             )}
             <View style={s.statsRow}>
               {[
-                { label: 'INCOME', value: income, color: POS },
-                { label: 'SPENT', value: expense, color: NEG },
-                { label: 'TRANSFERS', value: transfer, color: TRANSFER_COLOR },
+                { label: 'INCOME', value: income, color: C.pos },
+                { label: 'SPENT', value: expense, color: C.neg },
+                { label: 'TRANSFERS', value: transfer, color: C.transfer },
               ].map(({ label, value, color }, i) => (
                 <View key={label} style={[s.statCol, i > 0 && s.statColBorder]}>
                   <Text style={s.statLabel}>{label}</Text>
@@ -370,7 +356,7 @@ export function HomeScreen() {
               <Text style={s.pendingTitle}>Transactions pending review</Text>
               <Text style={s.pendingSub}>From imports, shortcuts & bank statements</Text>
             </View>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={NEG} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
             </Svg>
           </View>
@@ -379,21 +365,21 @@ export function HomeScreen() {
         {/* ── Search bar ── */}
         <View style={s.searchRow}>
           <View style={s.searchBox}>
-            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <Circle cx="11" cy="11" r="8" />
               <Line x1="21" y1="21" x2="16.65" y2="16.65" />
             </Svg>
             <TextInput
               style={s.searchInput}
               placeholder="Search by name or notes…"
-              placeholderTextColor={INK3}
+              placeholderTextColor={C.ink3}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
             />
             {searchQuery ? (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.5" strokeLinecap="round">
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2.5" strokeLinecap="round">
                   <Line x1="18" y1="6" x2="6" y2="18" />
                   <Line x1="6" y1="6" x2="18" y2="18" />
                 </Svg>
@@ -406,7 +392,7 @@ export function HomeScreen() {
               style={[s.filterBtn, hasFilters && s.filterBtnActive]}
               accessibilityLabel="Open filters"
             >
-              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={hasFilters ? '#fff' : INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={hasFilters ? '#fff' : C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <Line x1="4" y1="6" x2="20" y2="6" />
                 <Line x1="8" y1="12" x2="16" y2="12" />
                 <Line x1="11" y1="18" x2="13" y2="18" />
@@ -440,7 +426,6 @@ export function HomeScreen() {
           ))
         )}
 
-        {/* Spacer for FAB */}
         <View style={{ height: 80 }} />
       </ScrollView>
 
@@ -475,7 +460,6 @@ export function HomeScreen() {
               )}
             </View>
 
-            {/* Type filter */}
             <View style={s.filterSection}>
               <Text style={s.filterSectionLabel}>TYPE</Text>
               <View style={s.chips}>
@@ -495,7 +479,6 @@ export function HomeScreen() {
               </View>
             </View>
 
-            {/* Category filter */}
             {monthCategories.length > 0 && (
               <View style={s.filterSection}>
                 <Text style={s.filterSectionLabel}>CATEGORY</Text>
@@ -519,7 +502,6 @@ export function HomeScreen() {
               </View>
             )}
 
-            {/* Account filter */}
             {accounts.length > 0 && (
               <View style={s.filterSection}>
                 <Text style={s.filterSectionLabel}>ACCOUNT</Text>
@@ -531,7 +513,7 @@ export function HomeScreen() {
                         <Pressable
                           key={acc.id}
                           onPress={() => setSelectedAccount(active ? null : acc.id)}
-                          style={[s.chip, active && { backgroundColor: BRAND, borderColor: BRAND }]}
+                          style={[s.chip, active && { backgroundColor: C.brand, borderColor: C.brand }]}
                         >
                           <Text style={[s.chipText, active && { color: '#fff' }]}>{acc.name}</Text>
                         </Pressable>
@@ -542,14 +524,13 @@ export function HomeScreen() {
               </View>
             )}
 
-            {/* Recurring toggle */}
             <View style={s.filterRow}>
               <Text style={s.filterRowLabel}>Recurring only</Text>
               <Switch
                 value={recurringOnly}
                 onValueChange={setRecurringOnly}
-                trackColor={{ false: LINE, true: BRAND }}
-                thumbColor={SURFACE}
+                trackColor={{ false: C.line, true: C.brand }}
+                thumbColor={C.surface}
               />
             </View>
           </View>
@@ -562,7 +543,7 @@ export function HomeScreen() {
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 },
 
   header: {
@@ -573,8 +554,8 @@ const s = StyleSheet.create({
     gap: 11,
   },
   headerText: { flex: 1 },
-  greetName: { fontSize: 18, fontWeight: '800', color: INK, letterSpacing: -0.18 },
-  greetDate: { fontSize: 12.5, color: INK3, marginTop: 1 },
+  greetName: { fontSize: 18, fontFamily: F.extrabold, color: C.ink, letterSpacing: -0.18 },
+  greetDate: { fontSize: 12.5, fontFamily: F.regular, color: C.ink3, marginTop: 1 },
 
   monthPicker: {
     flexDirection: 'row',
@@ -585,26 +566,26 @@ const s = StyleSheet.create({
   },
   monthArrow: { padding: 4 },
   monthCenter: { alignItems: 'center', gap: 2 },
-  monthLabel: { fontSize: 14, fontWeight: '500', color: INK },
-  monthCount: { fontSize: 12, color: INK3 },
+  monthLabel: { fontSize: 14, fontFamily: F.medium, color: C.ink },
+  monthCount: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
 
   cardPad: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   card: {
-    backgroundColor: SURFACE,
-    borderRadius: 16,
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
     padding: 14,
     borderWidth: 1,
-    borderColor: LINE,
-    shadowColor: '#000',
+    borderColor: C.line,
+    shadowColor: '#14281E',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   balLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: INK3,
+    fontFamily: F.bold,
+    color: C.ink3,
     textTransform: 'uppercase',
     letterSpacing: 0.55,
   },
@@ -614,18 +595,8 @@ const s = StyleSheet.create({
     marginTop: 2,
     marginBottom: 12,
   },
-  balInt: {
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -0.68,
-    fontFamily: MONO,
-  },
-  balDec: {
-    fontSize: 20,
-    fontWeight: '600',
-    fontFamily: MONO,
-    marginLeft: 1,
-  },
+  balInt: { fontSize: 34, fontFamily: F.monoBold, letterSpacing: -0.68 },
+  balDec: { fontSize: 20, fontFamily: F.mono, marginLeft: 1 },
   progressWrap: { marginBottom: 12 },
   progressLabelRow: {
     flexDirection: 'row',
@@ -633,12 +604,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 5,
   },
-  progressLabel: { fontSize: 11.5, color: INK3 },
-  progressPct: { fontSize: 11.5, fontWeight: '700' },
+  progressLabel: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3 },
+  progressPct: { fontSize: 11.5, fontFamily: F.bold },
   progressTrack: {
     height: 5,
     borderRadius: 99,
-    backgroundColor: LINE,
+    backgroundColor: C.line,
     overflow: 'hidden',
   },
   progressFill: { height: 5, borderRadius: 99 },
@@ -646,22 +617,18 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: LINE,
+    borderTopColor: C.line,
   },
   statCol: { flex: 1, gap: 2 },
-  statColBorder: {
-    paddingLeft: 10,
-    borderLeftWidth: 1,
-    borderLeftColor: LINE,
-  },
+  statColBorder: { paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: C.line },
   statLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: INK3,
+    fontFamily: F.bold,
+    color: C.ink3,
     textTransform: 'uppercase',
     letterSpacing: 0.33,
   },
-  statValue: { fontSize: 13, fontWeight: '700', fontFamily: MONO },
+  statValue: { fontSize: 13, fontFamily: F.monoBold },
 
   pendingBanner: {
     flexDirection: 'row',
@@ -672,20 +639,20 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(219,90,75,0.08)',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: LINE,
+    borderColor: C.line,
   },
   pendingBadge: {
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: NEG,
+    backgroundColor: C.neg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pendingBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  pendingBadgeText: { color: '#fff', fontSize: 12, fontFamily: F.bold },
   pendingInfo: { flex: 1 },
-  pendingTitle: { fontSize: 14, fontWeight: '600', color: NEG },
-  pendingSub: { fontSize: 12, color: INK3 },
+  pendingTitle: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
+  pendingSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
 
   searchRow: {
     flexDirection: 'row',
@@ -694,7 +661,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: LINE,
+    borderBottomColor: C.line,
   },
   searchBox: {
     flex: 1,
@@ -703,23 +670,23 @@ const s = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: LINE,
+    borderColor: C.line,
   },
-  searchInput: { flex: 1, fontSize: 14, color: INK, padding: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink, padding: 0 },
   filterBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: LINE,
+    borderColor: C.line,
   },
-  filterBtnActive: { backgroundColor: BRAND, borderColor: BRAND },
+  filterBtnActive: { backgroundColor: C.brand, borderColor: C.brand },
 
   emptyState: {
     alignItems: 'center',
@@ -731,15 +698,15 @@ const s = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 17,
-    fontWeight: '800',
-    color: INK,
+    fontFamily: F.extrabold,
+    color: C.ink,
     letterSpacing: -0.17,
     textAlign: 'center',
   },
-  emptySub: { fontSize: 13.5, color: INK3, lineHeight: 20, textAlign: 'center' },
+  emptySub: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3, lineHeight: 20, textAlign: 'center' },
 
   dateHeader: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
-  dateLabel: { fontSize: 12, fontWeight: '700', color: INK3 },
+  dateLabel: { fontSize: 12, fontFamily: F.bold, color: C.ink3 },
 
   fab: {
     position: 'absolute',
@@ -747,10 +714,10 @@ const s = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 18,
-    backgroundColor: BRAND,
+    backgroundColor: C.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BRAND,
+    shadowColor: C.brand,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.45,
     shadowRadius: 11,
@@ -760,14 +727,11 @@ const s = StyleSheet.create({
   modalOuter: { flex: 1, justifyContent: 'flex-end' },
   overlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   filterSheet: {
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
@@ -777,7 +741,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: LINE,
+    backgroundColor: C.line,
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -787,13 +751,13 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  filterTitle: { fontSize: 16, fontWeight: '600', color: INK },
-  clearAll: { fontSize: 13, fontWeight: '600', color: BRAND },
+  filterTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  clearAll: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
   filterSection: { marginBottom: 16 },
   filterSectionLabel: {
     fontSize: 11,
-    fontWeight: '500',
-    color: INK3,
+    fontFamily: F.medium,
+    color: C.ink3,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -804,15 +768,15 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 99,
     borderWidth: 1,
-    borderColor: LINE,
-    backgroundColor: BG,
+    borderColor: C.line,
+    backgroundColor: C.bg,
   },
-  chipText: { fontSize: 14, fontWeight: '500', color: INK, textTransform: 'capitalize' },
+  chipText: { fontSize: 14, fontFamily: F.medium, color: C.ink, textTransform: 'capitalize' },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 8,
   },
-  filterRowLabel: { fontSize: 14, color: INK },
+  filterRowLabel: { fontSize: 14, fontFamily: F.regular, color: C.ink },
 })
