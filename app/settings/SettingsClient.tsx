@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/categories'
 import { addUpiId, removeUpiId, setDisplayName, setExpectedMonthlyIncome, setShortcutBannerDismissed } from '@/app/actions/user-settings'
 import ConfirmModal from '@/components/ConfirmModal'
+import { normalizeUpiId } from '@/lib/logic/upi'
 
 interface CategoryWithCount { name: string; color: string; transactionCount: number }
 
@@ -89,7 +90,7 @@ export default function SettingsClient({ email, transactionCount, customCategori
   }
 
   async function handleAddUpiId() {
-    const id = newUpi.trim().toLowerCase()
+    const id = normalizeUpiId(newUpi)
     if (!id) return
     await addUpiId(id); setNewUpi('')
   }

@@ -7,6 +7,8 @@ import { createAccount } from '@/app/actions/accounts'
 import BuddySVG from '@/components/BuddySVG'
 import type { AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
+import { parseAmountToPaise, openingBalanceForType } from '@/lib/logic/amount'
+import { normalizeUpiId } from '@/lib/logic/upi'
 
 function Sprouts({ style = {} }: { style?: React.CSSProperties }) {
   return (
@@ -69,7 +71,7 @@ export default function SetupClient() {
   const [saving, setSaving] = useState(false)
 
   function handleAddUpi() {
-    const id = upiInput.trim().toLowerCase()
+    const id = normalizeUpiId(upiInput)
     if (!id || upiIds.includes(id)) return
     setUpiIds((prev) => [...prev, id])
     setUpiInput('')
@@ -87,8 +89,7 @@ export default function SetupClient() {
     setSaving(true)
     await Promise.all(
       accounts.map((a) => {
-        const rawBalance = Math.round(parseFloat(a.opening_balance || '0') * 100)
-        const opening_balance = a.type === 'credit' ? -Math.abs(rawBalance) : rawBalance
+        const opening_balance = openingBalanceForType(parseAmountToPaise(a.opening_balance), a.type)
         return createAccount({ name: a.name, type: a.type, bank: null, currency: 'INR', opening_balance })
       })
     )
