@@ -29,7 +29,7 @@ import BuddySVG from '@/components/BuddySVG'
 import HomeEmptyState from '@/components/HomeEmptyState'
 import { filterTransactions, getRecentCategories } from '@/lib/logic/transaction'
 import { deriveDashboardStats } from '@/lib/logic/dashboard'
-import { getNewRecurringCount, markRecurringAsSeen } from '@/lib/logic/recurring'
+import { useRecurringBanner } from '@/lib/hooks/useRecurringBanner'
 
 const CAL_VARIANTS = {
   enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
@@ -161,8 +161,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [greetingDate, setGreetingDate] = useState('')
-  const [newRecurringCount, setNewRecurringCount] = useState(0)
-  const [recurringBannerDismissed, setRecurringBannerDismissed] = useState(false)
+  const { newCount: newRecurringCount, dismissed: recurringBannerDismissed, dismiss: dismissRecurringBanner } = useRecurringBanner(transactions)
 
   const calDirRef = useRef<number>(1)
   const isCalFirstMount = useRef(true)
@@ -179,15 +178,6 @@ export default function HomeClient({ transactions, categories, accounts, month: 
     const date = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
     setGreetingDate(`${day}, ${date}`)
   }, [])
-
-  useEffect(() => {
-    setNewRecurringCount(getNewRecurringCount(transactions))
-  }, [transactions])
-
-  function dismissRecurringBanner() {
-    markRecurringAsSeen(transactions)
-    setRecurringBannerDismissed(true)
-  }
 
   async function handleEditSave(updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
     if (!editingTx) return

@@ -10,8 +10,9 @@ import { ACCOUNT_TYPE_LABELS } from "@/lib/types/account";
 import { createAccount } from "@/app/actions/accounts";
 import { createInvestment } from "@/app/actions/investments";
 import type { InvestmentWithTotal } from "@/lib/db/types";
-import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from "@/lib/logic/amount";
-import { getCategoryHint } from "@/lib/logic/review";
+import { formatDisplayAmount } from "@/lib/logic/amount";
+import { getCategoryHint, resolveAiCategory } from "@/lib/logic/review";
+import { useTransactionForm } from "@/lib/hooks/useTransactionForm";
 
 interface Props {
   transaction: Transaction;
@@ -41,39 +42,32 @@ export default function ReviewEditDrawer({
   mode = "review",
 }: Props) {
   const categoryHint = getCategoryHint(tx);
-  // Map AI hint to an existing category; never invent a new one
-  const aiCategory = (() => {
-    if (!categoryHint) return null
-    if (categories.includes(categoryHint)) return categoryHint
-    return categories.includes('Other') ? 'Other' : null
-  })()
+  const aiCategory = resolveAiCategory(categoryHint, categories);
   const defaultCategory = tx.category ?? aiCategory ?? "";
 
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
 
-  const [type, setType] = useState<TransactionType>(tx.type);
-  const [amountStr, setAmountStr] = useState(String(tx.amount / 100));
-  const [date, setDate] = useState(tx.date);
-  const [time, setTime] = useState(tx.time ?? "");
-  const [merchant, setMerchant] = useState(tx.merchant ?? "");
-  const [description, setDescription] = useState(tx.description);
-  const [category, setCategory] = useState(defaultCategory);
-  const [accountId, setAccountId] = useState(tx.account_id ?? "");
-  const [toAccountId, setToAccountId] = useState(tx.to_account_id ?? "");
-  const [bank, setBank] = useState(tx.bank ?? "");
-  const [upiRef, setUpiRef] = useState(tx.upi_ref ?? "");
-  const [isRecurring, setIsRecurring] = useState(tx.is_recurring);
+  const form = useTransactionForm(accounts, investments, categories, tx, { category: defaultCategory })
+  const { type, amountStr, date, time, merchant, description, category, accountId, toAccountId, bank, upiRef, isRecurring, investmentId } = form.fields
+  const setType = (v: TransactionType) => form.setField('type', v)
+  const setDate = (v: string) => form.setField('date', v)
+  const setTime = (v: string) => form.setField('time', v)
+  const setMerchant = (v: string) => form.setField('merchant', v)
+  const setDescription = (v: string) => form.setField('description', v)
+  const setCategory = (v: string) => form.setField('category', v)
+  const setAccountId = (v: string) => form.setField('accountId', v)
+  const setToAccountId = (v: string) => form.setField('toAccountId', v)
+  const setBank = (v: string) => form.setField('bank', v)
+  const setUpiRef = (v: string) => form.setField('upiRef', v)
+  const setIsRecurring = (v: boolean) => form.setField('isRecurring', v)
+  const setInvestmentId = (v: string) => form.setField('investmentId', v)
+
   const [newCatInput, setNewCatInput] = useState("");
-  const [extraCats, setExtraCats] = useState<string[]>([]);
-  const [extraAccounts, setExtraAccounts] = useState<Account[]>([]);
   const [addingAccount, setAddingAccount] = useState(false);
   const [newAccName, setNewAccName] = useState("");
   const [newAccType, setNewAccType] = useState<AccountType>("savings");
   const [addingAccSaving, setAddingAccSaving] = useState(false);
-
-  const [investmentId, setInvestmentId] = useState(tx.investment_id ?? "");
-  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([]);
   const [addingInvestment, setAddingInvestment] = useState(false);
   const [newInvName, setNewInvName] = useState("");
   const [addingInvSaving, setAddingInvSaving] = useState(false);
@@ -88,24 +82,8 @@ export default function ReviewEditDrawer({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const paise = parseAmountToPaise(amountStr);
-    const needsToAccount = type === "transfer";
-    if (!paise || paise <= 0 || !accountId || (needsToAccount && !toAccountId)) return;
-    onSave({
-      type,
-      amount: paise,
-      date,
-      time: time || null,
-      merchant: merchant.trim() || null,
-      description: description.trim(),
-      category: category || null,
-      account_id: accountId,
-      to_account_id: needsToAccount ? toAccountId : null,
-      bank: bank.trim() || null,
-      upi_ref: upiRef.trim() || null,
-      is_recurring: isRecurring,
-      investment_id: category === "Investment" && investmentId ? investmentId : null,
-    });
+    if (!form.isValid) return;
+    onSave(form.toPayload());
   }
 
   async function handleAddAccount() {
@@ -114,8 +92,7 @@ export default function ReviewEditDrawer({
     setAddingAccSaving(true);
     try {
       const newAcc = await createAccount({ name, type: newAccType, bank: null, currency: "INR", opening_balance: 0 });
-      setExtraAccounts((prev) => [...prev, newAcc]);
-      setAccountId(newAcc.id);
+      form.addExtraAccount(newAcc);
       setAddingAccount(false);
       setNewAccName("");
       setNewAccType("savings");
@@ -131,8 +108,7 @@ export default function ReviewEditDrawer({
     try {
       const created = await createInvestment(name);
       const newInv: InvestmentWithTotal = { ...created, total_invested: 0 };
-      setExtraInvestments((prev) => [...prev, newInv]);
-      setInvestmentId(created.id);
+      form.addExtraInvestment(newInv);
       setAddingInvestment(false);
       setNewInvName("");
     } finally {
@@ -149,29 +125,17 @@ export default function ReviewEditDrawer({
         : "RECIPIENT";
 
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setAmountStr(sanitizeAmountInput(e.target.value));
+    form.handleAmountChange(e.target.value);
   }
 
-  const allCats = [
-    ...categories,
-    ...extraCats.filter((c) => !categories.includes(c)),
-  ];
-
-  const allAccounts = [
-    ...accounts,
-    ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id)),
-  ];
-
-  const allInvestments = [
-    ...investments,
-    ...extraInvestments.filter((i) => !investments.find((x) => x.id === i.id)),
-  ];
+  const allCats = form.allCats
+  const allAccounts = form.allAccounts
+  const allInvestments = form.allInvestments
 
   function handleAddCat() {
     const name = newCatInput.trim();
     if (!name || allCats.includes(name)) return;
-    setExtraCats((prev) => [...prev, name]);
-    setCategory(name);
+    form.addExtraCat(name);
     setNewCatInput("");
   }
 
@@ -681,7 +645,7 @@ export default function ReviewEditDrawer({
               <span className="text-sm" style={{ color: "var(--text)" }}>Recurring transaction</span>
               <button
                 type="button"
-                onClick={() => setIsRecurring((v) => !v)}
+                onClick={() => setIsRecurring(!isRecurring)}
                 className="relative w-10 h-6 rounded-full transition-colors shrink-0"
                 style={{ background: isRecurring ? "var(--pb-pos)" : "var(--border)" }}
                 aria-pressed={isRecurring}
@@ -695,10 +659,7 @@ export default function ReviewEditDrawer({
 
             <button
               type="submit"
-              disabled={
-                !amountStr || !description.trim() || !category || !accountId ||
-                (type === "transfer" && !toAccountId) || saving
-              }
+              disabled={!form.isValid || saving}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 mt-1"
               style={{ background: activeType.color, color: "#fff" }}
             >

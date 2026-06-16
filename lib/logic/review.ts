@@ -17,6 +17,12 @@ export interface ReviewFormState {
   investmentId: string
 }
 
+export function resolveAiCategory(hint: string | null, categories: string[]): string | null {
+  if (!hint) return null
+  if (categories.includes(hint)) return hint
+  return categories.includes('Other') ? 'Other' : null
+}
+
 export function getCategoryHint(tx: Transaction): string | null {
   if (!tx.raw_ai_response) return null
   try {

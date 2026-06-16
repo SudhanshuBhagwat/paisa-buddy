@@ -15,8 +15,10 @@ import type { Account, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 import type { InvestmentWithTotal } from '@/lib/db/types'
 import ImportTab from '@/components/ImportTab'
-import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from '@/lib/logic/amount'
+import { parseAmountToPaise, formatDisplayAmount } from '@/lib/logic/amount'
 import { getSettlementFromAccounts, getSettlementToAccounts } from '@/lib/logic/settlement'
+import { useTransactionForm } from '@/lib/hooks/useTransactionForm'
+import { useSettlementEffects } from '@/lib/hooks/useSettlementEffects'
 
 interface Props {
   open: boolean
@@ -47,27 +49,40 @@ export default function TransactionModal({ open, onClose, categories, recentCate
   const isMobile = useIsMobile()
   const dragY = useMotionValue(0)
   const [activeTab, setActiveTab] = useState<'manual' | 'import'>('manual')
-  const [type, setType] = useState<TransactionType>('debit')
-  const [amountStr, setAmountStr] = useState('')
-  const [merchant, setMerchant] = useState('')
-  const [category, setCategory] = useState('')
-  const [accountId, setAccountId] = useState('')
-  const [toAccountId, setToAccountId] = useState('')
-  const [notes, setNotes] = useState('')
-  const [date, setDate] = useState(today())
   const [addingCat, setAddingCat] = useState(false)
   const [newCatInput, setNewCatInput] = useState('')
-  const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
   const [addingAccount, setAddingAccount] = useState(false)
   const [newAccName, setNewAccName] = useState('')
   const [newAccType, setNewAccType] = useState<AccountType>('savings')
   const [addingAccSaving, setAddingAccSaving] = useState(false)
-  const [investmentId, setInvestmentId] = useState('')
-  const [extraInvestments, setExtraInvestments] = useState<InvestmentWithTotal[]>([])
   const [addingInvestment, setAddingInvestment] = useState(false)
   const [newInvName, setNewInvName] = useState('')
   const [addingInvSaving, setAddingInvSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  const form = useTransactionForm(accounts, initialInvestments, categories)
+  const { type, amountStr, merchant, category, accountId, toAccountId, date, investmentId } = form.fields
+  const notes = form.fields.description
+  const allAccounts = form.allAccounts
+  const allInvestments = form.allInvestments
+
+  const setType = (v: TransactionType) => form.setField('type', v)
+  const setMerchant = (v: string) => form.setField('merchant', v)
+  const setCategory = (v: string) => form.setField('category', v)
+  const setAccountId = (v: string) => form.setField('accountId', v)
+  const setToAccountId = (v: string) => form.setField('toAccountId', v)
+  const setNotes = (v: string) => form.setField('description', v)
+  const setDate = (v: string) => form.setField('date', v)
+  const setInvestmentId = (v: string) => form.setField('investmentId', v)
+
+  useSettlementEffects({
+    category,
+    type,
+    accountId,
+    toAccountId,
+    accounts: allAccounts,
+    setField: form.setField,
+  })
   const amountRef = useRef<HTMLInputElement>(null)
   const tabContentRef = useRef<HTMLDivElement>(null)
   const [tabHeight, setTabHeight] = useState<number | 'auto'>('auto')
@@ -87,33 +102,19 @@ export default function TransactionModal({ open, onClose, categories, recentCate
     return () => ro.disconnect()
   }, [])
 
-  const allAccounts = [
-    ...accounts,
-    ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id)),
-  ]
-  const allInvestments = [
-    ...initialInvestments,
-    ...extraInvestments.filter((i) => !initialInvestments.find((x) => x.id === i.id)),
-  ]
-
   useEffect(() => {
     if (open) {
+      form.reset({
+        category: initialCategory ?? '',
+        investmentId: initialInvestmentId ?? '',
+        date: defaultDateForMonth(month),
+      })
       setActiveTab('manual')
-      setType('debit')
-      setAmountStr('')
-      setMerchant('')
-      setCategory(initialCategory ?? '')
-      setAccountId('')
-      setToAccountId('')
-      setNotes('')
-      setDate(defaultDateForMonth(month))
       setAddingCat(false)
       setNewCatInput('')
       setAddingAccount(false)
       setNewAccName('')
       setNewAccType('savings')
-      setInvestmentId(initialInvestmentId ?? '')
-      setExtraInvestments([])
       setAddingInvestment(false)
       setNewInvName('')
       setTimeout(() => amountRef.current?.focus(), 100)
@@ -128,26 +129,6 @@ export default function TransactionModal({ open, onClose, categories, recentCate
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
-
-  useEffect(() => {
-    if (category === 'Settlement') {
-      setType('transfer')
-      setNotes('Credit Card Settlement')
-      const fromAcc = allAccounts.find((a) => a.id === accountId)
-      const toAcc = allAccounts.find((a) => a.id === toAccountId)
-      if (fromAcc?.type === 'credit') setAccountId('')
-      if (toAcc?.type !== 'credit') setToAccountId('')
-    }
-  }, [category])
-
-  useEffect(() => {
-    if (type === 'transfer' && toAccountId) {
-      const acc = allAccounts.find((a) => a.id === toAccountId)
-      if (acc) setMerchant(acc.name)
-    } else if (type === 'transfer') {
-      setMerchant('')
-    }
-  }, [toAccountId, type, allAccounts])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -189,8 +170,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
     setAddingAccSaving(true)
     try {
       const newAcc = await createAccount({ name, type: newAccType, bank: null, currency: 'INR', opening_balance: 0 })
-      setExtraAccounts((prev) => [...prev, newAcc])
-      setAccountId(newAcc.id)
+      form.addExtraAccount(newAcc)
       setAddingAccount(false)
       setNewAccName('')
       setNewAccType('savings')
@@ -205,9 +185,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
     setAddingInvSaving(true)
     try {
       const newInv = await createInvestment(name)
-      const withTotal: InvestmentWithTotal = { ...newInv, total_invested: 0 }
-      setExtraInvestments((prev) => [...prev, withTotal])
-      setInvestmentId(newInv.id)
+      form.addExtraInvestment({ ...newInv, total_invested: 0 })
       setAddingInvestment(false)
       setNewInvName('')
     } finally { setAddingInvSaving(false) }
@@ -217,7 +195,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
     const name = newCatInput.trim()
     if (!name) return
     await addCategory(name)
-    setCategory(name)
+    form.addExtraCat(name)
     setAddingCat(false)
     setNewCatInput('')
   }
@@ -233,7 +211,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
   const merchantPlaceholder = type === 'credit' ? 'Who sent this?' : type === 'transfer' ? 'Which account?' : 'Who did you pay?'
 
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setAmountStr(sanitizeAmountInput(e.target.value))
+    form.handleAmountChange(e.target.value)
   }
 
   return (
