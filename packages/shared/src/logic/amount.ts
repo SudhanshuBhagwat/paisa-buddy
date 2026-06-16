@@ -20,3 +20,14 @@ export function sanitizeAmountInput(value: string): string {
 export function openingBalanceForType(paise: number, type: AccountType): number {
   return type === 'credit' ? -Math.abs(paise) : paise
 }
+
+const _fmtAmt = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+})
+
+export function formatAmount(paise: number): string {
+  return _fmtAmt.format(paise / 100)
+}

@@ -51,6 +51,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (path.startsWith('/api/auth/send-otp')) return true
       if (path.startsWith('/api/auth/verify-otp')) return true
 
+      // Mobile setup-status check — authenticated by Supabase JWT, not NextAuth
+      if (path.startsWith('/api/user/setup-status')) return true
+
+      // Mobile data endpoints — authenticated by Supabase JWT, not NextAuth
+      if (path.startsWith('/api/mobile/')) return true
+
       if (!isLoggedIn) return Response.redirect(new URL('/login', request.nextUrl))
       return true
     },

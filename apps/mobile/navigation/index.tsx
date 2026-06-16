@@ -6,6 +6,7 @@ import { ActivityIndicator, View } from 'react-native'
 import type { Session } from '@supabase/supabase-js'
 
 import { supabase } from '../lib/supabase'
+import { CustomBottomNav } from './BottomNav'
 import { LoginScreen } from '../screens/LoginScreen'
 import { SetupScreen } from '../screens/SetupScreen'
 import { HomeScreen } from '../screens/HomeScreen'
@@ -32,12 +33,8 @@ const Tab = createBottomTabNavigator<MainTabParamList>()
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#1A936F',
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#E5E7EB' },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <CustomBottomNav {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Stats" component={StatsScreen} />
@@ -54,37 +51,21 @@ export function RootNavigator() {
   const [setupCompleted, setSetupCompleted] = useState(false)
 
   useEffect(() => {
-    // Restore session from SecureStore on mount
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s)
-      if (s) loadSetupStatus(s.user.id)
-      else setLoading(false)
+      if (s) setSetupCompleted(true)
+      setLoading(false)
     })
 
-    // Listen for future auth state changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
-      if (s) loadSetupStatus(s.user.id)
-      else { setSetupCompleted(false); setLoading(false) }
+      if (s) setSetupCompleted(true)
+      else setSetupCompleted(false)
+      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [])
-
-  async function loadSetupStatus(userId: string) {
-    try {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('setup_completed')
-        .eq('user_id', userId)
-        .maybeSingle()
-      setSetupCompleted(data?.setup_completed ?? false)
-    } catch {
-      setSetupCompleted(false)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (

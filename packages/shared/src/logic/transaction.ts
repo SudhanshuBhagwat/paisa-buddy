@@ -35,6 +35,32 @@ export function getRecentCategories(txs: Transaction[], limit = 3): string[] {
   return result
 }
 
+export function groupByDate(txs: Transaction[]): Map<string, Transaction[]> {
+  const map = new Map<string, Transaction[]>()
+  for (const tx of txs) {
+    const existing = map.get(tx.date) ?? []
+    existing.push(tx)
+    map.set(tx.date, existing)
+  }
+  return map
+}
+
+export function calcSummary(txs: Transaction[]): { income: number; expense: number; balance: number; transfer: number } {
+  let income = 0
+  let expense = 0
+  let transfer = 0
+  for (const tx of txs) {
+    if (tx.type === 'credit') income += tx.amount
+    else if (tx.type === 'debit') expense += tx.amount
+    else if (tx.type === 'transfer') transfer += tx.amount
+  }
+  return { income, expense, balance: income - expense, transfer }
+}
+
+export function getMonthTransactions(txs: Transaction[], ym: string): Transaction[] {
+  return txs.filter((t) => t.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date))
+}
+
 export function groupTransactionsByMonth(txs: Transaction[]): { month: string; txs: Transaction[] }[] {
   const map = new Map<string, Transaction[]>()
   for (const tx of txs) {

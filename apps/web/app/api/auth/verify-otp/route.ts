@@ -21,13 +21,15 @@ export async function POST(req: NextRequest) {
   if (!valid) return NextResponse.json({ error: 'Invalid or expired code.' }, { status: 401 })
 
   // 2. Ensure user exists in our custom users table
-  await getOrCreateUserId(email)
+  const customUserId = await getOrCreateUserId(email)
 
   const supabase = getSupabaseClient()
 
-  // 3. Upsert user into Supabase auth.users (needed for mobile RLS sessions)
-  //    createUser fails silently if user already exists — that's intentional
-  await supabase.auth.admin.createUser({ email, email_confirm: true })
+  // 3. Upsert user into Supabase auth.users using the same UUID as the custom
+  //    users table so that auth.uid() === user_settings.user_id for new users.
+  //    For users who already have a mismatched auth entry this will fail — that
+  //    is fine; setup-status is resolved via email lookup on the API side.
+  await supabase.auth.admin.createUser({ email, email_confirm: true, id: customUserId })
 
   // 4. Generate a single-use magic-link token for the mobile to exchange for a session
   const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({

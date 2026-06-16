@@ -1,17 +1,818 @@
-import React from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import Svg, {
+  Circle,
+  Line,
+  Path,
+  Polyline,
+  Rect,
+  Text as SvgText,
+} from 'react-native-svg'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { supabase } from '../lib/supabase'
+import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
+import type { Account } from '@paisa-buddy/shared/types/account'
+import {
+  filterTransactions,
+  groupByDate,
+  calcSummary,
+  getMonthTransactions,
+} from '@paisa-buddy/shared/logic/transaction'
+import { formatAmount } from '@paisa-buddy/shared/logic/amount'
+import {
+  toYearMonth,
+  addMonths,
+  formatMonthLabel,
+  formatDateLabel,
+} from '@paisa-buddy/shared/logic/date'
+import { categoryColor } from '@paisa-buddy/shared/categories'
 
-export function HomeScreen() {
+type HomeData = {
+  transactions: Transaction[]
+  accounts: Account[]
+  settings: { display_name: string | null; expected_monthly_income: number | null }
+  categoryColors: Record<string, string>
+}
+
+const INK = '#16201A'
+const INK3 = '#94A199'
+const BRAND = '#1A936F'
+const BRAND_PALE = '#E4F1EA'
+const LINE = '#E7ECE5'
+const NEG = '#DB5A4B'
+const BG = '#F4F6F2'
+const SURFACE = '#FFFFFF'
+const GOLD = '#C99A2E'
+const POS = '#1A936F'
+const TRANSFER_COLOR = '#3B82C4'
+const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace'
+
+// ─── SVG Components ────────────────────────────────────────────────────────────
+
+function BuddySVG({ size = 48 }: { size?: number }) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Home</Text>
-      <Text style={styles.subtitle}>Transaction list — coming next</Text>
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={BRAND} />
+      <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
+      <Path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill={BRAND_PALE} stroke={BRAND} strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke={BRAND} strokeWidth="1.5" strokeOpacity="0.3" />
+      <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
+      <Circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
+      <Path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
+}
+
+function EmptyBuddy({ size = 104 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Rect x="40" y="6" width="20" height="14" rx="5" fill={BRAND} />
+      <Path d="M45 19 L45 24 L50 19 Z" fill={BRAND} />
+      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="bold">hi!</SvgText>
+      <Path d="M10 16 C 10 18, 12 20, 14 20 C 12 20, 10 22, 10 24 C 10 22, 8 20, 6 20 C 8 20, 10 18, 10 16 Z" fill="#E0A33C" />
+      <Path d="M58 34 C 58 35.6, 59.6 37, 61 37 C 59.6 37, 58 38.4, 58 40 C 58 38.4, 56.4 37, 55 37 C 56.4 37, 58 35.6, 58 34 Z" fill="#2BA77F" />
+      <Path d="M27 22 C 27 16, 22 13, 19 16 C 17 19, 22 22, 27 22 Z" fill={BRAND} />
+      <Path d="M27 22 C 27 17, 32 15, 34 18 C 35 20, 31 23, 27 22 Z" fill="#2BA77F" />
+      <Path d="M27 25 L 27 20" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="27" cy="44" r="19" fill={BRAND_PALE} stroke={BRAND} strokeWidth="2.5" />
+      <Circle cx="27" cy="44" r="14.5" stroke={BRAND} strokeWidth="1.3" strokeOpacity="0.3" />
+      <Circle cx="18.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="35.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="21.5" cy="41" r="2.5" fill="#0F5132" />
+      <Circle cx="32.5" cy="41" r="2.5" fill="#0F5132" />
+      <Path d="M20.5 46 Q27 53 33.5 46" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill="#0F5132" />
+      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill={BRAND} />
+    </Svg>
+  )
+}
+
+// ─── TxItem ────────────────────────────────────────────────────────────────────
+
+const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
+const TYPE_COLOR: Record<string, string> = { credit: POS, debit: NEG, transfer: TRANSFER_COLOR }
+
+function TxItem({
+  tx,
+  accountMap,
+  catColors,
+}: {
+  tx: Transaction
+  accountMap: Record<string, string>
+  catColors: Record<string, string>
+}) {
+  const catC = categoryColor(tx.category, catColors)
+  const typeColor = TYPE_COLOR[tx.type] ?? INK
+  const accountName = tx.account_id ? accountMap[tx.account_id] : null
+
+  return (
+    <View style={ti.row}>
+      <View style={[ti.dot, { backgroundColor: catC }]} />
+      <View style={ti.info}>
+        <Text style={ti.name} numberOfLines={1}>
+          {tx.merchant || tx.description || '—'}
+        </Text>
+        <Text style={ti.sub} numberOfLines={1}>
+          {tx.category ? (
+            <Text style={{ color: catC, fontWeight: '700' }}>{tx.category}</Text>
+          ) : null}
+          {tx.category && accountName ? ' · ' : ''}
+          {accountName ?? ''}
+        </Text>
+      </View>
+      {tx.is_recurring && <Text style={ti.recurring}>↻</Text>}
+      <View style={ti.right}>
+        {!tx.reviewed && <View style={ti.unreviewedDot} />}
+        <Text style={[ti.amount, { color: typeColor }]}>
+          {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
+        </Text>
+      </View>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAF7' },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A' },
-  subtitle: { fontSize: 14, color: '#6B7280', marginTop: 8 },
+const ti = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: LINE,
+    gap: 10,
+  },
+  dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  info: { flex: 1, minWidth: 0 },
+  name: { fontSize: 14, fontWeight: '600', color: INK },
+  sub: { fontSize: 12, color: INK3, marginTop: 1 },
+  recurring: { fontSize: 12, color: INK3, fontWeight: '600', flexShrink: 0 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: NEG },
+  amount: { fontSize: 14, fontWeight: '700', fontFamily: MONO },
+})
+
+// ─── HomeScreen ────────────────────────────────────────────────────────────────
+
+export function HomeScreen() {
+  const insets = useSafeAreaInsets()
+  const [month, setMonth] = useState(() => toYearMonth(new Date()))
+  const [allTxs, setAllTxs] = useState<Transaction[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [settings, setSettings] = useState<{
+    display_name: string | null
+    expected_monthly_income: number | null
+  } | null>(null)
+  const [catColors, setCatColors] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
+  const [recurringOnly, setRecurringOnly] = useState(false)
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const base = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
+    const res = await fetch(`${base}/api/mobile/home-data`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (!res.ok) return
+    const data = await res.json() as HomeData
+    setAllTxs(data.transactions ?? [])
+    setAccounts(data.accounts ?? [])
+    setSettings(data.settings)
+    setCatColors(data.categoryColors ?? {})
+  }, [])
+
+  useEffect(() => {
+    load().finally(() => setLoading(false))
+  }, [load])
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    load().finally(() => setRefreshing(false))
+  }, [load])
+
+  // ─── Derived state ──────────────────────────────────────────────────────────
+  const monthTxs = getMonthTransactions(allTxs, month)
+  const { income, expense, balance, transfer } = calcSummary(monthTxs)
+  const expectedIncome = settings?.expected_monthly_income ?? 0
+  const hasIncomeTarget = expectedIncome > 0
+  const displayBalance = hasIncomeTarget ? expectedIncome - expense : balance
+  const displayBalanceColor = displayBalance >= 0 ? BRAND : NEG
+  const incomeSpentPct = hasIncomeTarget
+    ? Math.min(100, Math.round((expense / expectedIncome) * 100))
+    : 0
+  const incomeBarColor = incomeSpentPct >= 100 ? NEG : incomeSpentPct >= 80 ? GOLD : BRAND
+  const pendingCount = allTxs.filter((t) => !t.reviewed).length
+  const filteredTxs = filterTransactions(monthTxs, {
+    search: searchQuery,
+    type: selectedType,
+    category: selectedCategory,
+    account: selectedAccount,
+    recurringOnly,
+  })
+  const grouped = groupByDate(filteredTxs)
+  const sortedDates = [...grouped.keys()].sort((a, b) => b.localeCompare(a))
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
+  const firstName = settings?.display_name?.split(' ')[0] ?? null
+  const greetingDate = new Date().toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+  const hasFilters = !!(selectedType || selectedCategory || selectedAccount || recurringOnly)
+  const monthCategories = [
+    ...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[]),
+  ]
+
+  // Balance number split: integer part and decimal part
+  const absFmt = formatAmount(Math.abs(displayBalance))
+  const balSign = displayBalance < 0 ? '−' : ''
+  const dotIdx = absFmt.lastIndexOf('.')
+  const balInt = dotIdx === -1 ? absFmt : absFmt.slice(0, dotIdx)
+  const balDec = dotIdx === -1 ? '' : absFmt.slice(dotIdx)
+
+  function clearFilters() {
+    setSelectedType(null)
+    setSelectedCategory(null)
+    setSelectedAccount(null)
+    setRecurringOnly(false)
+  }
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG }}>
+        <ActivityIndicator size="large" color={BRAND} />
+      </View>
+    )
+  }
+
+  return (
+    <View style={s.root}>
+      <ScrollView
+        style={s.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
+        }
+      >
+        {/* ── Greeting header ── */}
+        <View style={[s.header, { paddingTop: insets.top + 16 }]}>
+          <BuddySVG size={48} />
+          <View style={s.headerText}>
+            <Text style={s.greetName}>{firstName ? `Hi, ${firstName}` : 'Hi there'}</Text>
+            <Text style={s.greetDate}>{greetingDate}</Text>
+          </View>
+        </View>
+
+        {/* ── Month picker ── */}
+        <View style={s.monthPicker}>
+          <Pressable onPress={() => setMonth(addMonths(month, -1))} hitSlop={8} style={s.monthArrow}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <Polyline points="15 18 9 12 15 6" />
+            </Svg>
+          </Pressable>
+          <View style={s.monthCenter}>
+            <Text style={s.monthLabel}>{formatMonthLabel(month)}</Text>
+            <Text style={s.monthCount}>
+              {monthTxs.length} transaction{monthTxs.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          <Pressable onPress={() => setMonth(addMonths(month, 1))} hitSlop={8} style={s.monthArrow}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <Polyline points="9 18 15 12 9 6" />
+            </Svg>
+          </Pressable>
+        </View>
+
+        {/* ── Balance card ── */}
+        <View style={s.cardPad}>
+          <View style={s.card}>
+            <Text style={s.balLabel}>
+              {hasIncomeTarget ? 'Remaining' : 'Net balance'}
+            </Text>
+            <View style={s.balRow}>
+              <Text style={[s.balInt, { color: displayBalanceColor }]}>
+                {balSign}{balInt}
+              </Text>
+              {balDec ? (
+                <Text style={[s.balDec, { color: INK3 }]}>{balDec}</Text>
+              ) : null}
+            </View>
+            {hasIncomeTarget && (
+              <View style={s.progressWrap}>
+                <View style={s.progressLabelRow}>
+                  <Text style={s.progressLabel}>
+                    {formatAmount(expense)} of {formatAmount(expectedIncome)} spent
+                  </Text>
+                  <Text style={[s.progressPct, { color: incomeBarColor }]}>
+                    {incomeSpentPct}%
+                  </Text>
+                </View>
+                <View style={s.progressTrack}>
+                  <View
+                    style={[
+                      s.progressFill,
+                      {
+                        width: `${incomeSpentPct}%` as `${number}%`,
+                        backgroundColor: incomeBarColor,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+            <View style={s.statsRow}>
+              {[
+                { label: 'INCOME', value: income, color: POS },
+                { label: 'SPENT', value: expense, color: NEG },
+                { label: 'TRANSFERS', value: transfer, color: TRANSFER_COLOR },
+              ].map(({ label, value, color }, i) => (
+                <View key={label} style={[s.statCol, i > 0 && s.statColBorder]}>
+                  <Text style={s.statLabel}>{label}</Text>
+                  <Text style={[s.statValue, { color }]} numberOfLines={1}>
+                    {formatAmount(value)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        {/* ── Pending review banner ── */}
+        {pendingCount > 0 && (
+          <View style={s.pendingBanner}>
+            <View style={s.pendingBadge}>
+              <Text style={s.pendingBadgeText}>{pendingCount}</Text>
+            </View>
+            <View style={s.pendingInfo}>
+              <Text style={s.pendingTitle}>Transactions pending review</Text>
+              <Text style={s.pendingSub}>From imports, shortcuts & bank statements</Text>
+            </View>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={NEG} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <Polyline points="9 18 15 12 9 6" />
+            </Svg>
+          </View>
+        )}
+
+        {/* ── Search bar ── */}
+        <View style={s.searchRow}>
+          <View style={s.searchBox}>
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <Circle cx="11" cy="11" r="8" />
+              <Line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </Svg>
+            <TextInput
+              style={s.searchInput}
+              placeholder="Search by name or notes…"
+              placeholderTextColor={INK3}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery ? (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={INK3} strokeWidth="2.5" strokeLinecap="round">
+                  <Line x1="18" y1="6" x2="6" y2="18" />
+                  <Line x1="6" y1="6" x2="18" y2="18" />
+                </Svg>
+              </Pressable>
+            ) : null}
+          </View>
+          {monthTxs.length > 0 && (
+            <Pressable
+              onPress={() => setFilterSheetOpen(true)}
+              style={[s.filterBtn, hasFilters && s.filterBtnActive]}
+              accessibilityLabel="Open filters"
+            >
+              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={hasFilters ? '#fff' : INK3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <Line x1="4" y1="6" x2="20" y2="6" />
+                <Line x1="8" y1="12" x2="16" y2="12" />
+                <Line x1="11" y1="18" x2="13" y2="18" />
+              </Svg>
+            </Pressable>
+          )}
+        </View>
+
+        {/* ── Transaction list / empty states ── */}
+        {monthTxs.length === 0 ? (
+          <View style={s.emptyState}>
+            <EmptyBuddy size={104} />
+            <Text style={s.emptyTitle}>Let's get your paisa in order!</Text>
+            <Text style={s.emptySub}>Tap + to add your first transaction.</Text>
+          </View>
+        ) : filteredTxs.length === 0 ? (
+          <View style={s.emptyState}>
+            <Text style={s.emptyTitle}>No results</Text>
+            <Text style={s.emptySub}>Try adjusting your search or filters.</Text>
+          </View>
+        ) : (
+          sortedDates.map((date) => (
+            <View key={date}>
+              <View style={s.dateHeader}>
+                <Text style={s.dateLabel}>{formatDateLabel(date)}</Text>
+              </View>
+              {grouped.get(date)!.map((tx) => (
+                <TxItem key={tx.id} tx={tx} accountMap={accountMap} catColors={catColors} />
+              ))}
+            </View>
+          ))
+        )}
+
+        {/* Spacer for FAB */}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* ── FAB ── */}
+      <Pressable
+        style={[s.fab, { bottom: insets.bottom + 20 }]}
+        accessibilityLabel="Add transaction"
+      >
+        <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <Line x1="12" y1="5" x2="12" y2="19" />
+          <Line x1="5" y1="12" x2="19" y2="12" />
+        </Svg>
+      </Pressable>
+
+      {/* ── Filter bottom sheet ── */}
+      <Modal
+        visible={filterSheetOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFilterSheetOpen(false)}
+      >
+        <View style={s.modalOuter}>
+          <Pressable style={s.overlay} onPress={() => setFilterSheetOpen(false)} />
+          <View style={[s.filterSheet, { paddingBottom: Math.max(insets.bottom, 8) + 16 }]}>
+            <View style={s.dragHandle} />
+            <View style={s.filterHeader}>
+              <Text style={s.filterTitle}>Filters</Text>
+              {hasFilters && (
+                <Pressable onPress={clearFilters}>
+                  <Text style={s.clearAll}>Clear all</Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Type filter */}
+            <View style={s.filterSection}>
+              <Text style={s.filterSectionLabel}>TYPE</Text>
+              <View style={s.chips}>
+                {(['debit', 'credit', 'transfer'] as TransactionType[]).map((type) => {
+                  const active = selectedType === type
+                  const tc = TYPE_COLOR[type]
+                  return (
+                    <Pressable
+                      key={type}
+                      onPress={() => setSelectedType(active ? null : type)}
+                      style={[s.chip, active && { backgroundColor: tc, borderColor: tc }]}
+                    >
+                      <Text style={[s.chipText, active && { color: '#fff' }]}>{type}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+
+            {/* Category filter */}
+            {monthCategories.length > 0 && (
+              <View style={s.filterSection}>
+                <Text style={s.filterSectionLabel}>CATEGORY</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={[s.chips, { flexWrap: 'nowrap' }]}>
+                    {monthCategories.map((cat) => {
+                      const active = selectedCategory === cat
+                      const cc = categoryColor(cat, catColors)
+                      return (
+                        <Pressable
+                          key={cat}
+                          onPress={() => setSelectedCategory(active ? null : cat)}
+                          style={[s.chip, active && { backgroundColor: cc, borderColor: cc }]}
+                        >
+                          <Text style={[s.chipText, active && { color: '#fff' }]}>{cat}</Text>
+                        </Pressable>
+                      )
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Account filter */}
+            {accounts.length > 0 && (
+              <View style={s.filterSection}>
+                <Text style={s.filterSectionLabel}>ACCOUNT</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={[s.chips, { flexWrap: 'nowrap' }]}>
+                    {accounts.map((acc) => {
+                      const active = selectedAccount === acc.id
+                      return (
+                        <Pressable
+                          key={acc.id}
+                          onPress={() => setSelectedAccount(active ? null : acc.id)}
+                          style={[s.chip, active && { backgroundColor: BRAND, borderColor: BRAND }]}
+                        >
+                          <Text style={[s.chipText, active && { color: '#fff' }]}>{acc.name}</Text>
+                        </Pressable>
+                      )
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Recurring toggle */}
+            <View style={s.filterRow}>
+              <Text style={s.filterRowLabel}>Recurring only</Text>
+              <Switch
+                value={recurringOnly}
+                onValueChange={setRecurringOnly}
+                trackColor={{ false: LINE, true: BRAND }}
+                thumbColor={SURFACE}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: BG },
+  scroll: { flex: 1 },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+    paddingBottom: 8,
+    gap: 11,
+  },
+  headerText: { flex: 1 },
+  greetName: { fontSize: 18, fontWeight: '800', color: INK, letterSpacing: -0.18 },
+  greetDate: { fontSize: 12.5, color: INK3, marginTop: 1 },
+
+  monthPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  monthArrow: { padding: 4 },
+  monthCenter: { alignItems: 'center', gap: 2 },
+  monthLabel: { fontSize: 14, fontWeight: '500', color: INK },
+  monthCount: { fontSize: 12, color: INK3 },
+
+  cardPad: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  card: {
+    backgroundColor: SURFACE,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: LINE,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  balLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: INK3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.55,
+  },
+  balRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  balInt: {
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -0.68,
+    fontFamily: MONO,
+  },
+  balDec: {
+    fontSize: 20,
+    fontWeight: '600',
+    fontFamily: MONO,
+    marginLeft: 1,
+  },
+  progressWrap: { marginBottom: 12 },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  progressLabel: { fontSize: 11.5, color: INK3 },
+  progressPct: { fontSize: 11.5, fontWeight: '700' },
+  progressTrack: {
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: LINE,
+    overflow: 'hidden',
+  },
+  progressFill: { height: 5, borderRadius: 99 },
+  statsRow: {
+    flexDirection: 'row',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: LINE,
+  },
+  statCol: { flex: 1, gap: 2 },
+  statColBorder: {
+    paddingLeft: 10,
+    borderLeftWidth: 1,
+    borderLeftColor: LINE,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: INK3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.33,
+  },
+  statValue: { fontSize: 13, fontWeight: '700', fontFamily: MONO },
+
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(219,90,75,0.08)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: LINE,
+  },
+  pendingBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: NEG,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  pendingInfo: { flex: 1 },
+  pendingTitle: { fontSize: 14, fontWeight: '600', color: NEG },
+  pendingSub: { fontSize: 12, color: INK3 },
+
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: LINE,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: SURFACE,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: LINE,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: INK, padding: 0 },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: LINE,
+  },
+  filterBtnActive: { backgroundColor: BRAND, borderColor: BRAND },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    gap: 12,
+    marginTop: 24,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: INK,
+    letterSpacing: -0.17,
+    textAlign: 'center',
+  },
+  emptySub: { fontSize: 13.5, color: INK3, lineHeight: 20, textAlign: 'center' },
+
+  dateHeader: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  dateLabel: { fontSize: 12, fontWeight: '700', color: INK3 },
+
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: BRAND,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 11,
+    elevation: 12,
+  },
+
+  modalOuter: { flex: 1, justifyContent: 'flex-end' },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  filterSheet: {
+    backgroundColor: SURFACE,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: LINE,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  filterTitle: { fontSize: 16, fontWeight: '600', color: INK },
+  clearAll: { fontSize: 13, fontWeight: '600', color: BRAND },
+  filterSection: { marginBottom: 16 },
+  filterSectionLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: INK3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: LINE,
+    backgroundColor: BG,
+  },
+  chipText: { fontSize: 14, fontWeight: '500', color: INK, textTransform: 'capitalize' },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  filterRowLabel: { fontSize: 14, color: INK },
 })
