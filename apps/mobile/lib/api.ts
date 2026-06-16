@@ -102,10 +102,15 @@ export async function rejectAllPending(): Promise<void> {
 
 import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
 
-export async function createAccount(name: string, type: AccountType = 'savings'): Promise<Account> {
+export async function createAccount(
+  name: string,
+  type: AccountType = 'savings',
+  bank?: string | null,
+  opening_balance?: number,
+): Promise<Account> {
   return apiFetch('/api/mobile/accounts', {
     method: 'POST',
-    body: JSON.stringify({ name, type }),
+    body: JSON.stringify({ name, type, bank, opening_balance }),
   })
 }
 
@@ -116,4 +121,147 @@ export async function createCategory(name: string): Promise<{ name: string; colo
     method: 'POST',
     body: JSON.stringify({ name }),
   })
+}
+
+// ─── Accounts (update / delete) ──────────────────────────────────────────────
+
+export type AccountInput = {
+  name?: string
+  type?: Account['type']
+  bank?: string | null
+  opening_balance?: number
+}
+
+export async function updateAccount(id: string, data: AccountInput): Promise<Account> {
+  return apiFetch(`/api/mobile/accounts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  return apiFetch(`/api/mobile/accounts/${id}`, { method: 'DELETE' })
+}
+
+// ─── Investments ──────────────────────────────────────────────────────────────
+
+import type { InvestmentWithTotal } from '@paisa-buddy/shared/types/investment'
+
+export async function listInvestments(): Promise<InvestmentWithTotal[]> {
+  return apiFetch('/api/mobile/investments')
+}
+
+export async function createInvestment(name: string): Promise<InvestmentWithTotal> {
+  return apiFetch('/api/mobile/investments', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function updateInvestment(id: string, name: string): Promise<InvestmentWithTotal> {
+  return apiFetch(`/api/mobile/investments/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function deleteInvestment(id: string): Promise<void> {
+  return apiFetch(`/api/mobile/investments/${id}`, { method: 'DELETE' })
+}
+
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
+import type { Budget, BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
+
+export async function listBudgets(month: string): Promise<BudgetWithSpent[]> {
+  return apiFetch(`/api/mobile/budgets?month=${month}`)
+}
+
+export async function upsertBudget(category: string, amount: number): Promise<Budget> {
+  return apiFetch('/api/mobile/budgets', {
+    method: 'POST',
+    body: JSON.stringify({ category, amount }),
+  })
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  return apiFetch(`/api/mobile/budgets/${id}`, { method: 'DELETE' })
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+export type StatsData = {
+  transactions: Transaction[]
+  budgets: BudgetWithSpent[]
+  categoryColors: Record<string, string>
+}
+
+export async function fetchStatsData(month: string): Promise<StatsData> {
+  return apiFetch(`/api/mobile/stats-data?month=${month}`)
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export type CategoryWithCount = { name: string; color: string; transactionCount: number }
+
+export type SettingsData = {
+  displayName: string | null
+  expectedMonthlyIncome: number
+  upiIds: string[]
+  customCategories: CategoryWithCount[]
+  predefinedCategories: { name: string; transactionCount: number }[]
+  txCount: number
+}
+
+export async function fetchSettings(): Promise<SettingsData> {
+  return apiFetch('/api/mobile/settings')
+}
+
+export async function updateProfile(data: { displayName?: string | null; expectedMonthlyIncome?: number }): Promise<void> {
+  return apiFetch('/api/mobile/settings/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function addUpiId(id: string): Promise<void> {
+  return apiFetch('/api/mobile/settings/upi', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  })
+}
+
+export async function removeUpiId(id: string): Promise<void> {
+  return apiFetch('/api/mobile/settings/upi', {
+    method: 'DELETE',
+    body: JSON.stringify({ id }),
+  })
+}
+
+export async function addCustomCategory(name: string): Promise<{ name: string; color: string }> {
+  return apiFetch('/api/mobile/settings/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function removeCustomCategory(name: string, unlink: boolean): Promise<void> {
+  return apiFetch('/api/mobile/settings/categories', {
+    method: 'DELETE',
+    body: JSON.stringify({ name, unlink }),
+  })
+}
+
+export async function clearAllData(): Promise<void> {
+  return apiFetch('/api/mobile/settings/clear-data', { method: 'POST' })
+}
+
+export async function fetchExportCsv(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const res = await fetch(`${BASE}/api/mobile/export`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  if (!res.ok) throw new Error('Export failed')
+  return res.text()
 }

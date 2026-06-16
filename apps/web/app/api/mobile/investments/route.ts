@@ -1,29 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { accountsDb } from '@/lib/db'
+import { investmentsDb } from '@/lib/db'
 import { resolveMobileUser, isAuthErr } from '@/lib/mobile-auth'
-import type { AccountType } from '@paisa-buddy/shared/types/account'
 
 export async function GET(req: NextRequest) {
   const auth = await resolveMobileUser(req)
   if (isAuthErr(auth)) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const accounts = await accountsDb.getAll(auth.userId)
-  return NextResponse.json(accounts)
+  const investments = await investmentsDb.getAll(auth.userId)
+  return NextResponse.json(investments)
 }
 
 export async function POST(req: NextRequest) {
   const auth = await resolveMobileUser(req)
   if (isAuthErr(auth)) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const body = await req.json() as { name: string; type?: AccountType; bank?: string; opening_balance?: number }
+  const body = await req.json() as { name?: string }
   if (!body.name?.trim()) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
-  const acc = await accountsDb.insert(auth.userId, {
-    name: body.name.trim(),
-    type: body.type ?? 'savings',
-    bank: body.bank?.trim() || null,
-    currency: 'INR',
-    opening_balance: body.opening_balance ?? 0,
-  })
-  return NextResponse.json(acc, { status: 201 })
+  const inv = await investmentsDb.insert(auth.userId, body.name.trim())
+  return NextResponse.json({ ...inv, total_invested: 0 }, { status: 201 })
 }
