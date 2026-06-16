@@ -1,4 +1,4 @@
 {
   "installCommand": "pnpm install",
-  "buildCommand": "cd ../.. && pnpm build --filter web"
+  "buildCommand": "cd ../.. && pnpm build --filter @paisa-buddy/web"
 }
