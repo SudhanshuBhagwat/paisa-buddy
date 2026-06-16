@@ -1,6 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
+import { useIsMobile } from '@/lib/hooks/useIsMobile'
+import { OVERLAY_ANIM, sheetOrDialogAnim } from '@/lib/modal-animations'
 import { formatAmount } from '@/lib/utils'
 import { createAccount, updateAccount, deleteAccount } from '@/app/actions/accounts'
 import { createInvestment, updateInvestment, deleteInvestment } from '@/app/actions/investments'
@@ -9,6 +12,8 @@ import BuddySVG from '@/components/BuddySVG'
 import type { AccountWithBalance, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 import type { InvestmentWithTotal } from '@/lib/db/types'
+import { parseAmountToPaise, openingBalanceForType } from '@/lib/logic/amount'
+import { deriveAccountsSummary } from '@/lib/logic/accounts'
 
 const TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
 
@@ -80,6 +85,9 @@ interface Props {
 
 export default function AccountsClient({ accounts, investments: initialInvestments }: Props) {
   const [investments, setInvestments] = useState(initialInvestments)
+  const isMobile = useIsMobile()
+  const accountDragY = useMotionValue(0)
+  const invDragY = useMotionValue(0)
 
   // Account state
   const [modalOpen, setModalOpen] = useState(false)
@@ -104,8 +112,7 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
   async function handleSave() {
     const name = form.name.trim()
     if (!name) return
-    const rawBalance = Math.round(parseFloat(form.opening_balance || '0') * 100)
-    const opening_balance = form.type === 'credit' ? -Math.abs(rawBalance) : rawBalance
+    const opening_balance = openingBalanceForType(parseAmountToPaise(form.opening_balance), form.type)
     setSaving(true)
     try {
       if (editingAccount) {
@@ -149,10 +156,7 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
     setDeletingInvId(null)
   }
 
-  const totalBalance = accounts.reduce((s, a) => s + a.current_balance, 0)
-  const bankCount = new Set(accounts.filter(a => a.bank).map(a => a.bank!)).size
-  const cardCount = accounts.filter(a => a.type === 'credit').length
-  const totalInvested = investments.reduce((s, i) => s + i.total_invested, 0)
+  const { totalBalance, bankCount, cardCount, totalInvested } = deriveAccountsSummary(accounts, investments)
   const deletingAccount = accounts.find((a) => a.id === deletingId)
   const deletingInvestment = investments.find((i) => i.id === deletingInvId)
 
@@ -437,15 +441,31 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
       </div>
 
       {/* Add / Edit account modal */}
+      <AnimatePresence>
       {modalOpen && (
         <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setModalOpen(false)} />
+          <motion.div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} {...OVERLAY_ANIM} onClick={() => setModalOpen(false)} />
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
-            <div className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
-              style={{ background: 'var(--pb-surface)', maxHeight: '90dvh', overflowY: 'auto' }}>
-              <div className="flex justify-center pt-3 pb-1 md:hidden">
-                <div className="w-10 h-1 rounded-full" style={{ background: 'var(--pb-line)' }} />
-              </div>
+            <motion.div className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
+              style={{ background: 'var(--pb-surface)', maxHeight: '90dvh', overflowY: 'auto', y: accountDragY }}
+              {...sheetOrDialogAnim(isMobile)}>
+              <motion.div
+                className="flex justify-center pt-3 pb-4 md:hidden touch-none"
+                style={{ cursor: 'grab' }}
+                drag={isMobile ? 'y' : false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0}
+                onDrag={(_, info) => { accountDragY.set(Math.max(0, info.offset.y)) }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 80 || info.velocity.y > 400) {
+                    setModalOpen(false)
+                  } else {
+                    animate(accountDragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                  }
+                }}
+              >
+                <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--pb-line)' }} whileDrag={{ scaleX: 0.6 }} />
+              </motion.div>
               <div className="px-4 pt-3 pb-4 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">{editingAccount ? 'Edit Account' : 'New Account'}</h2>
                 <button type="button" onClick={() => setModalOpen(false)} className="text-sm" style={{ color: 'var(--pb-ink-3)' }}>Cancel</button>
@@ -500,10 +520,11 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
                   {saving ? 'Saving…' : editingAccount ? 'Save Changes' : 'Add Account'}
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </>
       )}
+      </AnimatePresence>
 
       <ConfirmModal
         open={deletingId !== null}
@@ -513,15 +534,31 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
         onConfirm={handleDelete} onCancel={() => setDeletingId(null)} />
 
       {/* Add / Edit investment modal */}
+      <AnimatePresence>
       {invModalOpen && (
         <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setInvModalOpen(false)} />
+          <motion.div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} {...OVERLAY_ANIM} onClick={() => setInvModalOpen(false)} />
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none">
-            <div className="w-full max-w-xl md:max-w-md rounded-t-2xl md:rounded-2xl pointer-events-auto"
-              style={{ background: 'var(--pb-surface)' }}>
-              <div className="flex justify-center pt-3 pb-1 md:hidden">
-                <div className="w-10 h-1 rounded-full" style={{ background: 'var(--pb-line)' }} />
-              </div>
+            <motion.div className="w-full max-w-xl md:max-w-md rounded-t-2xl md:rounded-2xl pointer-events-auto"
+              style={{ background: 'var(--pb-surface)', y: invDragY }}
+              {...sheetOrDialogAnim(isMobile)}>
+              <motion.div
+                className="flex justify-center pt-3 pb-4 md:hidden touch-none"
+                style={{ cursor: 'grab' }}
+                drag={isMobile ? 'y' : false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0}
+                onDrag={(_, info) => { invDragY.set(Math.max(0, info.offset.y)) }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 80 || info.velocity.y > 400) {
+                    setInvModalOpen(false)
+                  } else {
+                    animate(invDragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                  }
+                }}
+              >
+                <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--pb-line)' }} whileDrag={{ scaleX: 0.6 }} />
+              </motion.div>
               <div className="px-4 pt-3 pb-2 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">{editingInvestment ? 'Edit Investment' : 'New Investment'}</h2>
                 <button type="button" onClick={() => setInvModalOpen(false)} className="text-sm" style={{ color: 'var(--pb-ink-3)' }}>Cancel</button>
@@ -546,10 +583,11 @@ export default function AccountsClient({ accounts, investments: initialInvestmen
                   {invSaving ? 'Saving…' : editingInvestment ? 'Save Changes' : 'Add Investment'}
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </>
       )}
+      </AnimatePresence>
 
       <ConfirmModal
         open={deletingInvId !== null}

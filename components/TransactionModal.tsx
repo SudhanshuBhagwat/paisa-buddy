@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
+import { OVERLAY_ANIM, SHEET_MOBILE_ANIM, DIALOG_ANIM } from '@/lib/modal-animations'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useIsMobile } from '@/lib/hooks/useIsMobile'
 import { today } from '@/lib/utils'
@@ -14,6 +15,8 @@ import type { Account, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 import type { InvestmentWithTotal } from '@/lib/db/types'
 import ImportTab from '@/components/ImportTab'
+import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from '@/lib/logic/amount'
+import { getSettlementFromAccounts, getSettlementToAccounts } from '@/lib/logic/settlement'
 
 interface Props {
   open: boolean
@@ -148,7 +151,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const paise = Math.round(parseFloat(amountStr) * 100)
+    const paise = parseAmountToPaise(amountStr)
     const needsToAccount = type === 'transfer'
     if (!paise || paise <= 0 || !merchant.trim() || !category || !accountId || (needsToAccount && !toAccountId)) return
     setSubmitting(true)
@@ -220,26 +223,17 @@ export default function TransactionModal({ open, onClose, categories, recentCate
   }
 
   const isSettlement = category === 'Settlement'
-  const fromAccounts = isSettlement ? allAccounts.filter((a) => a.type !== 'credit') : allAccounts
+  const fromAccounts = isSettlement ? getSettlementFromAccounts(allAccounts) : allAccounts
   const toAccounts = isSettlement
-    ? allAccounts.filter((a) => a.type === 'credit' && a.id !== accountId)
+    ? getSettlementToAccounts(allAccounts, accountId)
     : allAccounts.filter((a) => a.id !== accountId)
 
   const activeType = TYPES.find((t) => t.value === type)!
   const merchantLabel = type === 'credit' ? 'SENDER' : type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'
   const merchantPlaceholder = type === 'credit' ? 'Who sent this?' : type === 'transfer' ? 'Which account?' : 'Who did you pay?'
 
-  function formatDisplayAmount(raw: string): string {
-    if (!raw) return ''
-    const [intPart, decPart] = raw.split('.')
-    const formatted = Number(intPart || 0).toLocaleString('en-IN')
-    return decPart !== undefined ? `${formatted}.${decPart}` : formatted
-  }
-
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const clean = e.target.value.replace(/[^0-9.]/g, '')
-    const parts = clean.split('.')
-    setAmountStr(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : clean)
+    setAmountStr(sanitizeAmountInput(e.target.value))
   }
 
   return (
@@ -249,10 +243,7 @@ export default function TransactionModal({ open, onClose, categories, recentCate
           <motion.div
             className="fixed inset-0 z-50"
             style={{ background: 'rgba(0,0,0,0.4)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            {...OVERLAY_ANIM}
             onClick={onClose}
           />
 
@@ -261,18 +252,9 @@ export default function TransactionModal({ open, onClose, categories, recentCate
               className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
               style={isMobile ? { background: 'var(--surface)', y: dragY } : { background: 'var(--surface)' }}
               {...(isMobile
-                ? {
-                    initial: { y: '100%' },
-                    animate: { y: 0 },
-                    exit: { y: '100%' },
-                    transition: { type: 'spring', damping: 32, stiffness: 320, mass: 0.8, layout: { type: 'spring', damping: 36, stiffness: 340 } },
-                  }
-                : {
-                    initial: { opacity: 0, scale: 0.95 },
-                    animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } },
-                    exit:    { opacity: 0, scale: 0.95, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } },
-                    transition: { layout: { type: 'spring', damping: 36, stiffness: 340 } },
-                  })}
+                ? { ...SHEET_MOBILE_ANIM, transition: { ...SHEET_MOBILE_ANIM.transition, layout: { type: 'spring', damping: 36, stiffness: 340 } } }
+                : { ...DIALOG_ANIM, transition: { layout: { type: 'spring', damping: 36, stiffness: 340 } } }
+              )}
             >
               <motion.div
                 className="flex justify-center pt-3 pb-4 md:hidden touch-none"

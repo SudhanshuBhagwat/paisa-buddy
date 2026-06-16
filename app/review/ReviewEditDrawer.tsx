@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, animate } from "motion/react";
+import { OVERLAY_ANIM, sheetOrDialogAnim } from "@/lib/modal-animations";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import type { Transaction, TransactionType } from "@/lib/types/transaction";
 import type { Account, AccountType } from "@/lib/types/account";
@@ -9,6 +10,8 @@ import { ACCOUNT_TYPE_LABELS } from "@/lib/types/account";
 import { createAccount } from "@/app/actions/accounts";
 import { createInvestment } from "@/app/actions/investments";
 import type { InvestmentWithTotal } from "@/lib/db/types";
+import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from "@/lib/logic/amount";
+import { getCategoryHint } from "@/lib/logic/review";
 
 interface Props {
   transaction: Transaction;
@@ -26,18 +29,6 @@ const TYPES: { value: TransactionType; label: string; color: string }[] = [
   { value: "debit", label: "Debit", color: "var(--pb-neg)" },
   { value: "transfer", label: "Transfer", color: "var(--pb-transfer)" },
 ];
-
-function getCategoryHint(tx: Transaction): string | null {
-  if (!tx.raw_ai_response) return null;
-  try {
-    const parsed = JSON.parse(tx.raw_ai_response) as {
-      category_hint?: string | null;
-    };
-    return parsed.category_hint ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export default function ReviewEditDrawer({
   transaction: tx,
@@ -97,7 +88,7 @@ export default function ReviewEditDrawer({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const paise = Math.round(parseFloat(amountStr) * 100);
+    const paise = parseAmountToPaise(amountStr);
     const needsToAccount = type === "transfer";
     if (!paise || paise <= 0 || !accountId || (needsToAccount && !toAccountId)) return;
     onSave({
@@ -157,19 +148,8 @@ export default function ReviewEditDrawer({
         ? "ACCOUNT"
         : "RECIPIENT";
 
-  function formatDisplayAmount(raw: string): string {
-    if (!raw) return "";
-    const [intPart, decPart] = raw.split(".");
-    const formatted = Number(intPart || 0).toLocaleString("en-IN");
-    return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
-  }
-
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const clean = e.target.value.replace(/[^0-9.]/g, "");
-    const parts = clean.split(".");
-    setAmountStr(
-      parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : clean,
-    );
+    setAmountStr(sanitizeAmountInput(e.target.value));
   }
 
   const allCats = [
@@ -200,10 +180,7 @@ export default function ReviewEditDrawer({
       <motion.div
         className="fixed inset-0 z-50"
         style={{ background: "rgba(0,0,0,0.4)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        {...OVERLAY_ANIM}
         onClick={onClose}
       />
 
@@ -211,18 +188,7 @@ export default function ReviewEditDrawer({
         <motion.div
           className="w-full max-w-xl md:max-w-2xl rounded-t-2xl md:rounded-2xl pointer-events-auto"
           style={isMobile ? { background: "var(--surface)", overflowX: "hidden", y: dragY } : { background: "var(--surface)", overflowX: "hidden" }}
-          {...(isMobile
-            ? {
-                initial: { y: "100%" },
-                animate: { y: 0 },
-                exit: { y: "100%" },
-                transition: { type: "spring", damping: 32, stiffness: 320, mass: 0.8 },
-              }
-            : {
-                initial: { opacity: 0, scale: 0.95 },
-                animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } },
-                exit:    { opacity: 0, scale: 0.95, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } },
-              })}
+          {...sheetOrDialogAnim(isMobile)}
         >
           <motion.div
             className="flex justify-center pt-3 pb-4 md:hidden touch-none"

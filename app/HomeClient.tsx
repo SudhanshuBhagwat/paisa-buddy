@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, animate } from 'motion/react'
+import { OVERLAY_ANIM, SHEET_MOBILE_ANIM } from '@/lib/modal-animations'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Transaction } from '@/lib/types/transaction'
@@ -26,6 +27,9 @@ import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import { useStore } from '@/lib/store'
 import BuddySVG from '@/components/BuddySVG'
 import HomeEmptyState from '@/components/HomeEmptyState'
+import { filterTransactions, getRecentCategories } from '@/lib/logic/transaction'
+import { deriveDashboardStats } from '@/lib/logic/dashboard'
+import { getNewRecurringCount, markRecurringAsSeen } from '@/lib/logic/recurring'
 
 const CAL_VARIANTS = {
   enter: (dir: number) => ({ x: dir * 48, opacity: 0 }),
@@ -164,6 +168,8 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   const isCalFirstMount = useRef(true)
   useEffect(() => { isCalFirstMount.current = false }, [])
   const isFirstMonthRender = useRef(true)
+  const filterDragY = useMotionValue(0)
+  const calDragY = useMotionValue(0)
 
   useScrollLock(calSheetOpen || filterSheetOpen || editingTx !== null)
 
@@ -175,16 +181,11 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   }, [])
 
   useEffect(() => {
-    const recurringIds = transactions.filter((t) => t.is_recurring).map((t) => t.id)
-    const stored: string[] = JSON.parse(localStorage.getItem('pb_recurring_notified_ids') ?? '[]')
-    const storedSet = new Set(stored)
-    const newCount = recurringIds.filter((id) => !storedSet.has(id)).length
-    setNewRecurringCount(newCount)
+    setNewRecurringCount(getNewRecurringCount(transactions))
   }, [transactions])
 
   function dismissRecurringBanner() {
-    const recurringIds = transactions.filter((t) => t.is_recurring).map((t) => t.id)
-    localStorage.setItem('pb_recurring_notified_ids', JSON.stringify(recurringIds))
+    markRecurringAsSeen(transactions)
     setRecurringBannerDismissed(true)
   }
 
@@ -208,16 +209,14 @@ export default function HomeClient({ transactions, categories, accounts, month: 
   }, [month])
 
   const txs = transactions
-  const q = searchQuery.trim().toLowerCase()
-  const filteredTxs = txs.filter(
-    (t) =>
-      (!selectedDate || t.date === selectedDate) &&
-      (!selectedCategory || t.category === selectedCategory) &&
-      (!selectedType || t.type === selectedType) &&
-      (!selectedAccount || t.account_id === selectedAccount) &&
-      (!recurringOnly || t.is_recurring) &&
-      (!q || t.merchant?.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)),
-  )
+  const filteredTxs = filterTransactions(txs, {
+    date: selectedDate,
+    category: selectedCategory,
+    type: selectedType,
+    account: selectedAccount,
+    recurringOnly,
+    search: searchQuery,
+  })
   const { income, expense, balance, transfer } = calcSummary(txs)
 
   const balanceColor = balance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
@@ -238,18 +237,7 @@ export default function HomeClient({ transactions, categories, accounts, month: 
     [accounts],
   )
 
-  const recentCategories = useMemo(() => {
-    const seen = new Set<string>()
-    const result: string[] = []
-    for (const tx of [...transactions].sort((a, b) => b.date.localeCompare(a.date))) {
-      if (tx.category && !seen.has(tx.category)) {
-        seen.add(tx.category)
-        result.push(tx.category)
-        if (result.length === 3) break
-      }
-    }
-    return result
-  }, [transactions])
+  const recentCategories = useMemo(() => getRecentCategories(transactions), [transactions])
 
   const statsRows = [
     { label: 'INCOME', value: income, color: 'var(--pb-pos)' },
@@ -259,23 +247,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
 
   const firstName = displayName ? displayName.split(' ')[0] : null
 
-  const hasIncomeTarget = expectedMonthlyIncome > 0
-  const incomeReceived = income
-  const incomePending = Math.max(0, expectedMonthlyIncome - incomeReceived)
-  const incomeRemaining = expectedMonthlyIncome - expense
-
-  const buddyMood = hasIncomeTarget
-    ? (incomeRemaining > 0 ? 'happy' : incomeRemaining < 0 ? 'sad' : 'neutral')
-    : (balance > 0 ? 'happy' : balance < 0 ? 'sad' : 'neutral')
+  const { hasIncomeTarget, incomeRemaining, incomeSpentPct, incomeBarColor, buddyMood, displayBalance, displayBalanceColor } = deriveDashboardStats(income, expense, balance, expectedMonthlyIncome)
   useEffect(() => {
     dispatch({ type: 'SET_BUDDY_MOOD', payload: buddyMood })
   }, [buddyMood, dispatch])
-  const incomeSpentPct = expectedMonthlyIncome > 0 ? Math.min(100, Math.round((expense / expectedMonthlyIncome) * 100)) : 0
-  const incomeBarColor = incomeSpentPct >= 100 ? 'var(--pb-neg)' : incomeSpentPct >= 80 ? 'var(--pb-gold)' : 'var(--pb-brand)'
-
-  // When income target set, show remaining budget as the headline number
-  const displayBalance = hasIncomeTarget ? incomeRemaining : balance
-  const displayBalanceColor = displayBalance >= 0 ? 'var(--pb-pos)' : 'var(--pb-neg)'
 
   function navigateMonth(delta: number) {
     calDirRef.current = delta > 0 ? 1 : -1
@@ -949,13 +924,28 @@ export default function HomeClient({ transactions, categories, accounts, month: 
       </AnimatePresence>
 
       {/* ── Mobile filter bottom sheet ── */}
+      <AnimatePresence>
       {filterSheetOpen && (
         <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setFilterSheetOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl" style={{ background: 'var(--surface)' }}>
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-            </div>
+          <motion.div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.4)' }} {...OVERLAY_ANIM} onClick={() => setFilterSheetOpen(false)} />
+          <motion.div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl" style={{ background: 'var(--surface)', y: filterDragY }} {...SHEET_MOBILE_ANIM}>
+            <motion.div
+              className="flex justify-center pt-3 pb-4 touch-none"
+              style={{ cursor: 'grab' }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0}
+              onDrag={(_, info) => { filterDragY.set(Math.max(0, info.offset.y)) }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 400) {
+                  setFilterSheetOpen(false)
+                } else {
+                  animate(filterDragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                }
+              }}
+            >
+              <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} whileDrag={{ scaleX: 0.6 }} />
+            </motion.div>
             <div className="px-4 pt-2 pb-8 flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold">Filters</h3>
@@ -1014,18 +1004,34 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 Done
               </button>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
 
       {/* ── Mobile calendar bottom sheet ── */}
+      <AnimatePresence>
       {calSheetOpen && (
         <>
-          <div className="fixed inset-0 z-50 md:hidden" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setCalSheetOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl md:hidden" style={{ background: 'var(--surface)' }}>
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-            </div>
+          <motion.div className="fixed inset-0 z-50 md:hidden" style={{ background: 'rgba(0,0,0,0.4)' }} {...OVERLAY_ANIM} onClick={() => setCalSheetOpen(false)} />
+          <motion.div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl md:hidden" style={{ background: 'var(--surface)', y: calDragY }} {...SHEET_MOBILE_ANIM}>
+            <motion.div
+              className="flex justify-center pt-3 pb-4 touch-none"
+              style={{ cursor: 'grab' }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0}
+              onDrag={(_, info) => { calDragY.set(Math.max(0, info.offset.y)) }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 400) {
+                  setCalSheetOpen(false)
+                } else {
+                  animate(calDragY, 0, { type: 'spring', damping: 30, stiffness: 300 })
+                }
+              }}
+            >
+              <motion.div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} whileDrag={{ scaleX: 0.6 }} />
+            </motion.div>
             <div className="px-4 pb-2 pt-1">
               <MonthPicker value={month} onChange={(m) => { setMonth(m); setSelectedDate(null); router.push(`/?month=${m}`) }} />
             </div>
@@ -1045,9 +1051,10 @@ export default function HomeClient({ transactions, categories, accounts, month: 
                 Done
               </button>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </main>
   )
 }

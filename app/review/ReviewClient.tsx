@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
+import { OVERLAY_ANIM, SHEET_MOBILE_ANIM } from '@/lib/modal-animations'
 import { useRouter } from 'next/navigation'
 import { useScrollLock } from '@/lib/hooks/useScrollLock'
 import {
@@ -20,6 +21,15 @@ import type { Transaction, TransactionType } from '@/lib/types/transaction'
 import type { Account, AccountType } from '@/lib/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/types/account'
 import { formatMonthLabel } from '@/lib/utils'
+import { parseAmountToPaise, formatDisplayAmount, sanitizeAmountInput } from '@/lib/logic/amount'
+import { groupTransactionsByMonth } from '@/lib/logic/transaction'
+import {
+  getCategoryHint,
+  txToFormState,
+  formStateToPayload,
+  isTransactionConfirmable,
+  type ReviewFormState,
+} from '@/lib/logic/review'
 
 interface Props {
   transactions: Transaction[]
@@ -36,6 +46,7 @@ function getCatColor(cat: string | null | undefined, colorMap: Record<string, st
 }
 
 function typeColor(t: TransactionType): string {
+
   if (t === 'credit') return 'var(--pb-pos)'
   if (t === 'transfer') return 'var(--pb-transfer)'
   return 'var(--pb-neg)'
@@ -48,81 +59,6 @@ function formatDisplay(paise: number, t: TransactionType): string {
 
 function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function getCategoryHint(tx: Transaction): string | null {
-  if (!tx.raw_ai_response) return null
-  try {
-    const parsed = JSON.parse(tx.raw_ai_response) as { category_hint?: string | null }
-    return parsed.category_hint ?? null
-  } catch {
-    return null
-  }
-}
-
-// ─── local edits ────────────────────────────────────────────────────────────
-
-interface LocalEdits {
-  type: TransactionType
-  amountStr: string
-  merchant: string
-  description: string
-  category: string
-  accountId: string
-  toAccountId: string
-  bank: string
-  upiRef: string
-  date: string
-  time: string
-  isRecurring: boolean
-  investmentId: string
-}
-
-function txToEdits(tx: Transaction): LocalEdits {
-  return {
-    type: tx.type,
-    amountStr: String(tx.amount / 100),
-    merchant: tx.merchant ?? '',
-    description: tx.description,
-    category: tx.category ?? '',
-    accountId: tx.account_id ?? '',
-    toAccountId: tx.to_account_id ?? '',
-    bank: tx.bank ?? '',
-    upiRef: tx.upi_ref ?? '',
-    date: tx.date,
-    time: tx.time ?? '',
-    isRecurring: tx.is_recurring,
-    investmentId: tx.investment_id ?? '',
-  }
-}
-
-function editsToSave(e: LocalEdits): Partial<Omit<Transaction, 'id' | 'created_at' | 'user_id'>> {
-  const paise = Math.round(parseFloat(e.amountStr || '0') * 100)
-  return {
-    type: e.type,
-    amount: paise,
-    merchant: e.merchant.trim() || null,
-    description: e.description.trim(),
-    category: e.category || null,
-    account_id: e.accountId || null,
-    to_account_id: e.type === 'transfer' ? (e.toAccountId || null) : null,
-    bank: e.bank.trim() || null,
-    upi_ref: e.upiRef.trim() || null,
-    date: e.date,
-    time: e.time || null,
-    is_recurring: e.isRecurring,
-    investment_id: e.category === 'Investment' && e.investmentId ? e.investmentId : null,
-  }
-}
-
-function isConfirmable(e: LocalEdits): boolean {
-  const paise = Math.round(parseFloat(e.amountStr || '0') * 100)
-  if (!paise || paise <= 0) return false
-  if (!e.description.trim()) return false
-  if (!e.category) return false
-  if (!e.accountId) return false
-  if (e.type === 'transfer' && !e.toAccountId) return false
-  return true
 }
 
 // ─── icon primitives ─────────────────────────────────────────────────────────
@@ -298,7 +234,7 @@ export default function ReviewClient({ transactions, categories, accounts, inves
 
   // editing state
   const [editingField, setEditingField] = useState<string | null>(null)
-  const [edits, setEdits] = useState<LocalEdits | null>(null)
+  const [edits, setEdits] = useState<ReviewFormState | null>(null)
   const [extraCats, setExtraCats] = useState<string[]>([])
   const [newCatInput, setNewCatInput] = useState('')
   const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
@@ -316,24 +252,14 @@ export default function ReviewClient({ transactions, categories, accounts, inves
 
   const activeTx = transactions.find((tx) => tx.id === activeId) ?? transactions[0] ?? null
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Transaction[]>()
-    for (const tx of transactions) {
-      const key = tx.date.slice(0, 7)
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(tx)
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([month, txs]) => ({ month, txs }))
-  }, [transactions])
+  const grouped = useMemo(() => groupTransactionsByMonth(transactions), [transactions])
 
   useScrollLock(sheetOpen)
 
   // reset edits when active tx changes
   useEffect(() => {
     if (activeTx) {
-      setEdits(txToEdits(activeTx))
+      setEdits(txToFormState(activeTx))
       setEditingField(null)
       setShowAdvanced(false)
       setExtraInvestments([])
@@ -391,7 +317,7 @@ export default function ReviewClient({ transactions, categories, accounts, inves
     const next = computeNext()
     setLoading(activeTx.id)
     try {
-      await updateAndConfirmTransaction(activeTx.id, editsToSave(edits))
+      await updateAndConfirmTransaction(activeTx.id, formStateToPayload(edits))
       setSheetOpen(false)
       if (next) setActiveId(next.id)
     } finally {
@@ -487,20 +413,6 @@ export default function ReviewClient({ transactions, categories, accounts, inves
 
   function getAllAccounts(): Account[] {
     return [...accounts, ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id))]
-  }
-
-  function formatAmountDisplay(str: string): string {
-    if (!str) return ''
-    const [int, dec] = str.split('.')
-    const formatted = Number(int || 0).toLocaleString('en-IN')
-    return dec !== undefined ? `${formatted}.${dec}` : formatted
-  }
-
-  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const clean = e.target.value.replace(/[^0-9.]/g, '')
-    const parts = clean.split('.')
-    const val = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : clean
-    if (edits) setEdits({ ...edits, amountStr: val })
   }
 
   // ─── empty state ─────────────────────────────────────────────────────────
@@ -1038,8 +950,8 @@ export default function ReviewClient({ transactions, categories, accounts, inves
           autoFocus
           type="text"
           inputMode="decimal"
-          value={formatAmountDisplay(edits.amountStr)}
-          onChange={handleAmountChange}
+          value={formatDisplayAmount(edits.amountStr)}
+          onChange={(e) => { if (edits) setEdits({ ...edits, amountStr: sanitizeAmountInput(e.target.value) }) }}
           onBlur={() => setEditingField(null)}
           onKeyDown={(e) => { if (e.key === 'Enter') setEditingField(null) }}
           style={{
@@ -1058,13 +970,13 @@ export default function ReviewClient({ transactions, categories, accounts, inves
           color: tColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         }}
       >
-        ₹{formatAmountDisplay(edits.amountStr)}
+        ₹{formatDisplayAmount(edits.amountStr)}
       </button>
     )
   }
 
   function renderActionButtons() {
-    const canConfirm = edits ? isConfirmable(edits) : false
+    const canConfirm = edits ? isTransactionConfirmable(edits) : false
     return (
       <div style={{ display: 'flex', gap: 12 }}>
         <button
@@ -1183,10 +1095,7 @@ export default function ReviewClient({ transactions, categories, accounts, inves
               <motion.div
                 className="lg:hidden"
                 style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.4)' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                {...OVERLAY_ANIM}
                 onClick={() => setSheetOpen(false)}
               />
               <motion.div
@@ -1198,10 +1107,7 @@ export default function ReviewClient({ transactions, categories, accounts, inves
                   maxHeight: 'min(94dvh, 820px)', overflowY: 'auto', overflowX: 'hidden',
                   y: dragY,
                 }}
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 32, stiffness: 320, mass: 0.8 }}
+                {...SHEET_MOBILE_ANIM}
               >
                 {/* drag handle */}
                 <motion.div
@@ -1254,8 +1160,8 @@ export default function ReviewClient({ transactions, categories, accounts, inves
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={formatAmountDisplay(edits.amountStr)}
-                      onChange={handleAmountChange}
+                      value={formatDisplayAmount(edits.amountStr)}
+                      onChange={(e) => { if (edits) setEdits({ ...edits, amountStr: sanitizeAmountInput(e.target.value) }) }}
                       className="font-semibold bg-transparent border-none outline-none w-56 text-center tabular-nums"
                       style={{ color: tColor, WebkitTextFillColor: tColor, fontSize: '2.25rem' }}
                     />
@@ -1601,13 +1507,13 @@ export default function ReviewClient({ transactions, categories, accounts, inves
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={!(edits && isConfirmable(edits)) || isLoading}
+                  disabled={!(edits && isTransactionConfirmable(edits)) || isLoading}
                   style={{
                     flex: 1, padding: '14px 0', borderRadius: 14, fontSize: 15, fontWeight: 700,
                     color: '#fff', background: 'var(--pb-brand)', textAlign: 'center',
                     boxShadow: '0 8px 18px color-mix(in srgb, var(--pb-brand) 35%, transparent)',
                     border: 'none', cursor: 'pointer',
-                    opacity: (!(edits && isConfirmable(edits)) || isLoading) ? 0.5 : 1,
+                    opacity: (!(edits && isTransactionConfirmable(edits)) || isLoading) ? 0.5 : 1,
                   }}
                 >
                   {isLoading ? 'Saving…' : 'Confirm & next →'}
