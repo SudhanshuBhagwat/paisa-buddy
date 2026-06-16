@@ -13,11 +13,13 @@ import { HomeScreen } from '../screens/HomeScreen'
 import { StatsScreen } from '../screens/StatsScreen'
 import { AccountsScreen } from '../screens/AccountsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
+import { ReviewScreen } from '../screens/ReviewScreen'
 
 export type RootStackParamList = {
   Login: undefined
   Setup: undefined
   Main: undefined
+  Review: undefined
 }
 
 export type MainTabParamList = {
@@ -83,7 +85,10 @@ export function RootNavigator() {
         ) : !setupCompleted ? (
           <Stack.Screen name="Setup" component={SetupScreen} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

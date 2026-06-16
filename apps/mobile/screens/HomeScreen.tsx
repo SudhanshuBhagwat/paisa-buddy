@@ -20,6 +20,9 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation'
 import { supabase } from '../lib/supabase'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -38,6 +41,8 @@ import {
 } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
+import { AddTransactionSheet } from '../components/AddTransactionSheet'
+import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
 type HomeData = {
   transactions: Transaction[]
@@ -98,17 +103,19 @@ function TxItem({
   tx,
   accountMap,
   catColors,
+  onPress,
 }: {
   tx: Transaction
   accountMap: Record<string, string>
   catColors: Record<string, string>
+  onPress: () => void
 }) {
   const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
   const accountName = tx.account_id ? accountMap[tx.account_id] : null
 
   return (
-    <View style={ti.row}>
+    <Pressable style={ti.row} onPress={onPress} android_ripple={{ color: C.line }}>
       <View style={[ti.dot, { backgroundColor: catC }]} />
       <View style={ti.info}>
         <Text style={ti.name} numberOfLines={1}>
@@ -129,7 +136,7 @@ function TxItem({
           {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
         </Text>
       </View>
-    </View>
+    </Pressable>
   )
 }
 
@@ -157,6 +164,7 @@ const ti = StyleSheet.create({
 
 export function HomeScreen() {
   const insets = useSafeAreaInsets()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
   const [allTxs, setAllTxs] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -168,12 +176,19 @@ export function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedType, setSelectedType] = useState<TransactionType | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [recurringOnly, setRecurringOnly] = useState(false)
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+
+
+  // Sheets
+  const [addSheetOpen, setAddSheetOpen] = useState(false)
+  const [detailTx, setDetailTx] = useState<Transaction | null>(null)
+  const [editTx, setEditTx] = useState<Transaction | null>(null)
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -199,6 +214,20 @@ export function HomeScreen() {
     load().finally(() => setRefreshing(false))
   }, [load])
 
+  function upsertTx(tx: Transaction) {
+    setAllTxs((prev) => {
+      const idx = prev.findIndex((t) => t.id === tx.id)
+      if (idx === -1) return [tx, ...prev]
+      const next = [...prev]
+      next[idx] = tx
+      return next
+    })
+  }
+
+  function removeTx(id: string) {
+    setAllTxs((prev) => prev.filter((t) => t.id !== id))
+  }
+
   // ─── Derived state ──────────────────────────────────────────────────────────
   const monthTxs = getMonthTransactions(allTxs, month)
   const { income, expense, balance, transfer } = calcSummary(monthTxs)
@@ -211,7 +240,8 @@ export function HomeScreen() {
     : 0
   const incomeBarColor = incomeSpentPct >= 100 ? C.neg : incomeSpentPct >= 80 ? C.gold : C.brand
   const pendingCount = allTxs.filter((t) => !t.reviewed).length
-  const filteredTxs = filterTransactions(monthTxs, {
+  const baseTxs = monthTxs
+  const filteredTxs = filterTransactions(baseTxs, {
     search: searchQuery,
     type: selectedType,
     category: selectedCategory,
@@ -228,9 +258,7 @@ export function HomeScreen() {
     month: 'short',
   })
   const hasFilters = !!(selectedType || selectedCategory || selectedAccount || recurringOnly)
-  const monthCategories = [
-    ...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[]),
-  ]
+  const monthCategories = [...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[])]
 
   const absFmt = formatAmount(Math.abs(displayBalance))
   const balSign = displayBalance < 0 ? '−' : ''
@@ -348,18 +376,21 @@ export function HomeScreen() {
 
         {/* ── Pending review banner ── */}
         {pendingCount > 0 && (
-          <View style={s.pendingBanner}>
+          <Pressable
+            style={s.pendingBanner}
+            onPress={() => navigation.navigate('Review')}
+          >
             <View style={s.pendingBadge}>
               <Text style={s.pendingBadgeText}>{pendingCount}</Text>
             </View>
             <View style={s.pendingInfo}>
               <Text style={s.pendingTitle}>Transactions pending review</Text>
-              <Text style={s.pendingSub}>From imports, shortcuts & bank statements</Text>
+              <Text style={s.pendingSub}>Tap to review · from imports &amp; shortcuts</Text>
             </View>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
             </Svg>
-          </View>
+          </Pressable>
         )}
 
         {/* ── Search bar ── */}
@@ -420,7 +451,13 @@ export function HomeScreen() {
                 <Text style={s.dateLabel}>{formatDateLabel(date)}</Text>
               </View>
               {grouped.get(date)!.map((tx) => (
-                <TxItem key={tx.id} tx={tx} accountMap={accountMap} catColors={catColors} />
+                <TxItem
+                  key={tx.id}
+                  tx={tx}
+                  accountMap={accountMap}
+                  catColors={catColors}
+                  onPress={() => setDetailTx(tx)}
+                />
               ))}
             </View>
           ))
@@ -431,8 +468,9 @@ export function HomeScreen() {
 
       {/* ── FAB ── */}
       <Pressable
-        style={[s.fab, { bottom: insets.bottom + 20 }]}
+        style={[s.fab, { bottom: insets.bottom }]}
         accessibilityLabel="Add transaction"
+        onPress={() => { setEditTx(null); setAddSheetOpen(true) }}
       >
         <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <Line x1="12" y1="5" x2="12" y2="19" />
@@ -536,6 +574,29 @@ export function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Add / Edit transaction sheet ── */}
+      <AddTransactionSheet
+        visible={addSheetOpen}
+        onClose={() => setAddSheetOpen(false)}
+        onSaved={(tx) => upsertTx(tx)}
+        accounts={accounts}
+        catColors={catColors}
+        editTx={editTx}
+        onAccountCreated={(acc) => setAccounts((prev) => [...prev, acc])}
+        onCategoryCreated={(name, color) => setCatColors((prev) => ({ ...prev, [name]: color }))}
+      />
+
+      {/* ── Transaction detail sheet ── */}
+      <TransactionDetailSheet
+        tx={detailTx}
+        visible={!!detailTx}
+        onClose={() => setDetailTx(null)}
+        onSaved={(tx) => { upsertTx(tx); setDetailTx(null) }}
+        onDeleted={(id) => { removeTx(id); setDetailTx(null) }}
+        accounts={accounts}
+        catColors={catColors}
+      />
     </View>
   )
 }
@@ -589,12 +650,7 @@ const s = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.55,
   },
-  balRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 2,
-    marginBottom: 12,
-  },
+  balRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2, marginBottom: 12 },
   balInt: { fontSize: 34, fontFamily: F.monoBold, letterSpacing: -0.68 },
   balDec: { fontSize: 20, fontFamily: F.mono, marginLeft: 1 },
   progressWrap: { marginBottom: 12 },
@@ -606,19 +662,9 @@ const s = StyleSheet.create({
   },
   progressLabel: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3 },
   progressPct: { fontSize: 11.5, fontFamily: F.bold },
-  progressTrack: {
-    height: 5,
-    borderRadius: 99,
-    backgroundColor: C.line,
-    overflow: 'hidden',
-  },
+  progressTrack: { height: 5, borderRadius: 99, backgroundColor: C.line, overflow: 'hidden' },
   progressFill: { height: 5, borderRadius: 99 },
-  statsRow: {
-    flexDirection: 'row',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.line,
-  },
+  statsRow: { flexDirection: 'row', paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line },
   statCol: { flex: 1, gap: 2 },
   statColBorder: { paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: C.line },
   statLabel: {
@@ -641,6 +687,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: C.line,
   },
+
   pendingBadge: {
     width: 32,
     height: 32,
@@ -738,12 +785,8 @@ const s = StyleSheet.create({
     paddingTop: 12,
   },
   dragHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.line,
-    alignSelf: 'center',
-    marginBottom: 16,
+    width: 40, height: 4, borderRadius: 2, backgroundColor: C.line,
+    alignSelf: 'center', marginBottom: 16,
   },
   filterHeader: {
     flexDirection: 'row',
