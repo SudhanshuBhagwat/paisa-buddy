@@ -1,7 +1,9 @@
 import type { Transaction, TransactionFilters } from '../types/transaction'
 import type { Account } from '../types/account'
 import type { Investment, InvestmentWithTotal } from '../types/investment'
+import type { Budget, BudgetWithSpent } from '../types/budget'
 export type { Investment, InvestmentWithTotal }
+export type { BudgetWithSpent }
 
 // ---------------------------------------------------------------------------
 // Domain types
@@ -84,6 +86,12 @@ export interface InvestmentRepository {
   getAll(userId: string): Promise<InvestmentWithTotal[]>
   insert(userId: string, name: string): Promise<Investment>
   update(userId: string, id: string, name: string): Promise<Investment>
+  delete(userId: string, id: string): Promise<void>
+}
+
+export interface BudgetRepository {
+  getAll(userId: string, yearMonth: string): Promise<BudgetWithSpent[]>
+  upsert(userId: string, category: string, amount: number): Promise<Budget>
   delete(userId: string, id: string): Promise<void>
 }
 

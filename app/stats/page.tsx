@@ -1,5 +1,10 @@
 import { Suspense } from 'react'
-import { getCachedTransactionsByMonth, getCachedCategoriesWithColors } from '@/lib/db/cached-queries'
+import {
+  getCachedTransactionsByMonth,
+  getCachedCategoriesWithColors,
+  getCachedBudgets,
+  getCachedAccounts,
+} from '@/lib/db/cached-queries'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { requireSetup } from '@/lib/auth/require-setup'
 import { toYearMonth } from '@/lib/utils'
@@ -16,15 +21,26 @@ async function StatsContent({ searchParams }: Props) {
   const month =
     typeof raw === 'string' && /^\d{4}-\d{2}$/.test(raw) ? raw : toYearMonth(new Date())
 
-  const [, transactions, allCategories] = await Promise.all([
+  const [, transactions, allCategories, budgets, accounts] = await Promise.all([
     requireSetup(userId),
     getCachedTransactionsByMonth(userId, month),
     getCachedCategoriesWithColors(userId),
+    getCachedBudgets(userId, month),
+    getCachedAccounts(userId),
   ])
 
   const categoryColorMap = Object.fromEntries(allCategories.map((c) => [c.name, c.color]))
 
-  return <StatsClient transactions={transactions} month={month} categoryColorMap={categoryColorMap} />
+  return (
+    <StatsClient
+      transactions={transactions}
+      month={month}
+      categoryColorMap={categoryColorMap}
+      budgets={budgets}
+      allCategories={allCategories}
+      accounts={accounts}
+    />
+  )
 }
 
 export default function StatsPage({ searchParams }: Props) {

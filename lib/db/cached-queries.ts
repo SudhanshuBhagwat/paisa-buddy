@@ -1,9 +1,9 @@
 import 'server-only'
 import { cacheTag } from 'next/cache'
-import { db, accountsDb, categoriesDb, settingsDb, investmentsDb } from './index'
+import { db, accountsDb, categoriesDb, settingsDb, investmentsDb, budgetsDb } from './index'
 import type { Transaction } from '../types/transaction'
 import type { Account } from '../types/account'
-import type { UserSettings, CategoryWithColor, InvestmentWithTotal } from './types'
+import type { UserSettings, CategoryWithColor, InvestmentWithTotal, BudgetWithSpent } from './types'
 import { PREDEFINED_CATEGORIES, CATEGORY_COLORS } from '../categories'
 
 export async function getCachedTransactions(userId: string): Promise<Transaction[]> {
@@ -61,4 +61,11 @@ export async function getCachedInvestments(userId: string): Promise<InvestmentWi
   'use cache'
   cacheTag('investments')
   return investmentsDb.getAll(userId)
+}
+
+export async function getCachedBudgets(userId: string, yearMonth: string): Promise<BudgetWithSpent[]> {
+  'use cache'
+  cacheTag('budgets')
+  cacheTag('transactions')
+  return budgetsDb.getAll(userId, yearMonth)
 }
