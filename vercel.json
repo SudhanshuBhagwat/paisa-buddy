@@ -1,9 +1,6 @@
 {
-  "rootDirectory": "apps/web",
-  "regions": ["bom1"],
-  "functions": {
-    "app/api/receipts/upload/route.ts": {
-      "maxDuration": 60
-    }
-  }
+  "buildCommand": "pnpm --filter web build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs"
 }
