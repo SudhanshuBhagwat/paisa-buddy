@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, budgetsDb, categoriesDb } from '@/lib/db'
 import { resolveMobileUser, isAuthErr } from '@/lib/mobile-auth'
+import { isValidMonth } from '@/lib/mobile-validate'
 import { getMonthTransactions } from '@paisa-buddy/shared/logic/transaction'
 
 export async function GET(req: NextRequest) {
@@ -9,6 +10,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const month = searchParams.get('month') ?? new Date().toISOString().slice(0, 7)
+
+  if (!isValidMonth(month)) {
+    return NextResponse.json({ error: 'month must be YYYY-MM' }, { status: 400 })
+  }
 
   const [allTxs, budgets, categories] = await Promise.all([
     db.getAll(auth.userId),

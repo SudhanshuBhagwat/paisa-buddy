@@ -137,17 +137,30 @@ export async function generateAndSendOTP(email: string): Promise<void> {
   if (emailError) throw new Error(emailError.message)
 }
 
+const MAX_OTP_ATTEMPTS = 5
+
 export async function verifyOTP(email: string, token: string): Promise<boolean> {
-  const { data, error } = await getSupabaseClient()
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
     .from('otp_tokens')
     .select()
     .eq('email', email)
-    .eq('token', token)
     .gt('expires_at', new Date().toISOString())
     .maybeSingle()
 
   if (error || !data) return false
 
-  await getSupabaseClient().from('otp_tokens').delete().eq('email', email)
+  if (data.attempts >= MAX_OTP_ATTEMPTS) {
+    await supabase.from('otp_tokens').delete().eq('email', email)
+    return false
+  }
+
+  if (data.token !== token) {
+    await supabase.from('otp_tokens').update({ attempts: data.attempts + 1 }).eq('email', email)
+    return false
+  }
+
+  await supabase.from('otp_tokens').delete().eq('email', email)
   return true
 }

@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseClient } from '@/lib/db/supabase/client'
 import { db, accountsDb, settingsDb, categoriesDb } from '@/lib/db'
+import { resolveMobileUser, isAuthErr } from '@/lib/mobile-auth'
 
 export async function GET(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 })
+  const auth = await resolveMobileUser(req)
+  if (isAuthErr(auth)) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const supabase = getSupabaseClient()
-  const { data: { user }, error: jwtErr } = await supabase.auth.getUser(token)
-  if (jwtErr || !user?.email) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-  }
-
-  // Resolve the custom users.id by email — this bridges the auth.users / custom users ID split
-  const { data: customUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', user.email)
-    .maybeSingle()
-
-  if (!customUser?.id) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
-
-  const userId = customUser.id as string
+  const userId = auth.userId
 
   const [transactions, accounts, settings, categories] = await Promise.all([
     db.getAll(userId),
