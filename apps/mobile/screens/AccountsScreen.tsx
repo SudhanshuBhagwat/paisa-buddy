@@ -17,16 +17,11 @@ import {
   createAccount,
   updateAccount,
   deleteAccount,
-  createInvestment,
-  updateInvestment,
-  deleteInvestment,
 } from '../lib/api'
-import { getAccounts, getInvestments } from '../lib/data'
-import { invalidateAccountData, invalidateTransactionData, queryKeys } from '../lib/query'
+import { getAccounts } from '../lib/data'
+import { invalidateAccountData, queryKeys } from '../lib/query'
 import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
-import type { InvestmentWithTotal } from '@paisa-buddy/shared/types/investment'
-import { deriveAccountsSummary } from '@paisa-buddy/shared/logic/accounts'
 import { formatAmount, openingBalanceForType, parseAmountToPaise } from '@paisa-buddy/shared/logic/amount'
 import { C, F, RADIUS } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
@@ -60,17 +55,6 @@ function AccountIcon({ type, size = 42 }: { type: AccountType; size?: number }) 
   )
 }
 
-function InvestmentIcon({ size = 42 }: { size?: number }) {
-  return (
-    <View style={[ico.wrap, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: '#FEF3C7' }]}>
-      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#C99A2E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <Polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <Polyline points="16 7 22 7 22 13" />
-      </Svg>
-    </View>
-  )
-}
-
 const ico = StyleSheet.create({
   wrap: { alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 })
@@ -98,16 +82,6 @@ function HeroCard({ totalBalance, bankCount, cardCount, accountCount }: {
   )
 }
 
-function InvHeroCard({ totalInvested, count }: { totalInvested: number; count: number }) {
-  return (
-    <View style={hero.gold}>
-      <Text style={hero.tag}>Total invested</Text>
-      <Text style={hero.amount}>{formatAmount(totalInvested)}</Text>
-      <Text style={hero.sub}>{count} investment{count !== 1 ? 's' : ''}</Text>
-    </View>
-  )
-}
-
 const hero = StyleSheet.create({
   green: {
     backgroundColor: '#1A936F',
@@ -115,12 +89,6 @@ const hero = StyleSheet.create({
     padding: 20,
     overflow: 'hidden',
     position: 'relative',
-  },
-  gold: {
-    backgroundColor: '#C99A2E',
-    borderRadius: RADIUS,
-    padding: 20,
-    overflow: 'hidden',
   },
   tag: { fontSize: 10.5, fontFamily: F.bold, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 },
   amount: { fontSize: 28, fontFamily: F.monoBold, color: '#fff', letterSpacing: -0.56, lineHeight: 32 },
@@ -278,118 +246,27 @@ const af = StyleSheet.create({
   saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 })
 
-// ─── Investment Sheet ──────────────────────────────────────────────────────────
-
-function InvestmentSheet({
-  visible, onClose, editing, onSaved,
-}: {
-  visible: boolean
-  onClose: () => void
-  editing: InvestmentWithTotal | null
-  onSaved: (inv: InvestmentWithTotal) => void
-}) {
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
-  const nameRef = useRef<TextInput>(null)
-
-  React.useEffect(() => {
-    if (visible) setName(editing?.name ?? '')
-  }, [visible, editing])
-
-  async function handleSave() {
-    const n = name.trim()
-    if (!n) return
-    setSaving(true)
-    try {
-      if (editing) {
-        const inv = await updateInvestment(editing.id, n)
-        onSaved({ ...inv, total_invested: editing.total_invested })
-      } else {
-        const inv = await createInvestment(n)
-        onSaved(inv)
-      }
-      onClose()
-    } catch {
-      Alert.alert('Error', 'Could not save investment.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Sheet
-      visible={visible}
-      onClose={onClose}
-      heightFraction={0.65}
-      onOpen={!editing ? () => nameRef.current?.focus() : undefined}
-      header={(
-        <View style={af.header}>
-          <Text style={af.title}>{editing ? 'Edit Investment' : 'New Investment'}</Text>
-          <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
-        </View>
-      )}
-    >
-      <View style={{ padding: 16, gap: 16 }}>
-        <View style={af.field}>
-          <Text style={af.label}>NAME <Text style={{ color: C.neg }}>*</Text></Text>
-          <TextInput
-            ref={nameRef}
-            style={af.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Zerodha, SBI PPF"
-            placeholderTextColor={C.ink3}
-            onSubmitEditing={handleSave}
-            returnKeyType="done"
-          />
-        </View>
-        <Pressable
-          style={[inv_s.save, (!name.trim() || saving) && { opacity: 0.4 }]}
-          onPress={handleSave}
-          disabled={!name.trim() || saving}
-        >
-          <Text style={inv_s.saveText}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Investment'}</Text>
-        </Pressable>
-      </View>
-    </Sheet>
-  )
-}
-
-const inv_s = StyleSheet.create({
-  save: { backgroundColor: '#C99A2E', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
-})
-
 // ─── AccountsScreen ────────────────────────────────────────────────────────────
 
 export function AccountsScreen() {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
   const addAccScale = useSharedValue(1)
-  const addInvScale = useSharedValue(1)
   const addAccAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addAccScale.value }] }))
-  const addInvAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addInvScale.value }] }))
   const accountsQuery = useQuery({
     queryKey: queryKeys.accounts,
     queryFn: getAccounts,
   })
-  const investmentsQuery = useQuery({
-    queryKey: queryKeys.investments,
-    queryFn: getInvestments,
-  })
   const accounts = accountsQuery.data ?? []
-  const investments = investmentsQuery.data ?? []
 
   // Account sheet
   const [accSheetOpen, setAccSheetOpen] = useState(false)
   const [editingAcc, setEditingAcc] = useState<Account | null>(null)
 
-  // Investment sheet
-  const [invSheetOpen, setInvSheetOpen] = useState(false)
-  const [editingInv, setEditingInv] = useState<InvestmentWithTotal | null>(null)
-
-  const loading = accountsQuery.isLoading || investmentsQuery.isLoading
-  const { totalBalance, bankCount, cardCount, totalInvested } = deriveAccountsSummary(accounts, investments)
+  const loading = accountsQuery.isLoading
+  const totalBalance = accounts.reduce((sum, account) => sum + account.current_balance, 0)
+  const bankCount = accounts.filter((account) => account.type === 'savings' || account.type === 'current').length
+  const cardCount = accounts.filter((account) => account.type === 'credit').length
 
   function openAddAcc() { setEditingAcc(null); setAccSheetOpen(true) }
   function openEditAcc(acc: Account) { setEditingAcc(acc); setAccSheetOpen(true) }
@@ -415,38 +292,6 @@ export function AccountsScreen() {
             invalidateAccountData(queryClient)
           } catch {
             Alert.alert('Error', 'Could not delete account.')
-          }
-        },
-      },
-    ])
-  }
-
-  function openAddInv() { setEditingInv(null); setInvSheetOpen(true) }
-  function openEditInv(inv: InvestmentWithTotal) { setEditingInv(inv); setInvSheetOpen(true) }
-
-  function handleInvSaved(inv: InvestmentWithTotal) {
-    queryClient.setQueryData<InvestmentWithTotal[]>(queryKeys.investments, (prev = []) => {
-      const idx = prev.findIndex((i) => i.id === inv.id)
-      if (idx === -1) return [...prev, inv]
-      const next = [...prev]; next[idx] = inv; return next
-    })
-    queryClient.invalidateQueries({ queryKey: queryKeys.investments })
-    queryClient.invalidateQueries({ queryKey: queryKeys.home })
-    queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
-  }
-
-  async function handleDeleteInv(inv: InvestmentWithTotal) {
-    Alert.alert(`Delete "${inv.name}"?`, 'Transactions linked to this investment will be unlinked but not deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteInvestment(inv.id)
-            queryClient.setQueryData<InvestmentWithTotal[]>(queryKeys.investments, (prev = []) => prev.filter((i) => i.id !== inv.id))
-            invalidateTransactionData(queryClient)
-          } catch {
-            Alert.alert('Error', 'Could not delete investment.')
           }
         },
       },
@@ -539,52 +384,6 @@ export function AccountsScreen() {
               </>
             )}
 
-            {/* Investments section */}
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>Investments</Text>
-              <Pressable
-                onPress={openAddInv}
-                onPressIn={() => { addInvScale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
-                onPressOut={() => { addInvScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
-              >
-                <Animated.View style={[s.goldBtn, addInvAnimStyle]}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                    <Path d="M12 5v14M5 12h14" />
-                  </Svg>
-                  <Text style={s.goldBtnText}>Add</Text>
-                </Animated.View>
-              </Pressable>
-            </View>
-
-            {investments.length === 0 ? (
-              <View style={s.emptyState}>
-                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <Polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                  <Polyline points="16 7 22 7 22 13" />
-                </Svg>
-                <Text style={s.emptyText}>No investments yet</Text>
-                <Pressable onPress={openAddInv}><Text style={[s.emptyLink, { color: '#C99A2E' }]}>Add your first investment</Text></Pressable>
-              </View>
-            ) : (
-              <>
-                <InvHeroCard totalInvested={totalInvested} count={investments.length} />
-                <View style={s.listCard}>
-                  {investments.map((inv, idx) => (
-                    <View key={inv.id} style={[s.listRow, idx < investments.length - 1 && s.listRowBorder]}>
-                      <InvestmentIcon />
-                      <View style={s.listInfo}>
-                        <Text style={s.listName} numberOfLines={1}>{inv.name}</Text>
-                        <Text style={s.listSub}>Investment</Text>
-                      </View>
-                      <Text style={[s.listBalance, { color: '#C99A2E' }]} numberOfLines={1}>
-                        {formatAmount(inv.total_invested)}
-                      </Text>
-                      <ActionBtns onEdit={() => openEditInv(inv)} onDelete={() => handleDeleteInv(inv)} />
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
           </View>
         )}
         <View style={{ height: 80 }} />
@@ -595,12 +394,6 @@ export function AccountsScreen() {
         onClose={() => setAccSheetOpen(false)}
         editing={editingAcc}
         onSaved={handleAccSaved}
-      />
-      <InvestmentSheet
-        visible={invSheetOpen}
-        onClose={() => setInvSheetOpen(false)}
-        editing={editingInv}
-        onSaved={handleInvSaved}
       />
     </View>
   )
@@ -618,17 +411,8 @@ const s = StyleSheet.create({
     shadowColor: C.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   addBtnText: { fontSize: 13.5, fontFamily: F.bold, color: '#fff' },
-  goldBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: '#C99A2E', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 8,
-    shadowColor: '#C99A2E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  },
-  goldBtnText: { fontSize: 13.5, fontFamily: F.bold, color: '#fff' },
   loadingWrap: { paddingTop: 80, alignItems: 'center' },
   body: { paddingHorizontal: 18, paddingTop: 4, gap: 12 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   listCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,

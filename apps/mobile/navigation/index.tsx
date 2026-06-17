@@ -7,7 +7,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { supabase } from '../lib/supabase'
-import { getAccounts, getHomeData, getInvestments, getReviewData, getSettingsData, getStatsData } from '../lib/data'
+import { getAccounts, getHomeData, getReviewData, getSettingsData, getStatsData } from '../lib/data'
 import { queryKeys } from '../lib/query'
 import { CustomBottomNav } from './BottomNav'
 import { LoginScreen } from '../screens/LoginScreen'
@@ -60,7 +60,6 @@ function MainDataPrefetcher() {
       queryClient.prefetchQuery({ queryKey: queryKeys.home, queryFn: getHomeData }),
       queryClient.prefetchQuery({ queryKey: queryKeys.review, queryFn: getReviewData }),
       queryClient.prefetchQuery({ queryKey: queryKeys.accounts, queryFn: getAccounts }),
-      queryClient.prefetchQuery({ queryKey: queryKeys.investments, queryFn: getInvestments }),
       queryClient.prefetchQuery({ queryKey: queryKeys.settings, queryFn: getSettingsData }),
       queryClient.prefetchQuery({ queryKey: queryKeys.stats(month), queryFn: () => getStatsData(month) }),
     ])

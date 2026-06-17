@@ -128,7 +128,7 @@ export function ReviewScreen({ navigation }: Props) {
   // Bulk action state
   const [bulkLoading, setBulkLoading] = useState(false)
 
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])]
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])].filter((cat) => cat !== 'Investment')
   const grouped = groupTransactionsByMonth(transactions)
 
   const recentCategories = [...new Set(

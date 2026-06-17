@@ -123,7 +123,7 @@ export function AddTransactionSheet({
   const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
   const customCatKeys = Object.keys(catColors)
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...customCatKeys])]
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...customCatKeys])].filter((cat) => cat !== 'Investment')
 
   const recentCats = recentCategories.filter((c) => allCategories.includes(c)).slice(0, 3)
   const restCats = allCategories.filter((c) => !recentCats.includes(c))
