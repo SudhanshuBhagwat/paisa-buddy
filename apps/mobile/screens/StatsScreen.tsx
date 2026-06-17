@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -490,6 +489,88 @@ const bs = StyleSheet.create({
   saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 })
 
+function SkeletonBlock({ style }: { style?: object }) {
+  return <View style={[sk.block, style]} />
+}
+
+function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (tab: Tab) => void }) {
+  return (
+    <View style={s.body}>
+      <View style={s.summaryCard}>
+        {[0, 1, 2].map((idx) => (
+          <View key={idx} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+            <SkeletonBlock style={sk.summaryLabel} />
+            <SkeletonBlock style={sk.summaryValue} />
+          </View>
+        ))}
+      </View>
+
+      <TabSwitcher active={activeTab} onChange={onTabChange} />
+
+      {activeTab === 'budgets' ? (
+        <View>
+          <View style={s.budgetHeader}>
+            <SkeletonBlock style={sk.sectionTitle} />
+            <SkeletonBlock style={sk.addButton} />
+          </View>
+          <View style={s.budgetList}>
+            {[0, 1, 2].map((idx) => (
+              <View key={idx} style={bb.card}>
+                <View style={bb.header}>
+                  <View style={bb.headerRow}>
+                    <SkeletonBlock style={sk.budgetName} />
+                    <SkeletonBlock style={sk.budgetAmount} />
+                  </View>
+                  <SkeletonBlock style={sk.budgetTrack} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={s.chartCard}>
+          <SkeletonBlock style={sk.chartLabel} />
+          <View style={sk.chartWrap}>
+            <View style={sk.donutOuter}>
+              <View style={sk.donutInner} />
+            </View>
+          </View>
+          <View style={sk.legend}>
+            {[80, 112, 68, 96, 74].map((width, idx) => (
+              <SkeletonBlock key={idx} style={[sk.legendChip, { width }]} />
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+const sk = StyleSheet.create({
+  block: { backgroundColor: C.line, opacity: 0.75, borderRadius: 6 },
+  summaryLabel: { width: 48, height: 9 },
+  summaryValue: { width: 72, height: 14 },
+  sectionTitle: { width: 76, height: 18 },
+  addButton: { width: 62, height: 34, borderRadius: 12 },
+  budgetName: { flex: 1, height: 15 },
+  budgetAmount: { width: 96, height: 12 },
+  budgetTrack: { height: 6, borderRadius: 3 },
+  chartLabel: { width: 138, height: 11 },
+  chartWrap: { alignItems: 'center', paddingVertical: 6 },
+  donutOuter: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: C.line,
+    opacity: 0.75,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donutInner: { width: 108, height: 108, borderRadius: 54, backgroundColor: C.surface },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  legendChip: { height: 25, borderRadius: 99 },
+})
+
 // ─── StatsScreen ───────────────────────────────────────────────────────────────
 
 export function StatsScreen() {
@@ -609,9 +690,7 @@ export function StatsScreen() {
         </View>
 
         {statsQuery.isLoading ? (
-          <View style={s.loadingWrap}>
-            <ActivityIndicator color={C.brand} />
-          </View>
+          <StatsSkeleton activeTab={activeTab} onTabChange={handleTabChange} />
         ) : (
           <View style={s.body}>
             {/* Summary strip */}
@@ -739,7 +818,6 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   monthLabel: { fontSize: 12.5, fontFamily: F.semibold, color: C.ink2, minWidth: 90, textAlign: 'center' },
-  loadingWrap: { flex: 1, alignItems: 'center', paddingTop: 80 },
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   summaryCard: {
     flexDirection: 'row',
@@ -749,7 +827,7 @@ const s = StyleSheet.create({
     borderColor: C.line,
     shadowColor: '#14281E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  summaryCol: { flex: 1, paddingVertical: 13, alignItems: 'center', gap: 4 },
+  summaryCol: { flex: 1, minHeight: 64, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', gap: 4 },
   summaryColBorder: { borderLeftWidth: 1, borderLeftColor: C.line },
   summaryLabel: { fontSize: 10.5, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { fontSize: 13.5, fontFamily: F.monoBold },
