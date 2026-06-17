@@ -5,7 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated'
-import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg'
+import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { C, F } from '../lib/tokens'
@@ -35,8 +35,13 @@ function StatsIcon({ active }: { active: boolean }) {
 function AccountsIcon({ active }: { active: boolean }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={active ? C.brand : C.ink3} strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
-      <Rect x="2" y="5" width="20" height="14" rx="2" />
-      <Line x1="2" y1="10" x2="22" y2="10" />
+      <Path d="M3 21h18" />
+      <Path d="M5 21V10" />
+      <Path d="M19 21V10" />
+      <Path d="M9 21V10" />
+      <Path d="M15 21V10" />
+      <Path d="M3 10h18" />
+      <Path d="M12 3 3 8h18z" />
     </Svg>
   )
 }
