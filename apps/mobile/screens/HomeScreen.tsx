@@ -118,7 +118,6 @@ function TxItem({
   onPress: () => void
   onDelete: () => void
 }) {
-  const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
   const accountName = tx.account_id ? accountMap[tx.account_id] : null
   const scale = useSharedValue(1)
@@ -132,7 +131,6 @@ function TxItem({
       android_ripple={{ color: C.line }}
     >
       <Animated.View style={[ti.row, animStyle]}>
-      <View style={[ti.dot, { backgroundColor: catC }]} />
       <View style={ti.info}>
         <Text style={ti.name} numberOfLines={1}>
           {tx.merchant || tx.description || '—'}
@@ -140,7 +138,7 @@ function TxItem({
         {(tx.category || accountName) && (
           <Text style={ti.sub} numberOfLines={1}>
             {tx.category ? (
-              <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
+              <Text style={{ color: C.ink3, fontFamily: F.bold }}>{tx.category}</Text>
             ) : null}
             {tx.category && accountName ? ' · ' : ''}
             {accountName ?? ''}
@@ -177,7 +175,6 @@ const ti = StyleSheet.create({
     borderBottomColor: C.line,
     gap: 10,
   },
-  dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   info: { flex: 1, minWidth: 0 },
   name: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   sub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 1 },

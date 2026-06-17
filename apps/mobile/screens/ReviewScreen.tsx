@@ -15,7 +15,7 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import Svg, { Check, Circle, Polyline, Line, Path } from 'react-native-svg'
+import Svg, { Circle, Polyline, Line, Path } from 'react-native-svg'
 import { Sheet } from '../components/Sheet'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
@@ -345,7 +345,6 @@ export function ReviewScreen({ navigation }: Props) {
 
               <View style={s.groupCard}>
                 {txs.map((tx, i) => {
-                  const catC = categoryColor(tx.category, catColors)
                   const tColor = TYPE_COLOR[tx.type]
                   const accountName = allAccounts.find((a) => a.id === tx.account_id)?.name
                   return (
@@ -354,30 +353,23 @@ export function ReviewScreen({ navigation }: Props) {
                       style={[s.row, i > 0 && s.rowBorder]}
                       onPress={() => openSheet(tx)}
                     >
-                      <View style={[s.dot, { backgroundColor: catC }]} />
                       <View style={s.rowBody}>
                         <View style={s.rowTop}>
                           <Text style={s.rowMerchant} numberOfLines={1}>
                             {tx.merchant || tx.description || '—'}
                           </Text>
-                          <View style={[s.typeBadge, { backgroundColor: tColor + '20' }]}>
-                            <Text style={[s.typeBadgeText, { color: tColor }]}>{tx.type}</Text>
-                          </View>
                         </View>
                         <View style={s.rowMeta}>
                           {tx.category && (
-                            <Text style={[s.rowCat, { color: catC }]}>{tx.category}</Text>
+                            <Text style={s.rowCat}>{tx.category}</Text>
                           )}
-                          {tx.category && tx.description && (
-                            <Text style={s.rowMetaSep}> · </Text>
-                          )}
-                          {tx.description ? (
-                            <Text style={s.rowDesc} numberOfLines={1}>{tx.description}</Text>
-                          ) : null}
                         </View>
                         <Text style={s.rowDate}>
                           {formatDateLabel(tx.date)}{accountName ? ` · ${accountName}` : ''}
                         </Text>
+                      </View>
+                      <View style={[s.typeBadge, { backgroundColor: tColor + '20' }]}>
+                        <Text style={[s.typeBadgeText, { color: tColor }]}>{tx.type}</Text>
                       </View>
                       <Text style={[s.rowAmount, { color: tColor }]}>
                         {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
@@ -676,9 +668,12 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 20, fontFamily: F.extrabold, color: C.ink },
   countBadge: {
     backgroundColor: C.neg,
-    borderRadius: 99,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countBadgeText: { fontSize: 11, fontFamily: F.extrabold, color: '#fff' },
   bulkBtns: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -713,9 +708,12 @@ const s = StyleSheet.create({
   monthLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.6 },
   monthCount: {
     backgroundColor: C.neg + '18',
-    borderRadius: 99,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   monthCountText: { fontSize: 11, fontFamily: F.semibold, color: C.neg },
   groupCard: {
@@ -732,16 +730,13 @@ const s = StyleSheet.create({
     gap: 12,
   },
   rowBorder: { borderTopWidth: 1, borderTopColor: C.line },
-  dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   rowBody: { flex: 1, minWidth: 0, gap: 2 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rowMerchant: { flex: 1, fontSize: 14.5, fontFamily: F.semibold, color: C.ink },
+  rowMerchant: { flex: 1, fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
   typeBadge: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   typeBadgeText: { fontSize: 9, fontFamily: F.extrabold, letterSpacing: 0.4, textTransform: 'uppercase' },
   rowMeta: { flexDirection: 'row', alignItems: 'center' },
-  rowCat: { fontSize: 12, fontFamily: F.bold },
-  rowMetaSep: { fontSize: 12, color: C.ink3 },
-  rowDesc: { fontSize: 12, fontFamily: F.regular, color: C.ink3, flex: 1 },
+  rowCat: { fontSize: 12, fontFamily: F.bold, color: C.ink3 },
   rowDate: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
   rowAmount: { fontSize: 15, fontFamily: F.monoBold, flexShrink: 0 },
 
