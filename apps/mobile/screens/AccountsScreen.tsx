@@ -15,6 +15,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import {
+  listAccounts,
   createAccount,
   updateAccount,
   deleteAccount,
@@ -30,9 +31,6 @@ import { deriveAccountsSummary } from '@paisa-buddy/shared/logic/accounts'
 import { formatAmount, openingBalanceForType, parseAmountToPaise } from '@paisa-buddy/shared/logic/amount'
 import { C, F, RADIUS } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
-import { supabase } from '../lib/supabase'
-
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
 
 const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
 
@@ -372,18 +370,15 @@ export function AccountsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
       const [accRes, invList] = await Promise.all([
-        fetch(`${BASE}/api/mobile/accounts`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }).then((r) => r.json() as Promise<Account[]>),
+        listAccounts(),
         listInvestments(),
       ])
-      setAccounts(accRes)
-      setInvestments(invList)
+      setAccounts(Array.isArray(accRes) ? accRes : [])
+      setInvestments(Array.isArray(invList) ? invList : [])
     } catch {
-      // ignore
+      setAccounts([])
+      setInvestments([])
     }
   }, [])
 

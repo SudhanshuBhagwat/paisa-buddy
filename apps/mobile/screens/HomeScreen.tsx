@@ -28,7 +28,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation'
-import { supabase } from '../lib/supabase'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import {
@@ -46,7 +45,7 @@ import {
 } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
-import { deleteTransaction } from '../lib/api'
+import { deleteTransaction, fetchHomeData } from '../lib/api'
 import { Sheet } from '../components/Sheet'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
@@ -223,18 +222,18 @@ export function HomeScreen() {
   const [editTx, setEditTx] = useState<Transaction | null>(null)
 
   const load = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const base = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${base}/api/mobile/home-data`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    if (!res.ok) return
-    const data = await res.json() as HomeData
-    setAllTxs(data.transactions ?? [])
-    setAccounts(data.accounts ?? [])
-    setSettings(data.settings)
-    setCatColors(data.categoryColors ?? {})
+    try {
+      const data = await fetchHomeData() as HomeData
+      setAllTxs(Array.isArray(data.transactions) ? data.transactions : [])
+      setAccounts(Array.isArray(data.accounts) ? data.accounts : [])
+      setSettings(data.settings)
+      setCatColors(data.categoryColors ?? {})
+    } catch {
+      setAllTxs([])
+      setAccounts([])
+      setSettings(null)
+      setCatColors({})
+    }
   }, [])
 
   useEffect(() => {

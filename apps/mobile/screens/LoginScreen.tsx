@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -58,6 +59,19 @@ export function LoginScreen() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardOpen(true))
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false))
+
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   async function sendOtp() {
     const trimmed = email.trim().toLowerCase()
@@ -99,21 +113,26 @@ export function LoginScreen() {
     <View style={[s.root, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         style={s.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         <ScrollView
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={[
+            s.scroll,
+            keyboardOpen && s.scrollKeyboard,
+            { paddingBottom: bottomPad + (keyboardOpen ? 120 : 0) },
+          ]}
           bounces={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
           {/* Hero */}
-          <View style={s.hero}>
+          <View style={[s.hero, keyboardOpen && s.heroKeyboard]}>
             <View style={s.buddyWrap}>
-              <View style={s.sproutsPos}>
+              <View style={[s.sproutsPos, keyboardOpen && s.sproutsHidden]}>
                 <Sprouts />
               </View>
-              <BuddySVG size={90} />
+              <BuddySVG size={keyboardOpen ? 64 : 90} />
             </View>
             <View style={s.wordmarkRow}>
               <Text style={s.wordmarkPaisa}>Paisa </Text>
@@ -230,10 +249,13 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   kav: { flex: 1 },
   scroll: { paddingHorizontal: 32, paddingTop: 160 },
+  scrollKeyboard: { paddingTop: 44 },
 
   hero: { alignItems: 'center', marginBottom: 36 },
+  heroKeyboard: { marginBottom: 22 },
   buddyWrap: { marginBottom: 8 },
   sproutsPos: { position: 'absolute', top: -20, left: -44, zIndex: 0 },
+  sproutsHidden: { opacity: 0 },
   wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 12 },
   wordmarkPaisa: {
     fontSize: 24,
