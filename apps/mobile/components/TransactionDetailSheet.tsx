@@ -129,7 +129,7 @@ export function TransactionDetailSheet({
     setSaving(true)
     try {
       const payload = formStateToPayload({ type, amountStr, date, time, merchant, description, category, accountId, toAccountId, bank, upiRef, isRecurring, investmentId: '' })
-      const updated = await updateTransaction(tx.id, payload)
+      const updated = await updateTransaction(tx.id, tx.reviewed ? payload : { ...payload, reviewed: true })
       onSaved(updated)
       onClose()
     } catch (e) {

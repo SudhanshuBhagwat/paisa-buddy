@@ -137,7 +137,7 @@ function TxItem({
         <Text style={ti.name} numberOfLines={1}>
           {tx.merchant || tx.description || '—'}
         </Text>
-        {tx.reviewed && (
+        {(tx.category || accountName) && (
           <Text style={ti.sub} numberOfLines={1}>
             {tx.category ? (
               <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
