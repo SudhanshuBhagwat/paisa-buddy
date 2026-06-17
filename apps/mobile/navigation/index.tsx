@@ -13,6 +13,7 @@ import { CustomBottomNav } from './BottomNav'
 import { LoginScreen } from '../screens/LoginScreen'
 import { SetupScreen } from '../screens/SetupScreen'
 import { HomeScreen } from '../screens/HomeScreen'
+import { TransactionsScreen } from '../screens/TransactionsScreen'
 import { StatsScreen } from '../screens/StatsScreen'
 import { AccountsScreen } from '../screens/AccountsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
@@ -28,6 +29,7 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined
+  Transactions: undefined
   Stats: undefined
   Accounts: undefined
   Settings: undefined
@@ -43,6 +45,7 @@ function MainTabs() {
       tabBar={(props) => <CustomBottomNav {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Transactions" component={TransactionsScreen} />
       <Tab.Screen name="Stats" component={StatsScreen} />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
