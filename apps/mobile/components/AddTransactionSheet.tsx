@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
+import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -22,6 +23,7 @@ import {
   createCategory,
   type TxInput,
 } from '../lib/api'
+import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData } from '../lib/query'
 import {
   PREDEFINED_CATEGORIES,
   categoryColor,
@@ -69,6 +71,7 @@ export function AddTransactionSheet({
   onAccountCreated,
   onCategoryCreated,
 }: Props) {
+  const queryClient = useQueryClient()
   const isEdit = !!editTx
   const amountRef = useRef<TextInput>(null)
 
@@ -166,6 +169,7 @@ export function AddTransactionSheet({
       const tx = isEdit
         ? await updateTransaction(editTx!.id, payload)
         : await createTransaction(payload)
+      invalidateTransactionData(queryClient)
       onSaved(tx, isEdit)
       onClose()
     } catch (e) {
@@ -183,6 +187,7 @@ export function AddTransactionSheet({
       const acc = await createAccount(name, newAccType)
       setExtraAccounts((prev) => [...prev, acc])
       setAccountId(acc.id)
+      invalidateAccountData(queryClient)
       onAccountCreated?.(acc)
       setAddingAccount(false)
       setNewAccName('')
@@ -202,6 +207,7 @@ export function AddTransactionSheet({
       const result = await createCategory(name)
       setExtraCatColors((prev) => ({ ...prev, [result.name]: result.color }))
       setCategory(result.name)
+      invalidateCategoryData(queryClient)
       onCategoryCreated?.(result.name, result.color)
       setAddingCat(false)
       setNewCatInput('')

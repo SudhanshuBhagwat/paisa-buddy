@@ -1,9 +1,8 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,17 +12,17 @@ import {
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useFocusEffect } from '@react-navigation/native'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  listAccounts,
   createAccount,
   updateAccount,
   deleteAccount,
-  listInvestments,
   createInvestment,
   updateInvestment,
   deleteInvestment,
 } from '../lib/api'
+import { getAccounts, getInvestments } from '../lib/data'
+import { invalidateAccountData, invalidateTransactionData, queryKeys } from '../lib/query'
 import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 import type { InvestmentWithTotal } from '@paisa-buddy/shared/types/investment'
@@ -365,14 +364,21 @@ const inv_s = StyleSheet.create({
 
 export function AccountsScreen() {
   const insets = useSafeAreaInsets()
+  const queryClient = useQueryClient()
   const addAccScale = useSharedValue(1)
   const addInvScale = useSharedValue(1)
   const addAccAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addAccScale.value }] }))
   const addInvAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addInvScale.value }] }))
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [investments, setInvestments] = useState<InvestmentWithTotal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.accounts,
+    queryFn: getAccounts,
+  })
+  const investmentsQuery = useQuery({
+    queryKey: queryKeys.investments,
+    queryFn: getInvestments,
+  })
+  const accounts = accountsQuery.data ?? []
+  const investments = investmentsQuery.data ?? []
 
   // Account sheet
   const [accSheetOpen, setAccSheetOpen] = useState(false)
@@ -382,41 +388,19 @@ export function AccountsScreen() {
   const [invSheetOpen, setInvSheetOpen] = useState(false)
   const [editingInv, setEditingInv] = useState<InvestmentWithTotal | null>(null)
 
-  const load = useCallback(async () => {
-    try {
-      const [accRes, invList] = await Promise.all([
-        listAccounts(),
-        listInvestments(),
-      ])
-      setAccounts(Array.isArray(accRes) ? accRes : [])
-      setInvestments(Array.isArray(invList) ? invList : [])
-    } catch {
-      setAccounts([])
-      setInvestments([])
-    }
-  }, [])
-
-  useFocusEffect(useCallback(() => {
-    setLoading(true)
-    load().finally(() => setLoading(false))
-  }, [load]))
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true)
-    load().finally(() => setRefreshing(false))
-  }, [load])
-
+  const loading = accountsQuery.isLoading || investmentsQuery.isLoading
   const { totalBalance, bankCount, cardCount, totalInvested } = deriveAccountsSummary(accounts, investments)
 
   function openAddAcc() { setEditingAcc(null); setAccSheetOpen(true) }
   function openEditAcc(acc: Account) { setEditingAcc(acc); setAccSheetOpen(true) }
 
   function handleAccSaved(acc: Account) {
-    setAccounts((prev) => {
+    queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => {
       const idx = prev.findIndex((a) => a.id === acc.id)
       if (idx === -1) return [...prev, acc]
       const next = [...prev]; next[idx] = acc; return next
     })
+    invalidateAccountData(queryClient)
   }
 
   async function handleDeleteAcc(acc: Account) {
@@ -427,7 +411,8 @@ export function AccountsScreen() {
         onPress: async () => {
           try {
             await deleteAccount(acc.id)
-            setAccounts((prev) => prev.filter((a) => a.id !== acc.id))
+            queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== acc.id))
+            invalidateAccountData(queryClient)
           } catch {
             Alert.alert('Error', 'Could not delete account.')
           }
@@ -440,11 +425,14 @@ export function AccountsScreen() {
   function openEditInv(inv: InvestmentWithTotal) { setEditingInv(inv); setInvSheetOpen(true) }
 
   function handleInvSaved(inv: InvestmentWithTotal) {
-    setInvestments((prev) => {
+    queryClient.setQueryData<InvestmentWithTotal[]>(queryKeys.investments, (prev = []) => {
       const idx = prev.findIndex((i) => i.id === inv.id)
       if (idx === -1) return [...prev, inv]
       const next = [...prev]; next[idx] = inv; return next
     })
+    queryClient.invalidateQueries({ queryKey: queryKeys.investments })
+    queryClient.invalidateQueries({ queryKey: queryKeys.home })
+    queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
   }
 
   async function handleDeleteInv(inv: InvestmentWithTotal) {
@@ -455,7 +443,8 @@ export function AccountsScreen() {
         onPress: async () => {
           try {
             await deleteInvestment(inv.id)
-            setInvestments((prev) => prev.filter((i) => i.id !== inv.id))
+            queryClient.setQueryData<InvestmentWithTotal[]>(queryKeys.investments, (prev = []) => prev.filter((i) => i.id !== inv.id))
+            invalidateTransactionData(queryClient)
           } catch {
             Alert.alert('Error', 'Could not delete investment.')
           }
@@ -492,7 +481,6 @@ export function AccountsScreen() {
         style={s.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.brand} />}
       >
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>

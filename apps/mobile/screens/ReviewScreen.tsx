@@ -1,10 +1,9 @@
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,21 +12,23 @@ import {
 } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useFocusEffect } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Circle, Polyline, Line, Path } from 'react-native-svg'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import {
-  fetchReviewData,
   updateTransaction,
   deleteTransaction,
   createAccount,
   createCategory,
   confirmAllPending,
   rejectAllPending,
+  type ReviewData,
 } from '../lib/api'
+import { getReviewData } from '../lib/data'
+import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {
   sanitizeAmountInput,
@@ -67,12 +68,15 @@ const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 
 
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets()
+  const queryClient = useQueryClient()
+  const reviewQuery = useQuery({
+    queryKey: queryKeys.review,
+    queryFn: getReviewData,
+  })
 
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [catColors, setCatColors] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const transactions = reviewQuery.data?.transactions ?? []
+  const accounts = reviewQuery.data?.accounts ?? []
+  const catColors = reviewQuery.data?.categoryColors ?? {}
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -101,23 +105,6 @@ export function ReviewScreen({ navigation }: Props) {
   const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(allCatColors)])]
   const grouped = groupTransactionsByMonth(transactions)
 
-  async function load(quiet = false) {
-    if (!quiet) setLoading(true)
-    try {
-      const data = await fetchReviewData()
-      setTransactions(data.transactions)
-      setAccounts(data.accounts)
-      setCatColors(data.categoryColors)
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to load.')
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
-  useFocusEffect(useCallback(() => { load() }, []))
-
   function openSheet(tx: Transaction) {
     setActiveTx(tx)
     setForm(txToFormState(tx))
@@ -132,7 +119,10 @@ export function ReviewScreen({ navigation }: Props) {
   }
 
   function removeTx(id: string) {
-    setTransactions((prev) => prev.filter((t) => t.id !== id))
+    queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
+      prev ? { ...prev, transactions: prev.transactions.filter((t) => t.id !== id) } : prev
+    ))
+    invalidateTransactionData(queryClient)
   }
 
   async function handleConfirm() {
@@ -185,6 +175,10 @@ export function ReviewScreen({ navigation }: Props) {
     try {
       const acc = await createAccount(name, newAccType)
       setExtraAccounts((prev) => [...prev, acc])
+      queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
+        prev ? { ...prev, accounts: [...prev.accounts, acc] } : prev
+      ))
+      invalidateAccountData(queryClient)
       if (form) setForm({ ...form, accountId: acc.id })
       setAddingAccount(false)
       setNewAccName('')
@@ -203,6 +197,10 @@ export function ReviewScreen({ navigation }: Props) {
     try {
       const result = await createCategory(name)
       setExtraCatColors((prev) => ({ ...prev, [result.name]: result.color }))
+      queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
+        prev ? { ...prev, categoryColors: { ...prev.categoryColors, [result.name]: result.color } } : prev
+      ))
+      invalidateCategoryData(queryClient)
       if (form) setForm({ ...form, category: result.name })
       setAddingCat(false)
       setNewCatInput('')
@@ -225,7 +223,10 @@ export function ReviewScreen({ navigation }: Props) {
             setBulkLoading(true)
             try {
               await confirmAllPending()
-              setTransactions([])
+              queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
+                prev ? { ...prev, transactions: [] } : prev
+              ))
+              invalidateTransactionData(queryClient)
             } catch (e) {
               Alert.alert('Error', e instanceof Error ? e.message : 'Failed.')
             } finally {
@@ -250,7 +251,10 @@ export function ReviewScreen({ navigation }: Props) {
             setBulkLoading(true)
             try {
               await rejectAllPending()
-              setTransactions([])
+              queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
+                prev ? { ...prev, transactions: [] } : prev
+              ))
+              invalidateTransactionData(queryClient)
             } catch (e) {
               Alert.alert('Error', e instanceof Error ? e.message : 'Failed.')
             } finally {
@@ -309,7 +313,7 @@ export function ReviewScreen({ navigation }: Props) {
       </View>
 
       {/* ── Body ── */}
-      {loading ? (
+      {reviewQuery.isLoading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color={C.brand} />
         </View>
@@ -327,9 +331,6 @@ export function ReviewScreen({ navigation }: Props) {
         <ScrollView
           style={s.list}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} tintColor={C.brand} />
-          }
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.hint}>Tap any transaction to review and edit details</Text>

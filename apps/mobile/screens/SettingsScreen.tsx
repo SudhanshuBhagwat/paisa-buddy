@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,9 +12,8 @@ import {
 } from 'react-native'
 import Svg, { Circle, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useFocusEffect } from '@react-navigation/native'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  fetchSettings,
   updateProfile,
   addUpiId,
   removeUpiId,
@@ -26,9 +24,16 @@ import {
   type SettingsData,
   type CategoryWithCount,
 } from '../lib/api'
+import { getSettings } from '../lib/data'
+import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { supabase } from '../lib/supabase'
 import { C, F, RADIUS } from '../lib/tokens'
+
+type SettingsQueryData = {
+  settings: SettingsData
+  email: string | null
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -48,16 +53,25 @@ function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
-  const [data, setData] = useState<SettingsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const queryClient = useQueryClient()
+  const settingsQuery = useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: async (): Promise<SettingsQueryData> => {
+      const [settings, { data: { session } }] = await Promise.all([
+        getSettings(),
+        supabase.auth.getSession(),
+      ])
+      return { settings, email: session?.user?.email ?? null }
+    },
+  })
+  const data = settingsQuery.data?.settings ?? null
+  const email = settingsQuery.data?.email ?? null
 
   // Profile
   const [nameInput, setNameInput] = useState('')
   const [nameSaved, setNameSaved] = useState(false)
   const [incomeInput, setIncomeInput] = useState('')
   const [incomeSaved, setIncomeSaved] = useState(false)
-  const [email, setEmail] = useState<string | null>(null)
 
   // UPI
   const [newUpi, setNewUpi] = useState('')
@@ -71,33 +85,20 @@ export function SettingsScreen() {
   const [exporting, setExporting] = useState(false)
   const [clearing, setClearing] = useState(false)
 
-  const load = useCallback(async () => {
-    try {
-      const [d, { data: { session } }] = await Promise.all([fetchSettings(), supabase.auth.getSession()])
-      setData(d)
-      setNameInput(d.displayName ?? '')
-      setIncomeInput(d.expectedMonthlyIncome > 0 ? String(Math.round(d.expectedMonthlyIncome / 100)) : '')
-      setEmail(session?.user?.email ?? null)
-    } catch {
-      setData(null)
-    }
-  }, [])
-
-  useFocusEffect(useCallback(() => {
-    setLoading(true)
-    load().finally(() => setLoading(false))
-  }, [load]))
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true)
-    load().finally(() => setRefreshing(false))
-  }, [load])
+  useEffect(() => {
+    if (!data) return
+    setNameInput(data.displayName ?? '')
+    setIncomeInput(data.expectedMonthlyIncome > 0 ? String(Math.round(data.expectedMonthlyIncome / 100)) : '')
+  }, [data])
 
   async function handleSaveName() {
     const name = nameInput.trim()
     try {
       await updateProfile({ displayName: name || null })
-      setData((d) => d ? { ...d, displayName: name || null } : d)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? { ...prev, settings: { ...prev.settings, displayName: name || null } } : prev
+      ))
+      invalidateSettingsData(queryClient)
       setNameSaved(true)
       setTimeout(() => setNameSaved(false), 1500)
     } catch {
@@ -110,7 +111,10 @@ export function SettingsScreen() {
     const paise = isNaN(rupees) || rupees < 0 ? 0 : rupees * 100
     try {
       await updateProfile({ expectedMonthlyIncome: paise })
-      setData((d) => d ? { ...d, expectedMonthlyIncome: paise } : d)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? { ...prev, settings: { ...prev.settings, expectedMonthlyIncome: paise } } : prev
+      ))
+      invalidateSettingsData(queryClient)
       setIncomeInput(paise > 0 ? String(rupees) : '')
       setIncomeSaved(true)
       setTimeout(() => setIncomeSaved(false), 1500)
@@ -125,7 +129,16 @@ export function SettingsScreen() {
     setAddingUpi(true)
     try {
       await addUpiId(id)
-      setData((d) => d ? { ...d, upiIds: d.upiIds.includes(id) ? d.upiIds : [...d.upiIds, id] } : d)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            upiIds: prev.settings.upiIds.includes(id) ? prev.settings.upiIds : [...prev.settings.upiIds, id],
+          },
+        } : prev
+      ))
+      invalidateSettingsData(queryClient)
       setNewUpi('')
     } catch {
       Alert.alert('Error', 'Could not add UPI ID.')
@@ -137,7 +150,10 @@ export function SettingsScreen() {
   async function handleRemoveUpi(id: string) {
     try {
       await removeUpiId(id)
-      setData((d) => d ? { ...d, upiIds: d.upiIds.filter((u) => u !== id) } : d)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? { ...prev, settings: { ...prev.settings, upiIds: prev.settings.upiIds.filter((u) => u !== id) } } : prev
+      ))
+      invalidateSettingsData(queryClient)
     } catch {
       Alert.alert('Error', 'Could not remove UPI ID.')
     }
@@ -149,10 +165,16 @@ export function SettingsScreen() {
     setAddingCat(true)
     try {
       const { name: n, color } = await addCustomCategory(name)
-      setData((d) => d ? {
-        ...d,
-        customCategories: [...d.customCategories, { name: n, color, transactionCount: 0 }],
-      } : d)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            customCategories: [...prev.settings.customCategories, { name: n, color, transactionCount: 0 }],
+          },
+        } : prev
+      ))
+      invalidateCategoryData(queryClient)
       setNewCat('')
     } catch {
       Alert.alert('Error', 'Could not add category.')
@@ -172,7 +194,16 @@ export function SettingsScreen() {
         onPress: async () => {
           try {
             await removeCustomCategory(cat.name, cat.transactionCount > 0)
-            setData((d) => d ? { ...d, customCategories: d.customCategories.filter((c) => c.name !== cat.name) } : d)
+            queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+              prev ? {
+                ...prev,
+                settings: {
+                  ...prev.settings,
+                  customCategories: prev.settings.customCategories.filter((c) => c.name !== cat.name),
+                },
+              } : prev
+            ))
+            invalidateCategoryData(queryClient)
           } catch {
             Alert.alert('Error', 'Could not remove category.')
           }
@@ -205,7 +236,10 @@ export function SettingsScreen() {
             setClearing(true)
             try {
               await clearAllData()
-              setData((d) => d ? { ...d, txCount: 0 } : d)
+              queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+                prev ? { ...prev, settings: { ...prev.settings, txCount: 0 } } : prev
+              ))
+              invalidateTransactionData(queryClient)
               Alert.alert('Done', 'All transactions deleted.')
             } catch {
               Alert.alert('Error', 'Could not clear data.')
@@ -239,14 +273,13 @@ export function SettingsScreen() {
         style={s.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.brand} />}
       >
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
           <Text style={s.title}>Settings</Text>
         </View>
 
-        {loading ? (
+        {settingsQuery.isLoading ? (
           <View style={s.loadingWrap}><ActivityIndicator color={C.brand} /></View>
         ) : (
           <View style={s.body}>

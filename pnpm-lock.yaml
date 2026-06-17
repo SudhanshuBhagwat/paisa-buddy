@@ -38,6 +38,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.106.1
         version: 2.108.1
+      '@tanstack/react-query':
+        specifier: ^5.101.0
+        version: 5.101.0(react@19.1.0)
       expo:
         specifier: ~54.0.35
         version: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.8.2)
@@ -3019,6 +3022,19 @@ packages:
       postcss: 8.5.15
       tailwindcss: 4.3.0
     dev: true
+
+  /@tanstack/query-core@5.101.0:
+    resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
+    dev: false
+
+  /@tanstack/react-query@5.101.0(react@19.1.0):
+    resolution: {integrity: sha512-rLlJXSpkqfizLWgkR5+eLeIk0MvTx/meEIR7LRjxic+qxiQP8zVjq7BqQkiCMNLQBlLfuOLqqr6KO5GtrDlmSg==}
+    peerDependencies:
+      react: ^18 || ^19
+    dependencies:
+      '@tanstack/query-core': 5.101.0
+      react: 19.1.0
+    dev: false
 
   /@tybys/wasm-util@0.10.2:
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}

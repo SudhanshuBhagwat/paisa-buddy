@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -28,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import {
@@ -45,7 +45,9 @@ import {
 } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
-import { deleteTransaction, fetchHomeData } from '../lib/api'
+import { deleteTransaction } from '../lib/api'
+import { getHomeData } from '../lib/data'
+import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
@@ -193,18 +195,14 @@ const ti = StyleSheet.create({
 export function HomeScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const queryClient = useQueryClient()
   const fabScale = useSharedValue(1)
   const fabAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: fabScale.value }] }))
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
-  const [allTxs, setAllTxs] = useState<Transaction[]>([])
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [settings, setSettings] = useState<{
-    display_name: string | null
-    expected_monthly_income: number | null
-  } | null>(null)
-  const [catColors, setCatColors] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const homeQuery = useQuery({
+    queryKey: queryKeys.home,
+    queryFn: getHomeData,
+  })
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -221,42 +219,27 @@ export function HomeScreen() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
 
-  const load = useCallback(async () => {
-    try {
-      const data = await fetchHomeData() as HomeData
-      setAllTxs(Array.isArray(data.transactions) ? data.transactions : [])
-      setAccounts(Array.isArray(data.accounts) ? data.accounts : [])
-      setSettings(data.settings)
-      setCatColors(data.categoryColors ?? {})
-    } catch {
-      setAllTxs([])
-      setAccounts([])
-      setSettings(null)
-      setCatColors({})
-    }
-  }, [])
-
-  useEffect(() => {
-    load().finally(() => setLoading(false))
-  }, [load])
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true)
-    load().finally(() => setRefreshing(false))
-  }, [load])
+  const allTxs = homeQuery.data?.transactions ?? []
+  const accounts = homeQuery.data?.accounts ?? []
+  const settings = homeQuery.data?.settings ?? null
+  const catColors = homeQuery.data?.categoryColors ?? {}
 
   function upsertTx(tx: Transaction) {
-    setAllTxs((prev) => {
-      const idx = prev.findIndex((t) => t.id === tx.id)
-      if (idx === -1) return [tx, ...prev]
-      const next = [...prev]
-      next[idx] = tx
-      return next
+    queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => {
+      if (!prev) return prev
+      const idx = prev.transactions.findIndex((t) => t.id === tx.id)
+      const transactions = idx === -1 ? [tx, ...prev.transactions] : [...prev.transactions]
+      if (idx !== -1) transactions[idx] = tx
+      return { ...prev, transactions }
     })
+    invalidateTransactionData(queryClient)
   }
 
   function removeTx(id: string) {
-    setAllTxs((prev) => prev.filter((t) => t.id !== id))
+    queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
+      prev ? { ...prev, transactions: prev.transactions.filter((t) => t.id !== id) } : prev
+    ))
+    invalidateTransactionData(queryClient)
   }
 
   // ─── Derived state ──────────────────────────────────────────────────────────
@@ -304,7 +287,7 @@ export function HomeScreen() {
     setRecurringOnly(false)
   }
 
-  if (loading) {
+  if (homeQuery.isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
         <ActivityIndicator size="large" color={C.brand} />
@@ -318,9 +301,6 @@ export function HomeScreen() {
         style={s.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.brand} />
-        }
       >
         {/* ── Greeting header ── */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
@@ -632,8 +612,18 @@ export function HomeScreen() {
         accounts={accounts}
         catColors={catColors}
         editTx={editTx}
-        onAccountCreated={(acc) => setAccounts((prev) => [...prev, acc])}
-        onCategoryCreated={(name, color) => setCatColors((prev) => ({ ...prev, [name]: color }))}
+        onAccountCreated={(acc) => {
+          queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
+            prev ? { ...prev, accounts: [...prev.accounts, acc] } : prev
+          ))
+          invalidateAccountData(queryClient)
+        }}
+        onCategoryCreated={(name, color) => {
+          queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
+            prev ? { ...prev, categoryColors: { ...prev.categoryColors, [name]: color } } : prev
+          ))
+          invalidateCategoryData(queryClient)
+        }}
       />
 
       {/* ── Transaction detail sheet ── */}

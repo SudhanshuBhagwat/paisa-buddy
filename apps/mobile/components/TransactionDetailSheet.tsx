@@ -13,10 +13,12 @@ import {
   View,
 } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
+import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { updateTransaction, createAccount, createCategory } from '../lib/api'
+import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData } from '../lib/query'
 import { PREDEFINED_CATEGORIES } from '@paisa-buddy/shared/categories'
 import {
   sanitizeAmountInput,
@@ -55,6 +57,7 @@ export function TransactionDetailSheet({
   accounts: baseAccounts,
   catColors,
 }: Props) {
+  const queryClient = useQueryClient()
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
   const [date, setDateStr] = useState('')
@@ -127,6 +130,7 @@ export function TransactionDetailSheet({
     try {
       const payload = formStateToPayload({ type, amountStr, date, time, merchant, description, category, accountId, toAccountId, bank, upiRef, isRecurring, investmentId: '' })
       const updated = await updateTransaction(tx.id, tx.reviewed ? payload : { ...payload, reviewed: true })
+      invalidateTransactionData(queryClient)
       onSaved(updated)
       onClose()
     } catch (e) {
@@ -144,6 +148,7 @@ export function TransactionDetailSheet({
       const acc = await createAccount(name, newAccType)
       setExtraAccounts((prev) => [...prev, acc])
       setAccountId(acc.id)
+      invalidateAccountData(queryClient)
       setAddingAccount(false)
       setNewAccName('')
       setNewAccType('savings')
@@ -162,6 +167,7 @@ export function TransactionDetailSheet({
       const result = await createCategory(name)
       setExtraCatColors((prev) => ({ ...prev, [result.name]: result.color }))
       setCategory(result.name)
+      invalidateCategoryData(queryClient)
       setNewCatInput('')
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create category.')

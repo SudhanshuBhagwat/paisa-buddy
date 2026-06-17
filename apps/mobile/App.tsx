@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -16,6 +17,16 @@ import {
   SpaceMono_700Bold,
 } from '@expo-google-fonts/space-mono'
 import { RootNavigator } from './navigation'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+    },
+  },
+})
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -37,11 +48,13 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <RootNavigator />
-        <StatusBar style="dark" />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <RootNavigator />
+          <StatusBar style="dark" />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   )
 }

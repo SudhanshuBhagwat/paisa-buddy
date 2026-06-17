@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,13 +12,14 @@ import {
 import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useFocusEffect } from '@react-navigation/native'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  fetchStatsData,
   upsertBudget,
   deleteBudget,
   type StatsData,
 } from '../lib/api'
+import { getStatsData } from '../lib/data'
+import { queryKeys } from '../lib/query'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import { calcSummary } from '@paisa-buddy/shared/logic/transaction'
@@ -494,6 +494,7 @@ const bs = StyleSheet.create({
 
 export function StatsScreen() {
   const insets = useSafeAreaInsets()
+  const queryClient = useQueryClient()
   const addBudgetScale = useSharedValue(1)
   const addBudgetAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBudgetScale.value }] }))
 
@@ -517,37 +518,18 @@ export function StatsScreen() {
     })
   }
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
-  const [data, setData] = useState<StatsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const statsQuery = useQuery({
+    queryKey: queryKeys.stats(month),
+    queryFn: () => getStatsData(month),
+  })
   const [activeTab, setActiveTab] = useState<Tab>('expenses')
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
 
-  const load = useCallback(async (m: string) => {
-    try {
-      const d = await fetchStatsData(m)
-      setData(d)
-    } catch {
-      setData(null)
-    }
-  }, [])
-
-  useFocusEffect(useCallback(() => {
-    setLoading(true)
-    load(month).finally(() => setLoading(false))
-  }, [load, month]))
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true)
-    load(month).finally(() => setRefreshing(false))
-  }, [load, month])
+  const data = statsQuery.data ?? null
 
   function changeMonth(delta: number) {
-    const next = addMonths(month, delta)
-    setMonth(next)
-    setLoading(true)
-    load(next).finally(() => setLoading(false))
+    setMonth((current) => addMonths(current, delta))
   }
 
   const txs = data?.transactions ?? []
@@ -564,7 +546,7 @@ export function StatsScreen() {
   function openEdit(b: BudgetWithSpent) { setEditingBudget(b); setBudgetSheetOpen(true) }
 
   function handleBudgetSaved(b: BudgetWithSpent) {
-    setData((prev) => {
+    queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => {
       if (!prev) return prev
       const existing = prev.budgets.findIndex((x) => x.id === b.id || x.category === b.category)
       const next = [...prev.budgets]
@@ -572,6 +554,7 @@ export function StatsScreen() {
       else next[existing] = b
       return { ...prev, budgets: next }
     })
+    queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
   }
 
   async function handleDeleteBudget(id: string) {
@@ -582,7 +565,10 @@ export function StatsScreen() {
         onPress: async () => {
           try {
             await deleteBudget(id)
-            setData((prev) => prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== id) } : prev)
+            queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
+              prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== id) } : prev
+            ))
+            queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
           } catch {
             Alert.alert('Error', 'Could not delete budget.')
           }
@@ -603,7 +589,6 @@ export function StatsScreen() {
         style={s.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.brand} />}
       >
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
@@ -623,7 +608,7 @@ export function StatsScreen() {
           </View>
         </View>
 
-        {loading ? (
+        {statsQuery.isLoading ? (
           <View style={s.loadingWrap}>
             <ActivityIndicator color={C.brand} />
           </View>
