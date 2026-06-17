@@ -4,8 +4,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { ActivityIndicator, View } from 'react-native'
 import type { Session } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { supabase } from '../lib/supabase'
+import { getAccounts, getHomeData, getInvestments, getReviewData, getSettingsData, getStatsData } from '../lib/data'
+import { queryKeys } from '../lib/query'
 import { CustomBottomNav } from './BottomNav'
 import { LoginScreen } from '../screens/LoginScreen'
 import { SetupScreen } from '../screens/SetupScreen'
@@ -14,6 +17,7 @@ import { StatsScreen } from '../screens/StatsScreen'
 import { AccountsScreen } from '../screens/AccountsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 import { ReviewScreen } from '../screens/ReviewScreen'
+import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 
 export type RootStackParamList = {
   Login: undefined
@@ -44,6 +48,25 @@ function MainTabs() {
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   )
+}
+
+function MainDataPrefetcher() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const month = toYearMonth(new Date())
+
+    void Promise.allSettled([
+      queryClient.prefetchQuery({ queryKey: queryKeys.home, queryFn: getHomeData }),
+      queryClient.prefetchQuery({ queryKey: queryKeys.review, queryFn: getReviewData }),
+      queryClient.prefetchQuery({ queryKey: queryKeys.accounts, queryFn: getAccounts }),
+      queryClient.prefetchQuery({ queryKey: queryKeys.investments, queryFn: getInvestments }),
+      queryClient.prefetchQuery({ queryKey: queryKeys.settings, queryFn: getSettingsData }),
+      queryClient.prefetchQuery({ queryKey: queryKeys.stats(month), queryFn: () => getStatsData(month) }),
+    ])
+  }, [queryClient])
+
+  return null
 }
 
 export function RootNavigator() {
@@ -77,20 +100,25 @@ export function RootNavigator() {
     )
   }
 
+  const shouldPrefetchMainData = !!session && setupCompleted
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!session ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
-        ) : !setupCompleted ? (
-          <Stack.Screen name="Setup" component={SetupScreen} />
-        ) : (
-          <>
-            <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <>
+      {shouldPrefetchMainData && <MainDataPrefetcher />}
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!session ? (
+            <Stack.Screen name="Login" component={LoginScreen} />
+          ) : !setupCompleted ? (
+            <Stack.Screen name="Setup" component={SetupScreen} />
+          ) : (
+            <>
+              <Stack.Screen name="Main" component={MainTabs} />
+              <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
   )
 }

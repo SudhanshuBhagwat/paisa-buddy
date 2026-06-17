@@ -24,16 +24,11 @@ import {
   type SettingsData,
   type CategoryWithCount,
 } from '../lib/api'
-import { getSettings } from '../lib/data'
+import { getSettingsData, type SettingsQueryData } from '../lib/data'
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { supabase } from '../lib/supabase'
 import { C, F, RADIUS } from '../lib/tokens'
-
-type SettingsQueryData = {
-  settings: SettingsData
-  email: string | null
-}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -56,13 +51,7 @@ export function SettingsScreen() {
   const queryClient = useQueryClient()
   const settingsQuery = useQuery({
     queryKey: queryKeys.settings,
-    queryFn: async (): Promise<SettingsQueryData> => {
-      const [settings, { data: { session } }] = await Promise.all([
-        getSettings(),
-        supabase.auth.getSession(),
-      ])
-      return { settings, email: session?.user?.email ?? null }
-    },
+    queryFn: getSettingsData,
   })
   const data = settingsQuery.data?.settings ?? null
   const email = settingsQuery.data?.email ?? null
