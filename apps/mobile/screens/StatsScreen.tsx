@@ -27,7 +27,7 @@ import { toYearMonth, addMonths, formatMonthLabel } from '@paisa-buddy/shared/lo
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { budgetStatus, budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
-import { C, F, RADIUS } from '../lib/tokens'
+import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
@@ -176,7 +176,50 @@ const dc = StyleSheet.create({
 
 // ─── Budget bar ────────────────────────────────────────────────────────────────
 
-function BudgetBar({ budget, onEdit }: { budget: BudgetWithSpent; onEdit: () => void }) {
+const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
+const TYPE_COLOR: Record<string, string> = { credit: C.pos, debit: C.neg, transfer: C.transfer }
+
+function BudgetTransactionItem({
+  tx,
+  accountMap,
+}: {
+  tx: Transaction
+  accountMap: Record<string, string>
+}) {
+  const typeColor = TYPE_COLOR[tx.type] ?? C.ink
+  const accountName = tx.account_id ? accountMap[tx.account_id] : null
+  const title = tx.merchant || tx.description || '—'
+
+  return (
+    <View style={btx.row}>
+      <View style={btx.info}>
+        <Text style={btx.summary} numberOfLines={1}>
+          <Text style={btx.title}>{title}</Text>
+          {accountName ? <Text style={btx.account}> · {accountName}</Text> : null}
+        </Text>
+      </View>
+      {tx.is_recurring && <Text style={btx.recurring}>↻</Text>}
+      <View style={btx.right}>
+        {!tx.reviewed && <View style={btx.unreviewedDot} />}
+        <Text style={[btx.amount, { color: typeColor }]}>
+          {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function BudgetBar({
+  budget,
+  transactions,
+  accountMap,
+  onEdit,
+}: {
+  budget: BudgetWithSpent
+  transactions: Transaction[]
+  accountMap: Record<string, string>
+  onEdit: () => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const status = budgetStatus(budget.spent, budget.amount)
   const pct = budgetProgress(budget.spent, budget.amount)
@@ -204,14 +247,42 @@ function BudgetBar({ budget, onEdit }: { budget: BudgetWithSpent; onEdit: () => 
       </Pressable>
       {expanded && (
         <View style={bb.expanded}>
-          <Text style={bb.noTxText}>
-            {pct === 0 ? 'No transactions this month.' : `${pct}% of budget used.`}
-          </Text>
+          {transactions.length === 0 ? (
+            <Text style={bb.noTxText}>No transactions this month.</Text>
+          ) : (
+            transactions.map((tx) => (
+              <BudgetTransactionItem
+                key={tx.id}
+                tx={tx}
+                accountMap={accountMap}
+              />
+            ))
+          )}
         </View>
       )}
     </View>
   )
 }
+
+const btx = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: Math.max(8, ROW_PAD - 2),
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+    gap: 10,
+  },
+  info: { flex: 1, minWidth: 0 },
+  summary: { fontSize: 13, fontFamily: F.regular, color: C.ink2 },
+  title: { fontFamily: F.semibold, color: C.ink2 },
+  account: { color: C.ink3 },
+  recurring: { fontSize: 11, fontFamily: F.semibold, color: C.ink3, flexShrink: 0 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.neg },
+  amount: { fontSize: 13, fontFamily: F.monoBold },
+})
 
 const bb = StyleSheet.create({
   card: {
@@ -476,6 +547,8 @@ export function StatsScreen() {
   const txs = data?.transactions ?? []
   const budgets = data?.budgets ?? []
   const colorMap = data?.categoryColors ?? {}
+  const accounts = data?.accounts ?? []
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const { income, expense, balance } = calcSummary(txs)
   const expenseCats = groupByCategory(txs, 'debit')
   const incomeCats = groupByCategory(txs, 'credit')
@@ -594,9 +667,21 @@ export function StatsScreen() {
                   </View>
                 ) : (
                   <View style={s.budgetList}>
-                    {budgets.map((b) => (
-                      <BudgetBar key={b.id} budget={b} onEdit={() => openEdit(b)} />
-                    ))}
+                    {budgets.map((b) => {
+                      const categoryTransactions = txs
+                        .filter((tx) => tx.category === b.category)
+                        .sort((left, right) => right.date.localeCompare(left.date))
+
+                      return (
+                        <BudgetBar
+                          key={b.id}
+                          budget={b}
+                          transactions={categoryTransactions}
+                          accountMap={accountMap}
+                          onEdit={() => openEdit(b)}
+                        />
+                      )
+                    })}
                   </View>
                 )}
               </>

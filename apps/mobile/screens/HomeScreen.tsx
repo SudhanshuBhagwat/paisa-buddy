@@ -635,7 +635,6 @@ export function HomeScreen() {
         visible={detailOpen}
         onClose={() => setDetailOpen(false)}
         onSaved={(tx) => { upsertTx(tx); setDetailOpen(false) }}
-        onDeleted={(id) => { removeTx(id); setDetailOpen(false) }}
         accounts={accounts}
         catColors={catColors}
       />

@@ -16,7 +16,7 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { Sheet } from './Sheet'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
-import { updateTransaction, deleteTransaction, createAccount, createCategory } from '../lib/api'
+import { updateTransaction, createAccount, createCategory } from '../lib/api'
 import { PREDEFINED_CATEGORIES } from '@paisa-buddy/shared/categories'
 import {
   sanitizeAmountInput,
@@ -36,7 +36,6 @@ type Props = {
   visible: boolean
   onClose: () => void
   onSaved: (tx: Transaction) => void
-  onDeleted: (id: string) => void
   accounts: Account[]
   catColors: Record<string, string>
 }
@@ -53,7 +52,6 @@ export function TransactionDetailSheet({
   visible,
   onClose,
   onSaved,
-  onDeleted,
   accounts: baseAccounts,
   catColors,
 }: Props) {
@@ -73,7 +71,6 @@ export function TransactionDetailSheet({
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [pendingDate, setPendingDate] = useState(new Date())
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
 
   const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
   const [extraCatColors, setExtraCatColors] = useState<Record<string, string>>({})
@@ -137,27 +134,6 @@ export function TransactionDetailSheet({
     } finally {
       setSaving(false)
     }
-  }
-
-  function handleDelete() {
-    Alert.alert('Delete transaction', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true)
-          try {
-            await deleteTransaction(tx!.id)
-            onDeleted(tx!.id)
-            onClose()
-          } catch (e) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete.')
-            setDeleting(false)
-          }
-        },
-      },
-    ])
   }
 
   async function handleAddAccount() {
@@ -476,13 +452,6 @@ export function TransactionDetailSheet({
           }
         </Pressable>
 
-        {/* Delete link */}
-        <Pressable onPress={handleDelete} disabled={deleting} style={s.deleteLink}>
-          {deleting
-            ? <ActivityIndicator size="small" color={C.neg} />
-            : <Text style={s.deleteLinkText}>Delete transaction</Text>
-          }
-        </Pressable>
       </ScrollView>
 
       {/* iOS date picker modal */}
@@ -659,10 +628,6 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   saveBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
-
-  // Delete link
-  deleteLink: { alignItems: 'center', paddingVertical: 4 },
-  deleteLinkText: { fontSize: 13, fontFamily: F.regular, color: C.neg },
 
   modalOverlay: {
     flex: 1,
