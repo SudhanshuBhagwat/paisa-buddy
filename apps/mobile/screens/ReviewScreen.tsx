@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -97,6 +98,7 @@ export function ReviewScreen({ navigation }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pendingDate, setPendingDate] = useState(new Date())
 
   // Picker sheets
   const [catPickerOpen, setCatPickerOpen] = useState(false)
@@ -464,7 +466,7 @@ export function ReviewScreen({ navigation }: Props) {
             <View style={s.field}>
               <Text style={s.label}>DATE</Text>
               <Pressable
-                style={s.datePressable}
+                style={s.textInput}
                 onPress={() => {
                   if (Platform.OS === 'android') {
                     DateTimePickerAndroid.open({
@@ -476,6 +478,7 @@ export function ReviewScreen({ navigation }: Props) {
                       },
                     })
                   } else {
+                    setPendingDate(formDate)
                     setShowDatePicker(true)
                   }
                 }}
@@ -484,17 +487,6 @@ export function ReviewScreen({ navigation }: Props) {
                   {formDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
               </Pressable>
-              {showDatePicker && Platform.OS === 'ios' && (
-                <DateTimePicker
-                  value={formDate}
-                  mode="date"
-                  display="inline"
-                  onChange={(_, selected) => {
-                    if (selected && form) setForm({ ...form, date: selected.toISOString().slice(0, 10) })
-                  }}
-                  maximumDate={new Date()}
-                />
-              )}
             </View>
 
             {/* Action buttons */}
@@ -637,6 +629,38 @@ export function ReviewScreen({ navigation }: Props) {
               ))}
             </ScrollView>
           </Sheet>
+
+          {/* iOS date picker modal */}
+          {Platform.OS === 'ios' && (
+            <Modal visible={showDatePicker} transparent animationType="fade">
+              <Pressable style={s.modalOverlay} onPress={() => setShowDatePicker(false)}>
+                <View style={s.modalCard}>
+                  <View style={s.pickerWrapper}>
+                    <DateTimePicker
+                      value={pendingDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={(_, selected) => { if (selected) setPendingDate(selected) }}
+                      maximumDate={new Date()}
+                      textColor={C.ink}
+                    />
+                  </View>
+                  <Pressable
+                    style={s.modalDoneBtn}
+                    onPress={() => {
+                      const y = pendingDate.getFullYear()
+                      const m = String(pendingDate.getMonth() + 1).padStart(2, '0')
+                      const d = String(pendingDate.getDate()).padStart(2, '0')
+                      setForm((prev) => prev ? { ...prev, date: `${y}-${m}-${d}` } : prev)
+                      setShowDatePicker(false)
+                    }}
+                  >
+                    <Text style={s.modalDoneText}>Done</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Modal>
+          )}
         </Sheet>
       )}
     </View>
@@ -734,11 +758,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  sheetTitle: { flex: 1, marginRight: 12, fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  sheetTitle: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
   sheetCancelBtn: { paddingVertical: 4, paddingHorizontal: 2 },
-  sheetCancelText: { fontSize: 15, fontFamily: F.regular, color: C.brand },
+  sheetCancelText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   sheetScroll: { flex: 1 },
-  sheetContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40, gap: 20 },
+  sheetContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 20 },
 
   // Amount
   amountRow: {
@@ -771,15 +795,30 @@ const s = StyleSheet.create({
     fontFamily: F.regular,
     color: C.ink,
   },
-  datePressable: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
   dateText: { fontSize: 14, fontFamily: F.regular, color: C.ink },
+
+  // Date picker modal (iOS)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  pickerWrapper: { alignItems: 'center', backgroundColor: C.surface },
+  modalDoneBtn: {
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: C.brand,
+  },
+  modalDoneText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 
   // Select field
   selectField: {
