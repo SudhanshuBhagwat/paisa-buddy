@@ -21,14 +21,12 @@ import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import {
   updateTransaction,
   deleteTransaction,
-  createAccount,
-  createCategory,
   confirmAllPending,
   rejectAllPending,
   type ReviewData,
 } from '../lib/api'
 import { getReviewData } from '../lib/data'
-import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData, queryKeys } from '../lib/query'
+import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {
   sanitizeAmountInput,
@@ -45,8 +43,7 @@ import {
 import { groupTransactionsByMonth } from '@paisa-buddy/shared/logic/transaction'
 import { formatMonthLabel, formatDateLabel } from '@paisa-buddy/shared/logic/date'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
-import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
-import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
+import type { Account } from '@paisa-buddy/shared/types/account'
 import type { RootStackParamList } from '../navigation'
 
 type Props = {
@@ -64,7 +61,22 @@ const TYPES: Array<{ value: TransactionType; label: string; color: string }> = [
   { value: 'credit', label: 'Credit', color: C.pos },
   { value: 'transfer', label: 'Transfer', color: C.transfer },
 ]
-const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
+
+function ChevronDown() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="6 9 12 15 18 9" />
+    </Svg>
+  )
+}
+
+function CheckMark({ color }: { color: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="20 6 9 17 4 12" />
+    </Svg>
+  )
+}
 
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets()
@@ -84,36 +96,31 @@ export function ReviewScreen({ navigation }: Props) {
   const [form, setForm] = useState<ReviewFormState | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [rejecting, setRejecting] = useState(false)
-
-  // Inline add forms in sheet
-  const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
-  const [extraCatColors, setExtraCatColors] = useState<Record<string, string>>({})
-  const [addingAccount, setAddingAccount] = useState(false)
-  const [newAccName, setNewAccName] = useState('')
-  const [newAccType, setNewAccType] = useState<AccountType>('savings')
-  const [addingAccSaving, setAddingAccSaving] = useState(false)
-  const [addingCat, setAddingCat] = useState(false)
-  const [newCatInput, setNewCatInput] = useState('')
-  const [addingCatSaving, setAddingCatSaving] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // Picker sheets
+  const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [accPickerOpen, setAccPickerOpen] = useState(false)
+  const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
   // Bulk action state
   const [bulkLoading, setBulkLoading] = useState(false)
 
-  const allAccounts = [...accounts, ...extraAccounts.filter((a) => !accounts.find((x) => x.id === a.id))]
-  const allCatColors = { ...catColors, ...extraCatColors }
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(allCatColors)])]
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])]
   const grouped = groupTransactionsByMonth(transactions)
+
+  const recentCategories = [...new Set(
+    [...transactions]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((t) => t.category)
+      .filter((c): c is string => !!c)
+  )].slice(0, 3)
+  const recentCats = recentCategories.filter((c) => allCategories.includes(c))
+  const restCats = allCategories.filter((c) => !recentCats.includes(c))
 
   function openSheet(tx: Transaction) {
     setActiveTx(tx)
     setForm(txToFormState(tx))
-    setExtraAccounts([])
-    setExtraCatColors({})
-    setAddingAccount(false)
-    setAddingCat(false)
-    setNewAccName('')
-    setNewCatInput('')
     setShowDatePicker(false)
     setSheetOpen(true)
   }
@@ -166,49 +173,6 @@ export function ReviewScreen({ navigation }: Props) {
         },
       ],
     )
-  }
-
-  async function handleAddAccount() {
-    const name = newAccName.trim()
-    if (!name) return
-    setAddingAccSaving(true)
-    try {
-      const acc = await createAccount(name, newAccType)
-      setExtraAccounts((prev) => [...prev, acc])
-      queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
-        prev ? { ...prev, accounts: [...prev.accounts, acc] } : prev
-      ))
-      invalidateAccountData(queryClient)
-      if (form) setForm({ ...form, accountId: acc.id })
-      setAddingAccount(false)
-      setNewAccName('')
-      setNewAccType('savings')
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create account.')
-    } finally {
-      setAddingAccSaving(false)
-    }
-  }
-
-  async function handleAddCategory() {
-    const name = newCatInput.trim()
-    if (!name) return
-    setAddingCatSaving(true)
-    try {
-      const result = await createCategory(name)
-      setExtraCatColors((prev) => ({ ...prev, [result.name]: result.color }))
-      queryClient.setQueryData<ReviewData>(queryKeys.review, (prev) => (
-        prev ? { ...prev, categoryColors: { ...prev.categoryColors, [result.name]: result.color } } : prev
-      ))
-      invalidateCategoryData(queryClient)
-      if (form) setForm({ ...form, category: result.name })
-      setAddingCat(false)
-      setNewCatInput('')
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create category.')
-    } finally {
-      setAddingCatSaving(false)
-    }
   }
 
   async function handleBulkConfirm() {
@@ -269,9 +233,11 @@ export function ReviewScreen({ navigation }: Props) {
   // ─── render ───────────────────────────────────────────────────────────────
 
   const activeType = form ? TYPES.find((t) => t.value === form.type)! : TYPES[0]
-  const toAccounts = form ? allAccounts.filter((a) => a.id !== form.accountId) : []
+  const toAccounts = form ? accounts.filter((a) => a.id !== form.accountId) : []
   const canConfirm = form ? isTransactionConfirmable(form) : false
   const formDate = form ? new Date(form.date + 'T00:00:00') : new Date()
+  const selectedAccountName = form ? accounts.find((a) => a.id === form.accountId)?.name : undefined
+  const selectedToAccountName = form ? toAccounts.find((a) => a.id === form.toAccountId)?.name : undefined
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -296,12 +262,12 @@ export function ReviewScreen({ navigation }: Props) {
         {transactions.length > 0 && (
           <View style={s.bulkBtns}>
             <Pressable onPress={handleBulkReject} disabled={bulkLoading}>
-              <Text style={[s.bulkReject, bulkLoading && s.disabled]}>Reject all</Text>
+              <Text style={[s.bulkReject, bulkLoading && s.btnDisabled]}>Reject all</Text>
             </Pressable>
             <Pressable
               onPress={handleBulkConfirm}
               disabled={bulkLoading}
-              style={[s.bulkConfirmBtn, bulkLoading && s.disabled]}
+              style={[s.bulkConfirmBtn, bulkLoading && s.btnDisabled]}
             >
               {bulkLoading
                 ? <ActivityIndicator size="small" color="#fff" />
@@ -347,7 +313,7 @@ export function ReviewScreen({ navigation }: Props) {
               <View style={s.groupCard}>
                 {txs.map((tx, i) => {
                   const tColor = TYPE_COLOR[tx.type]
-                  const accountName = allAccounts.find((a) => a.id === tx.account_id)?.name
+                  const accountName = accounts.find((a) => a.id === tx.account_id)?.name
                   return (
                     <Pressable
                       key={tx.id}
@@ -422,20 +388,22 @@ export function ReviewScreen({ navigation }: Props) {
               />
             </View>
 
-            {/* Merchant */}
-            <View style={s.field}>
-              <Text style={s.label}>
-                {form.type === 'credit' ? 'SENDER' : form.type === 'transfer' ? 'ACCOUNT' : 'RECIPIENT'}
-              </Text>
-              <TextInput
-                style={s.textInput}
-                value={form.merchant}
-                onChangeText={(v) => setForm({ ...form, merchant: v })}
-                placeholder="Who was this with?"
-                placeholderTextColor={C.ink3}
-                returnKeyType="next"
-              />
-            </View>
+            {/* Merchant / Sender */}
+            {form.type !== 'transfer' && (
+              <View style={s.field}>
+                <Text style={s.label}>
+                  {form.type === 'credit' ? 'SENDER' : 'RECIPIENT'}
+                </Text>
+                <TextInput
+                  style={s.textInput}
+                  value={form.merchant}
+                  onChangeText={(v) => setForm({ ...form, merchant: v })}
+                  placeholder="Who was this with?"
+                  placeholderTextColor={C.ink3}
+                  returnKeyType="next"
+                />
+              </View>
+            )}
 
             {/* Notes */}
             <View style={s.field}>
@@ -453,139 +421,42 @@ export function ReviewScreen({ navigation }: Props) {
             {/* Category */}
             <View style={s.field}>
               <Text style={s.label}>CATEGORY <Text style={{ color: C.neg }}>*</Text></Text>
-              <View style={s.chips}>
-                {allCategories.map((cat) => {
-                  const active = form.category === cat
-                  return (
-                    <Pressable
-                      key={cat}
-                      onPress={() => setForm({ ...form, category: active ? '' : cat })}
-                      style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                    >
-                      <Text style={[s.chipText, active && s.chipTextActive]}>{cat}</Text>
-                    </Pressable>
-                  )
-                })}
-                {addingCat ? (
-                  <View style={s.inlineInputRow}>
-                    <TextInput
-                      style={s.inlineInput}
-                      autoFocus
-                      placeholder="Category name"
-                      placeholderTextColor={C.ink3}
-                      value={newCatInput}
-                      onChangeText={setNewCatInput}
-                      returnKeyType="done"
-                      onSubmitEditing={handleAddCategory}
-                    />
-                    <Pressable
-                      style={s.inlineConfirm}
-                      onPress={handleAddCategory}
-                      disabled={!newCatInput.trim() || addingCatSaving}
-                    >
-                      {addingCatSaving
-                        ? <ActivityIndicator size="small" color={C.brand} />
-                        : <Text style={s.inlineConfirmText}>✓</Text>
-                      }
-                    </Pressable>
-                  </View>
-                ) : (
-                  <Pressable style={s.chipDashed} onPress={() => setAddingCat(true)}>
-                    <Text style={s.chipDashedText}>+ Custom</Text>
-                  </Pressable>
-                )}
-              </View>
+              <Pressable style={s.selectField} onPress={() => setCatPickerOpen(true)}>
+                <View style={s.selectInner}>
+                  {!!form.category && (
+                    <View style={[s.catDot, { backgroundColor: categoryColor(form.category, catColors) }]} />
+                  )}
+                  <Text style={[s.selectText, !form.category && s.selectPlaceholder]} numberOfLines={1}>
+                    {form.category || 'Select category'}
+                  </Text>
+                </View>
+                <ChevronDown />
+              </Pressable>
             </View>
 
             {/* Account */}
             <View style={s.field}>
-              <Text style={s.label}>ACCOUNT <Text style={{ color: C.neg }}>*</Text></Text>
-              {allAccounts.length > 0 && (
-                <View style={s.chips}>
-                  {allAccounts.map((acc) => {
-                    const active = form.accountId === acc.id
-                    return (
-                      <Pressable
-                        key={acc.id}
-                        onPress={() => setForm({ ...form, accountId: active ? '' : acc.id })}
-                        style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                      >
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{acc.name}</Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-              {addingAccount ? (
-                <View style={s.addAccountForm}>
-                  <TextInput
-                    style={s.textInput}
-                    autoFocus
-                    placeholder="Account name"
-                    placeholderTextColor={C.ink3}
-                    value={newAccName}
-                    onChangeText={setNewAccName}
-                    returnKeyType="done"
-                  />
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    <View style={[s.chips, { flexWrap: 'nowrap' }]}>
-                      {ACCOUNT_TYPES.map((t) => {
-                        const active = newAccType === t
-                        return (
-                          <Pressable
-                            key={t}
-                            onPress={() => setNewAccType(t)}
-                            style={[s.chip, s.chipSm, active && { backgroundColor: C.brand, borderColor: C.brand }]}
-                          >
-                            <Text style={[s.chipSmText, active && s.chipTextActive]}>
-                              {ACCOUNT_TYPE_LABELS[t]}
-                            </Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
-                  </ScrollView>
-                  <View style={s.addFormActions}>
-                    <Pressable style={s.cancelBtn} onPress={() => { setAddingAccount(false); setNewAccName('') }}>
-                      <Text style={s.cancelBtnText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[s.addBtn, (!newAccName.trim() || addingAccSaving) && s.btnDisabled]}
-                      onPress={handleAddAccount}
-                      disabled={!newAccName.trim() || addingAccSaving}
-                    >
-                      {addingAccSaving
-                        ? <ActivityIndicator size="small" color="#fff" />
-                        : <Text style={s.addBtnText}>Add</Text>
-                      }
-                    </Pressable>
-                  </View>
-                </View>
-              ) : (
-                <Pressable style={s.chipDashed} onPress={() => setAddingAccount(true)}>
-                  <Text style={s.chipDashedText}>+ Add account</Text>
-                </Pressable>
-              )}
+              <Text style={s.label}>
+                {form.type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} <Text style={{ color: C.neg }}>*</Text>
+              </Text>
+              <Pressable style={s.selectField} onPress={() => setAccPickerOpen(true)}>
+                <Text style={[s.selectText, !form.accountId && s.selectPlaceholder]} numberOfLines={1}>
+                  {selectedAccountName || 'Select account'}
+                </Text>
+                <ChevronDown />
+              </Pressable>
             </View>
 
             {/* To Account (transfer only) */}
             {form.type === 'transfer' && (
               <View style={s.field}>
                 <Text style={s.label}>TO ACCOUNT <Text style={{ color: C.neg }}>*</Text></Text>
-                <View style={s.chips}>
-                  {toAccounts.map((acc) => {
-                    const active = form.toAccountId === acc.id
-                    return (
-                      <Pressable
-                        key={acc.id}
-                        onPress={() => setForm({ ...form, toAccountId: active ? '' : acc.id })}
-                        style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                      >
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{acc.name}</Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
+                <Pressable style={s.selectField} onPress={() => setToAccPickerOpen(true)}>
+                  <Text style={[s.selectText, !form.toAccountId && s.selectPlaceholder]} numberOfLines={1}>
+                    {selectedToAccountName || 'Select account'}
+                  </Text>
+                  <ChevronDown />
+                </Pressable>
               </View>
             )}
 
@@ -650,6 +521,122 @@ export function ReviewScreen({ navigation }: Props) {
               </Pressable>
             </View>
           </ScrollView>
+
+          {/* ── Category picker sheet ── */}
+          <Sheet
+            visible={catPickerOpen}
+            onClose={() => setCatPickerOpen(false)}
+            heightFraction={0.6}
+            header={(
+              <View style={s.pickerHeader}>
+                <Text style={s.pickerTitle}>Category</Text>
+                <Pressable onPress={() => setCatPickerOpen(false)} hitSlop={8}>
+                  <Text style={s.pickerDone}>Done</Text>
+                </Pressable>
+              </View>
+            )}
+          >
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+              {recentCats.length > 0 && (
+                <>
+                  <Text style={s.pickerSectionLabel}>RECENT</Text>
+                  {recentCats.map((cat) => (
+                    <Pressable
+                      key={`recent-${cat}`}
+                      style={s.pickerRow}
+                      onPress={() => { setForm({ ...form, category: cat }); setCatPickerOpen(false) }}
+                    >
+                      <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                      <Text style={[s.pickerRowText, form.category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
+                        {cat}
+                      </Text>
+                      {form.category === cat && <CheckMark color={activeType.color} />}
+                    </Pressable>
+                  ))}
+                </>
+              )}
+              <Text style={s.pickerSectionLabel}>{recentCats.length > 0 ? 'ALL' : 'CATEGORIES'}</Text>
+              {restCats.map((cat) => (
+                <Pressable
+                  key={cat}
+                  style={s.pickerRow}
+                  onPress={() => { setForm({ ...form, category: cat }); setCatPickerOpen(false) }}
+                >
+                  <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                  <Text style={[s.pickerRowText, form.category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
+                    {cat}
+                  </Text>
+                  {form.category === cat && <CheckMark color={activeType.color} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Sheet>
+
+          {/* ── Account picker sheet ── */}
+          <Sheet
+            visible={accPickerOpen}
+            onClose={() => setAccPickerOpen(false)}
+            heightFraction={0.5}
+            header={(
+              <View style={s.pickerHeader}>
+                <Text style={s.pickerTitle}>{form.type === 'transfer' ? 'From Account' : 'Account'}</Text>
+                <Pressable onPress={() => setAccPickerOpen(false)} hitSlop={8}>
+                  <Text style={s.pickerDone}>Done</Text>
+                </Pressable>
+              </View>
+            )}
+          >
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+              {accounts.length === 0 && (
+                <Text style={s.pickerEmptyText}>No accounts yet</Text>
+              )}
+              {accounts.map((acc) => (
+                <Pressable
+                  key={acc.id}
+                  style={s.pickerRow}
+                  onPress={() => { setForm({ ...form, accountId: acc.id }); setAccPickerOpen(false) }}
+                >
+                  <Text style={[s.pickerRowText, form.accountId === acc.id && { color: activeType.color, fontFamily: F.semibold }]}>
+                    {acc.name}
+                  </Text>
+                  {form.accountId === acc.id && <CheckMark color={activeType.color} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Sheet>
+
+          {/* ── To Account picker sheet ── */}
+          <Sheet
+            visible={toAccPickerOpen}
+            onClose={() => setToAccPickerOpen(false)}
+            heightFraction={0.5}
+            header={(
+              <View style={s.pickerHeader}>
+                <Text style={s.pickerTitle}>To Account</Text>
+                <Pressable onPress={() => setToAccPickerOpen(false)} hitSlop={8}>
+                  <Text style={s.pickerDone}>Done</Text>
+                </Pressable>
+              </View>
+            )}
+          >
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+              {toAccounts.map((acc) => (
+                <Pressable
+                  key={acc.id}
+                  style={s.pickerRow}
+                  onPress={() => {
+                    setForm({ ...form, toAccountId: acc.id, merchant: acc.name })
+                    setToAccPickerOpen(false)
+                  }}
+                >
+                  <Text style={[s.pickerRowText, form.toAccountId === acc.id && { color: activeType.color, fontFamily: F.semibold }]}>
+                    {acc.name}
+                  </Text>
+                  {form.toAccountId === acc.id && <CheckMark color={activeType.color} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Sheet>
         </Sheet>
       )}
     </View>
@@ -690,7 +677,6 @@ const s = StyleSheet.create({
     paddingVertical: 7,
   },
   bulkConfirmText: { fontSize: 12, fontFamily: F.bold, color: '#fff' },
-  disabled: { opacity: 0.4 },
 
   // Loading / empty
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
@@ -728,12 +714,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   rowBorder: { borderTopWidth: 1, borderTopColor: C.line },
   rowBody: { flex: 1, minWidth: 0, gap: 2 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -758,7 +739,6 @@ const s = StyleSheet.create({
   sheetCancelText: { fontSize: 15, fontFamily: F.regular, color: C.brand },
   sheetScroll: { flex: 1 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40, gap: 20 },
-
 
   // Amount
   amountRow: {
@@ -801,86 +781,63 @@ const s = StyleSheet.create({
   },
   dateText: { fontSize: 14, fontFamily: F.regular, color: C.ink },
 
-  // Chips
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
-  chipSm: { paddingHorizontal: 10, paddingVertical: 5 },
-  chipText: { fontSize: 13.5, fontFamily: F.regular, color: C.ink },
-  chipSmText: { fontSize: 12, fontFamily: F.regular, color: C.ink },
-  chipTextActive: { color: '#fff', fontFamily: F.medium },
-  chipDashed: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
-  chipDashedText: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3 },
-
-  // Inline input row (for adding category inline)
-  inlineInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  inlineInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-    fontSize: 13.5,
-    fontFamily: F.regular,
-    color: C.ink,
-    minWidth: 120,
-  },
-  inlineConfirm: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
+  // Select field
+  selectField: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineConfirmText: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
-
-  // Add account form
-  addAccountForm: {
-    backgroundColor: C.bg,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: C.line,
-    padding: 12,
-    gap: 4,
+    backgroundColor: C.bg,
   },
-  addFormActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+  selectInner: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+  selectText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  selectPlaceholder: { color: C.ink3 },
+  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+
+  // Picker sheet
+  pickerHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: C.line,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
   },
-  cancelBtnText: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
-  addBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+  pickerTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  pickerDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
+  pickerSectionLabel: {
+    fontSize: 11,
+    fontFamily: F.medium,
+    color: C.ink3,
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  pickerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.brand,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
   },
-  addBtnText: { fontSize: 13, fontFamily: F.semibold, color: '#fff' },
-  btnDisabled: { opacity: 0.4 },
+  pickerRowText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  pickerScroll: { paddingBottom: 32 },
+  pickerEmptyText: {
+    fontSize: 14,
+    fontFamily: F.regular,
+    color: C.ink3,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    textAlign: 'center',
+  },
 
   // Action buttons
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
@@ -901,4 +858,5 @@ const s = StyleSheet.create({
     backgroundColor: C.brand,
   },
   confirmBtnText: { fontSize: 15, fontFamily: F.semibold, color: '#fff' },
+  btnDisabled: { opacity: 0.4 },
 })

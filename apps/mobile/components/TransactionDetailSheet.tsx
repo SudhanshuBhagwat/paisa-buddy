@@ -12,14 +12,15 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import Svg, { Polyline } from 'react-native-svg'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
-import { updateTransaction, createAccount, createCategory } from '../lib/api'
-import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData } from '../lib/query'
-import { PREDEFINED_CATEGORIES } from '@paisa-buddy/shared/categories'
+import { updateTransaction } from '../lib/api'
+import { invalidateTransactionData } from '../lib/query'
+import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {
   sanitizeAmountInput,
   parseAmountToPaise,
@@ -30,8 +31,7 @@ import {
   formStateToPayload,
 } from '@paisa-buddy/shared/logic/review'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
-import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
-import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
+import type { Account } from '@paisa-buddy/shared/types/account'
 
 type Props = {
   tx: Transaction | null
@@ -40,6 +40,7 @@ type Props = {
   onSaved: (tx: Transaction) => void
   accounts: Account[]
   catColors: Record<string, string>
+  recentCategories?: string[]
 }
 
 const TYPES: Array<{ value: TransactionType; label: string; color: string }> = [
@@ -47,15 +48,31 @@ const TYPES: Array<{ value: TransactionType; label: string; color: string }> = [
   { value: 'debit', label: 'Debit', color: C.neg },
   { value: 'transfer', label: 'Transfer', color: C.transfer },
 ]
-const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
+
+function ChevronDown() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="6 9 12 15 18 9" />
+    </Svg>
+  )
+}
+
+function CheckMark({ color }: { color: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="20 6 9 17 4 12" />
+    </Svg>
+  )
+}
 
 export function TransactionDetailSheet({
   tx,
   visible,
   onClose,
   onSaved,
-  accounts: baseAccounts,
+  accounts,
   catColors,
+  recentCategories = [],
 }: Props) {
   const queryClient = useQueryClient()
   const [type, setType] = useState<TransactionType>('debit')
@@ -75,19 +92,18 @@ export function TransactionDetailSheet({
   const [pendingDate, setPendingDate] = useState(new Date())
   const [saving, setSaving] = useState(false)
 
-  const [extraAccounts, setExtraAccounts] = useState<Account[]>([])
-  const [extraCatColors, setExtraCatColors] = useState<Record<string, string>>({})
-  const [addingAccount, setAddingAccount] = useState(false)
-  const [newAccName, setNewAccName] = useState('')
-  const [newAccType, setNewAccType] = useState<AccountType>('savings')
-  const [addingAccSaving, setAddingAccSaving] = useState(false)
-  const [newCatInput, setNewCatInput] = useState('')
-  const [addingCatSaving, setAddingCatSaving] = useState(false)
+  const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [accPickerOpen, setAccPickerOpen] = useState(false)
+  const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
-  const allAccounts = [...baseAccounts, ...extraAccounts.filter((a) => !baseAccounts.find((x) => x.id === a.id))]
-  const allCatColors = { ...catColors, ...extraCatColors }
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(allCatColors)])]
-  const toAccounts = allAccounts.filter((a) => a.id !== accountId)
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])]
+  const toAccounts = accounts.filter((a) => a.id !== accountId)
+
+  const recentCats = recentCategories.filter((c) => allCategories.includes(c)).slice(0, 3)
+  const restCats = allCategories.filter((c) => !recentCats.includes(c))
+
+  const selectedAccountName = accounts.find((a) => a.id === accountId)?.name
+  const selectedToAccountName = toAccounts.find((a) => a.id === toAccountId)?.name
 
   useEffect(() => {
     if (visible && tx) {
@@ -105,11 +121,6 @@ export function TransactionDetailSheet({
       setUpiRef(f.upiRef)
       setIsRecurring(f.isRecurring)
       setShowDatePicker(false)
-      setAddingAccount(false)
-      setNewAccName('')
-      setNewCatInput('')
-      setExtraAccounts([])
-      setExtraCatColors({})
     }
   }, [visible, tx?.id])
 
@@ -140,42 +151,6 @@ export function TransactionDetailSheet({
     }
   }
 
-  async function handleAddAccount() {
-    const name = newAccName.trim()
-    if (!name) return
-    setAddingAccSaving(true)
-    try {
-      const acc = await createAccount(name, newAccType)
-      setExtraAccounts((prev) => [...prev, acc])
-      setAccountId(acc.id)
-      invalidateAccountData(queryClient)
-      setAddingAccount(false)
-      setNewAccName('')
-      setNewAccType('savings')
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create account.')
-    } finally {
-      setAddingAccSaving(false)
-    }
-  }
-
-  async function handleAddCategory() {
-    const name = newCatInput.trim()
-    if (!name) return
-    setAddingCatSaving(true)
-    try {
-      const result = await createCategory(name)
-      setExtraCatColors((prev) => ({ ...prev, [result.name]: result.color }))
-      setCategory(result.name)
-      invalidateCategoryData(queryClient)
-      setNewCatInput('')
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create category.')
-    } finally {
-      setAddingCatSaving(false)
-    }
-  }
-
   if (!tx) return null
 
   return (
@@ -201,7 +176,7 @@ export function TransactionDetailSheet({
         {/* Type selector */}
         <TypePicker types={TYPES} active={type} onChange={setType} />
 
-        {/* Amount — 2.25rem = 36px */}
+        {/* Amount */}
         <View style={s.amountRow}>
           <Text style={[s.rupeeSign, { color: activeType.color }]}>₹</Text>
           <TextInput
@@ -216,7 +191,7 @@ export function TransactionDetailSheet({
           <Text style={[s.rupeeSign, { color: 'transparent' }]} aria-hidden>₹</Text>
         </View>
 
-        {/* Date + Time — 2-col */}
+        {/* Date + Time */}
         <View style={s.twoCol}>
           <View style={s.colField}>
             <Text style={s.label}>DATE</Text>
@@ -255,18 +230,20 @@ export function TransactionDetailSheet({
           </View>
         </View>
 
-        {/* Merchant */}
-        <View style={s.field}>
-          <Text style={s.label}>{merchantLabel}</Text>
-          <TextInput
-            style={s.textInput}
-            value={merchant}
-            onChangeText={setMerchant}
-            placeholder="e.g. Swiggy, Amazon"
-            placeholderTextColor={C.ink3}
-            returnKeyType="next"
-          />
-        </View>
+        {/* Merchant / Sender */}
+        {type !== 'transfer' && (
+          <View style={s.field}>
+            <Text style={s.label}>{merchantLabel}</Text>
+            <TextInput
+              style={s.textInput}
+              value={merchant}
+              onChangeText={setMerchant}
+              placeholder="e.g. Swiggy, Amazon"
+              placeholderTextColor={C.ink3}
+              returnKeyType="next"
+            />
+          </View>
+        )}
 
         {/* Notes */}
         <View style={s.field}>
@@ -284,136 +261,53 @@ export function TransactionDetailSheet({
         {/* Category */}
         <View style={s.field}>
           <Text style={s.label}>CATEGORY <Text style={{ color: C.neg }}>*</Text></Text>
-          <View style={s.chips}>
-            {allCategories.map((cat) => {
-              const active = category === cat
-              return (
-                <Pressable
-                  key={cat}
-                  onPress={() => setCategory(active ? '' : cat)}
-                  style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                >
-                  <Text style={[s.chipText, active && s.chipTextActive]}>{cat}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-          {/* Always-visible inline add row */}
-          <View style={s.catAddRow}>
-            <TextInput
-              style={s.catAddInput}
-              placeholder="New category…"
-              placeholderTextColor={C.ink3}
-              value={newCatInput}
-              onChangeText={setNewCatInput}
-              returnKeyType="done"
-              onSubmitEditing={handleAddCategory}
-            />
-            <Pressable
-              onPress={handleAddCategory}
-              disabled={!newCatInput.trim() || addingCatSaving}
-            >
-              {addingCatSaving
-                ? <ActivityIndicator size="small" color={C.brand} />
-                : <Text style={[s.catAddBtn, !newCatInput.trim() && s.catAddBtnDim]}>Add</Text>
-              }
-            </Pressable>
-          </View>
+          <Pressable
+            style={s.selectField}
+            onPress={() => setCatPickerOpen(true)}
+          >
+            <View style={s.selectInner}>
+              {!!category && (
+                <View style={[s.catDot, { backgroundColor: categoryColor(category, catColors) }]} />
+              )}
+              <Text style={[s.selectText, !category && s.selectPlaceholder]} numberOfLines={1}>
+                {category || 'Select category'}
+              </Text>
+            </View>
+            <ChevronDown />
+          </Pressable>
         </View>
 
         {/* Account */}
         <View style={s.field}>
-          <Text style={s.label}>ACCOUNT <Text style={{ color: C.neg }}>*</Text></Text>
-          {allAccounts.length > 0 && (
-            <View style={s.chips}>
-              {allAccounts.map((acc) => {
-                const active = accountId === acc.id
-                return (
-                  <Pressable
-                    key={acc.id}
-                    onPress={() => setAccountId(active ? '' : acc.id)}
-                    style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                  >
-                    <Text style={[s.chipText, active && s.chipTextActive]}>{acc.name}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-          )}
-          {addingAccount ? (
-            <View style={s.addAccountForm}>
-              <TextInput
-                style={s.textInput}
-                autoFocus
-                placeholder="Account name"
-                placeholderTextColor={C.ink3}
-                value={newAccName}
-                onChangeText={setNewAccName}
-                returnKeyType="done"
-              />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={[s.chips, { flexWrap: 'nowrap', marginTop: 0 }]}>
-                  {ACCOUNT_TYPES.map((t) => {
-                    const active = newAccType === t
-                    return (
-                      <Pressable
-                        key={t}
-                        onPress={() => setNewAccType(t)}
-                        style={[s.chip, s.chipSm, active && { backgroundColor: C.brand, borderColor: C.brand }]}
-                      >
-                        <Text style={[s.chipSmText, active && s.chipTextActive]}>
-                          {ACCOUNT_TYPE_LABELS[t]}
-                        </Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              </ScrollView>
-              <View style={s.addFormActions}>
-                <Pressable style={s.cancelBtn} onPress={() => { setAddingAccount(false); setNewAccName('') }}>
-                  <Text style={s.cancelBtnText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={[s.addBtn, (!newAccName.trim() || addingAccSaving) && s.btnDisabled]}
-                  onPress={handleAddAccount}
-                  disabled={!newAccName.trim() || addingAccSaving}
-                >
-                  {addingAccSaving
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={s.addBtnText}>Add</Text>
-                  }
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <Pressable style={s.chipDashed} onPress={() => setAddingAccount(true)}>
-              <Text style={s.chipDashedText}>+ Add account</Text>
-            </Pressable>
-          )}
+          <Text style={s.label}>{type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} <Text style={{ color: C.neg }}>*</Text></Text>
+          <Pressable
+            style={s.selectField}
+            onPress={() => setAccPickerOpen(true)}
+          >
+            <Text style={[s.selectText, !accountId && s.selectPlaceholder]} numberOfLines={1}>
+              {selectedAccountName || 'Select account'}
+            </Text>
+            <ChevronDown />
+          </Pressable>
         </View>
 
         {/* To Account (transfer only) */}
         {type === 'transfer' && (
           <View style={s.field}>
             <Text style={s.label}>TO ACCOUNT <Text style={{ color: C.neg }}>*</Text></Text>
-            <View style={s.chips}>
-              {toAccounts.map((acc) => {
-                const active = toAccountId === acc.id
-                return (
-                  <Pressable
-                    key={acc.id}
-                    onPress={() => setToAccountId(active ? '' : acc.id)}
-                    style={[s.chip, active && { backgroundColor: activeType.color, borderColor: activeType.color }]}
-                  >
-                    <Text style={[s.chipText, active && s.chipTextActive]}>{acc.name}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
+            <Pressable
+              style={s.selectField}
+              onPress={() => setToAccPickerOpen(true)}
+            >
+              <Text style={[s.selectText, !toAccountId && s.selectPlaceholder]} numberOfLines={1}>
+                {selectedToAccountName || 'Select account'}
+              </Text>
+              <ChevronDown />
+            </Pressable>
           </View>
         )}
 
-        {/* Bank + UPI Ref — 2-col */}
+        {/* Bank + UPI Ref */}
         <View style={s.twoCol}>
           <View style={s.colField}>
             <Text style={s.label}>BANK</Text>
@@ -461,8 +355,120 @@ export function TransactionDetailSheet({
             : <Text style={s.saveBtnText}>Save</Text>
           }
         </Pressable>
-
       </ScrollView>
+
+      {/* ── Category picker sheet ── */}
+      <Sheet
+        visible={catPickerOpen}
+        onClose={() => setCatPickerOpen(false)}
+        heightFraction={0.6}
+        header={(
+          <View style={s.pickerHeader}>
+            <Text style={s.pickerTitle}>Category</Text>
+            <Pressable onPress={() => setCatPickerOpen(false)} hitSlop={8}>
+              <Text style={s.pickerDone}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+          {recentCats.length > 0 && (
+            <>
+              <Text style={s.pickerSectionLabel}>RECENT</Text>
+              {recentCats.map((cat) => (
+                <Pressable
+                  key={`recent-${cat}`}
+                  style={s.pickerRow}
+                  onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
+                >
+                  <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                  <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
+                    {cat}
+                  </Text>
+                  {category === cat && <CheckMark color={activeType.color} />}
+                </Pressable>
+              ))}
+            </>
+          )}
+          <Text style={s.pickerSectionLabel}>{recentCats.length > 0 ? 'ALL' : 'CATEGORIES'}</Text>
+          {restCats.map((cat) => (
+            <Pressable
+              key={cat}
+              style={s.pickerRow}
+              onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
+            >
+              <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+              <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
+                {cat}
+              </Text>
+              {category === cat && <CheckMark color={activeType.color} />}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </Sheet>
+
+      {/* ── Account picker sheet ── */}
+      <Sheet
+        visible={accPickerOpen}
+        onClose={() => setAccPickerOpen(false)}
+        heightFraction={0.5}
+        header={(
+          <View style={s.pickerHeader}>
+            <Text style={s.pickerTitle}>Account</Text>
+            <Pressable onPress={() => setAccPickerOpen(false)} hitSlop={8}>
+              <Text style={s.pickerDone}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+          {accounts.length === 0 && (
+            <Text style={s.pickerEmptyText}>No accounts yet</Text>
+          )}
+          {accounts.map((acc) => (
+            <Pressable
+              key={acc.id}
+              style={s.pickerRow}
+              onPress={() => { setAccountId(acc.id); setAccPickerOpen(false) }}
+            >
+              <Text style={[s.pickerRowText, accountId === acc.id && { color: activeType.color, fontFamily: F.semibold }]}>
+                {acc.name}
+              </Text>
+              {accountId === acc.id && <CheckMark color={activeType.color} />}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </Sheet>
+
+      {/* ── To Account picker sheet ── */}
+      <Sheet
+        visible={toAccPickerOpen}
+        onClose={() => setToAccPickerOpen(false)}
+        heightFraction={0.5}
+        header={(
+          <View style={s.pickerHeader}>
+            <Text style={s.pickerTitle}>To Account</Text>
+            <Pressable onPress={() => setToAccPickerOpen(false)} hitSlop={8}>
+              <Text style={s.pickerDone}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
+          {toAccounts.map((acc) => (
+            <Pressable
+              key={acc.id}
+              style={s.pickerRow}
+              onPress={() => { setToAccountId(acc.id); setToAccPickerOpen(false) }}
+            >
+              <Text style={[s.pickerRowText, toAccountId === acc.id && { color: activeType.color, fontFamily: F.semibold }]}>
+                {acc.name}
+              </Text>
+              {toAccountId === acc.id && <CheckMark color={activeType.color} />}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </Sheet>
 
       {/* iOS date picker modal */}
       {Platform.OS === 'ios' && (
@@ -508,8 +514,6 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
 
-
-  // Amount — 2.25rem = 36px
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -526,14 +530,12 @@ const s = StyleSheet.create({
     padding: 0,
   },
 
-  // 2-column layout
   twoCol: { flexDirection: 'row', gap: 16 },
   colField: { flex: 1, gap: 6 },
 
   field: { gap: 6 },
   label: { fontSize: 12, fontFamily: F.medium, color: C.ink3, letterSpacing: 0.4 },
 
-  // px-3=12, py-2.5=10, rounded-xl=12, text-sm=14
   textInput: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -547,76 +549,22 @@ const s = StyleSheet.create({
   },
   inputText: { fontSize: 14, fontFamily: F.regular, color: C.ink },
 
-  // Chips
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
-  chipSm: { paddingHorizontal: 10, paddingVertical: 4 },
-  chipText: { fontSize: 14, fontFamily: F.regular, color: C.ink },
-  chipSmText: { fontSize: 12, fontFamily: F.regular, color: C.ink },
-  chipTextActive: { color: '#fff', fontFamily: F.medium },
-  chipDashed: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
-  chipDashedText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-
-  // Always-visible inline category add row
-  catAddRow: {
+  selectField: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: C.line,
     backgroundColor: C.bg,
   },
-  catAddInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: F.regular,
-    color: C.ink,
-    padding: 0,
-  },
-  catAddBtn: { fontSize: 12, fontFamily: F.bold, color: C.brand },
-  catAddBtnDim: { opacity: 0.4 },
+  selectInner: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+  selectText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  selectPlaceholder: { color: C.ink3 },
+  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
 
-  // Add account form
-  addAccountForm: { gap: 8 },
-  addFormActions: { flexDirection: 'row', gap: 8 },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: C.line,
-  },
-  cancelBtnText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  addBtn: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: C.brand,
-  },
-  addBtnText: { fontSize: 12, fontFamily: F.semibold, color: '#fff' },
-  btnDisabled: { opacity: 0.4 },
-
-  // Recurring toggle row
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -630,15 +578,52 @@ const s = StyleSheet.create({
   },
   toggleLabel: { fontSize: 14, fontFamily: F.regular, color: C.ink },
 
-  // Save button
-  saveBtn: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
+  saveBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 4 },
   saveBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
+  btnDisabled: { opacity: 0.4 },
 
+  // Picker sheet header
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  pickerTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  pickerDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
+  pickerSectionLabel: {
+    fontSize: 11,
+    fontFamily: F.medium,
+    color: C.ink3,
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  pickerRowText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  pickerScroll: { paddingBottom: 32 },
+  pickerEmptyText: {
+    fontSize: 14,
+    fontFamily: F.regular,
+    color: C.ink3,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    textAlign: 'center',
+  },
+
+  // Date picker modal (iOS)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -651,10 +636,7 @@ const s = StyleSheet.create({
     paddingBottom: 32,
     overflow: 'hidden',
   },
-  pickerWrapper: {
-    alignItems: 'center',
-    backgroundColor: C.surface,
-  },
+  pickerWrapper: { alignItems: 'center', backgroundColor: C.surface },
   modalDoneBtn: {
     marginHorizontal: 16,
     paddingVertical: 14,

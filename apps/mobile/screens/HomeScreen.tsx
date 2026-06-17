@@ -47,7 +47,7 @@ import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { deleteTransaction } from '../lib/api'
 import { getHomeData } from '../lib/data'
-import { invalidateAccountData, invalidateCategoryData, invalidateTransactionData, queryKeys } from '../lib/query'
+import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
@@ -273,6 +273,12 @@ export function HomeScreen() {
   })
   const hasFilters = !!(selectedType || selectedCategory || selectedAccount || recurringOnly)
   const monthCategories = [...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[])]
+  const recentCategories = [...new Set(
+    [...allTxs]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((t) => t.category)
+      .filter((c): c is string => !!c)
+  )].slice(0, 3)
 
   const absFmt = formatAmount(Math.abs(displayBalance))
   const balSign = displayBalance < 0 ? '−' : ''
@@ -612,18 +618,7 @@ export function HomeScreen() {
         accounts={accounts}
         catColors={catColors}
         editTx={editTx}
-        onAccountCreated={(acc) => {
-          queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
-            prev ? { ...prev, accounts: [...prev.accounts, acc] } : prev
-          ))
-          invalidateAccountData(queryClient)
-        }}
-        onCategoryCreated={(name, color) => {
-          queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
-            prev ? { ...prev, categoryColors: { ...prev.categoryColors, [name]: color } } : prev
-          ))
-          invalidateCategoryData(queryClient)
-        }}
+        recentCategories={recentCategories}
       />
 
       {/* ── Transaction detail sheet ── */}
@@ -634,6 +629,7 @@ export function HomeScreen() {
         onSaved={(tx) => { upsertTx(tx); setDetailOpen(false) }}
         accounts={accounts}
         catColors={catColors}
+        recentCategories={recentCategories}
       />
     </View>
   )
