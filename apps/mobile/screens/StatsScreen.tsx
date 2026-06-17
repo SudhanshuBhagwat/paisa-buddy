@@ -409,13 +409,19 @@ function BudgetSheet({
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.65}>
-      <View style={bs.header}>
-        <Text style={bs.title}>{editing ? 'Edit Budget' : 'Add Budget'}</Text>
-        <Pressable onPress={onClose} hitSlop={8}>
-          <Text style={bs.cancel}>Cancel</Text>
-        </Pressable>
-      </View>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      heightFraction={0.65}
+      header={(
+        <View style={bs.header}>
+          <Text style={bs.title}>{editing ? 'Edit Budget' : 'Add Budget'}</Text>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <Text style={bs.cancel}>Cancel</Text>
+          </Pressable>
+        </View>
+      )}
+    >
       <ScrollView style={{ flex: 1 }} contentContainerStyle={bs.content} keyboardShouldPersistTaps="handled">
         <View style={bs.field}>
           <Text style={bs.label}>CATEGORY</Text>
@@ -469,7 +475,7 @@ function BudgetSheet({
 
 const bs = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
-  title: { fontSize: 20, fontFamily: F.semibold, color: C.ink },
+  title: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
   cancel: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   field: { gap: 6 },

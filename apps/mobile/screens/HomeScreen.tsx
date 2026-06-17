@@ -118,6 +118,7 @@ function TxItem({
   onPress: () => void
   onDelete: () => void
 }) {
+  const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
   const accountName = tx.account_id ? accountMap[tx.account_id] : null
   const scale = useSharedValue(1)
@@ -131,6 +132,7 @@ function TxItem({
       android_ripple={{ color: C.line }}
     >
       <Animated.View style={[ti.row, animStyle]}>
+      <View style={[ti.dot, { backgroundColor: catC }]} />
       <View style={ti.info}>
         <Text style={ti.name} numberOfLines={1}>
           {tx.merchant || tx.description || '—'}
@@ -138,7 +140,7 @@ function TxItem({
         {(tx.category || accountName) && (
           <Text style={ti.sub} numberOfLines={1}>
             {tx.category ? (
-              <Text style={{ color: C.ink3, fontFamily: F.bold }}>{tx.category}</Text>
+              <Text style={{ color: catC, fontFamily: F.bold }}>{tx.category}</Text>
             ) : null}
             {tx.category && accountName ? ' · ' : ''}
             {accountName ?? ''}
@@ -175,6 +177,7 @@ const ti = StyleSheet.create({
     borderBottomColor: C.line,
     gap: 10,
   },
+  dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   info: { flex: 1, minWidth: 0 },
   name: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   sub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 1 },
@@ -527,17 +530,24 @@ export function HomeScreen() {
       </Pressable>
 
       {/* ── Filter bottom sheet ── */}
-      <Sheet visible={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} heightFraction={0.55}>
-        <View style={s.filterContent}>
-          <View style={s.filterHeader}>
-            <Text style={s.filterTitle}>Filters</Text>
-            {hasFilters && (
-              <Pressable onPress={clearFilters}>
-                <Text style={s.clearAll}>Clear all</Text>
-              </Pressable>
-            )}
+      <Sheet
+        visible={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        heightFraction={0.55}
+        header={(
+          <View style={s.filterHeaderWrap}>
+            <View style={s.filterHeader}>
+              <Text style={s.filterTitle}>Filters</Text>
+              {hasFilters && (
+                <Pressable onPress={clearFilters}>
+                  <Text style={s.clearAll}>Clear all</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-
+        )}
+      >
+        <View style={s.filterContent}>
           <View style={s.filterSection}>
             <Text style={s.filterSectionLabel}>TYPE</Text>
             <View style={s.chips}>
@@ -812,13 +822,14 @@ const s = StyleSheet.create({
   },
 
   filterContent: { paddingHorizontal: 16, paddingBottom: 16 },
+  filterHeaderWrap: { paddingHorizontal: 16 },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  filterTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  filterTitle: { flex: 1, marginRight: 12, fontSize: 16, fontFamily: F.semibold, color: C.ink },
   clearAll: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
   filterSection: { marginBottom: 16 },
   filterSectionLabel: {

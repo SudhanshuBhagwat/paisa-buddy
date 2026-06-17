@@ -183,11 +183,18 @@ function AccountSheet({
   const isCredit = form.type === 'credit'
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.72} onOpen={!editing ? () => nameRef.current?.focus() : undefined}>
-      <View style={af.header}>
-        <Text style={af.title}>{editing ? 'Edit Account' : 'New Account'}</Text>
-        <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
-      </View>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      heightFraction={0.72}
+      onOpen={!editing ? () => nameRef.current?.focus() : undefined}
+      header={(
+        <View style={af.header}>
+          <Text style={af.title}>{editing ? 'Edit Account' : 'New Account'}</Text>
+          <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
+        </View>
+      )}
+    >
       <ScrollView contentContainerStyle={af.content} keyboardShouldPersistTaps="handled">
         <View style={af.field}>
           <Text style={af.label}>NAME <Text style={{ color: C.neg }}>*</Text></Text>
@@ -256,7 +263,7 @@ function AccountSheet({
 
 const af = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
-  title: { fontSize: 20, fontFamily: F.semibold, color: C.ink },
+  title: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
   cancel: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   field: { gap: 6 },
@@ -311,11 +318,18 @@ function InvestmentSheet({
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.65} onOpen={!editing ? () => nameRef.current?.focus() : undefined}>
-      <View style={af.header}>
-        <Text style={af.title}>{editing ? 'Edit Investment' : 'New Investment'}</Text>
-        <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
-      </View>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      heightFraction={0.65}
+      onOpen={!editing ? () => nameRef.current?.focus() : undefined}
+      header={(
+        <View style={af.header}>
+          <Text style={af.title}>{editing ? 'Edit Investment' : 'New Investment'}</Text>
+          <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
+        </View>
+      )}
+    >
       <View style={{ padding: 16, gap: 16 }}>
         <View style={af.field}>
           <Text style={af.label}>NAME <Text style={{ color: C.neg }}>*</Text></Text>

@@ -385,15 +385,19 @@ export function ReviewScreen({ navigation }: Props) {
 
       {/* ── Review Sheet ── */}
       {form && (
-        <Sheet visible={sheetOpen} onClose={() => setSheetOpen(false)} heightFraction={0.92}>
-          {/* Header */}
-          <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Edit & Confirm</Text>
-            <Pressable onPress={() => setSheetOpen(false)} style={s.sheetCancelBtn} hitSlop={8}>
-              <Text style={s.sheetCancelText}>Cancel</Text>
-            </Pressable>
-          </View>
-
+        <Sheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          heightFraction={0.88}
+          header={(
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Edit & Confirm</Text>
+              <Pressable onPress={() => setSheetOpen(false)} style={s.sheetCancelBtn} hitSlop={8}>
+                <Text style={s.sheetCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          )}
+        >
           <ScrollView
             style={s.sheetScroll}
             contentContainerStyle={s.sheetContent}
@@ -748,7 +752,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  sheetTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  sheetTitle: { flex: 1, marginRight: 12, fontSize: 16, fontFamily: F.semibold, color: C.ink },
   sheetCancelBtn: { paddingVertical: 4, paddingHorizontal: 2 },
   sheetCancelText: { fontSize: 15, fontFamily: F.regular, color: C.brand },
   sheetScroll: { flex: 1 },

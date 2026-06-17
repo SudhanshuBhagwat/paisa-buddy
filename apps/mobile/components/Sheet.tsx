@@ -26,11 +26,12 @@ type SheetProps = {
   visible: boolean
   onClose: () => void
   onOpen?: () => void
+  header?: React.ReactNode
   children: React.ReactNode
   heightFraction?: number
 }
 
-export function Sheet({ visible, onClose, onOpen, children, heightFraction = 0.80 }: SheetProps) {
+export function Sheet({ visible, onClose, onOpen, header, children, heightFraction = 0.80 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const screenHeight = Dimensions.get('window').height
   const sheetHeight = screenHeight * heightFraction
@@ -141,8 +142,9 @@ export function Sheet({ visible, onClose, onOpen, children, heightFraction = 0.8
       >
         {/* Drag pill — Gesture scoped here only */}
         <GestureDetector gesture={pan}>
-          <View style={s.dragZone}>
+          <View collapsable={false} style={header ? s.headerDragZone : s.dragZone}>
             <View style={s.handle} />
+            {header}
           </View>
         </GestureDetector>
 
@@ -176,7 +178,11 @@ const s = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 12,
   },
+  headerDragZone: {
+    paddingTop: 10,
+  },
   handle: {
+    alignSelf: 'center',
     width: 40,
     height: 4,
     borderRadius: 2,
