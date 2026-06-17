@@ -65,6 +65,24 @@ function CheckMark({ color }: { color: string }) {
   )
 }
 
+function formatTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function formatTimeLabel(time: string): string {
+  const date = timeToDate(time)
+  return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+}
+
+function timeToDate(time: string): Date {
+  const date = new Date()
+  const [hours, minutes] = time.split(':').map(Number)
+  if (Number.isFinite(hours)) date.setHours(hours)
+  if (Number.isFinite(minutes)) date.setMinutes(minutes)
+  date.setSeconds(0, 0)
+  return date
+}
+
 export function TransactionDetailSheet({
   tx,
   visible,
@@ -90,6 +108,8 @@ export function TransactionDetailSheet({
 
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [pendingDate, setPendingDate] = useState(new Date())
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [pendingTime, setPendingTime] = useState(new Date())
   const [saving, setSaving] = useState(false)
 
   const [catPickerOpen, setCatPickerOpen] = useState(false)
@@ -121,6 +141,7 @@ export function TransactionDetailSheet({
       setUpiRef(f.upiRef)
       setIsRecurring(f.isRecurring)
       setShowDatePicker(false)
+      setShowTimePicker(false)
     }
   }, [visible, tx?.id])
 
@@ -218,15 +239,25 @@ export function TransactionDetailSheet({
           </View>
           <View style={s.colField}>
             <Text style={s.label}>TIME</Text>
-            <TextInput
+            <Pressable
               style={s.textInput}
-              value={time}
-              onChangeText={setTime}
-              placeholder="HH:MM"
-              placeholderTextColor={C.ink3}
-              keyboardType="numbers-and-punctuation"
-              returnKeyType="done"
-            />
+              onPress={() => {
+                const value = time ? timeToDate(time) : new Date()
+                if (Platform.OS === 'android') {
+                  DateTimePickerAndroid.open({
+                    value,
+                    mode: 'time',
+                    is24Hour: false,
+                    onChange: (_, selected) => { if (selected) setTime(formatTime(selected)) },
+                  })
+                } else {
+                  setPendingTime(value)
+                  setShowTimePicker(true)
+                }
+              }}
+            >
+              <Text style={[s.inputText, !time && s.selectPlaceholder]}>{time ? formatTimeLabel(time) : 'Not set'}</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -488,6 +519,32 @@ export function TransactionDetailSheet({
               <Pressable
                 style={s.modalDoneBtn}
                 onPress={() => { setDateStr(pendingDate.toISOString().slice(0, 10)); setShowDatePicker(false) }}
+              >
+                <Text style={s.modalDoneText}>Done</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* iOS time picker modal */}
+      {Platform.OS === 'ios' && (
+        <Modal visible={showTimePicker} transparent animationType="fade">
+          <Pressable style={s.modalOverlay} onPress={() => setShowTimePicker(false)}>
+            <View style={s.modalCard}>
+              <View style={s.pickerWrapper}>
+                <DateTimePicker
+                  value={pendingTime}
+                  mode="time"
+                  display="spinner"
+                  is24Hour={false}
+                  onChange={(_, selected) => { if (selected) setPendingTime(selected) }}
+                  textColor={C.ink}
+                />
+              </View>
+              <Pressable
+                style={s.modalDoneBtn}
+                onPress={() => { setTime(formatTime(pendingTime)); setShowTimePicker(false) }}
               >
                 <Text style={s.modalDoneText}>Done</Text>
               </Pressable>

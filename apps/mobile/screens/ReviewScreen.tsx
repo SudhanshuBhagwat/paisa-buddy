@@ -79,6 +79,24 @@ function CheckMark({ color }: { color: string }) {
   )
 }
 
+function formatTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function formatTimeLabel(time: string): string {
+  const date = timeToDate(time)
+  return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+}
+
+function timeToDate(time: string): Date {
+  const date = new Date()
+  const [hours, minutes] = time.split(':').map(Number)
+  if (Number.isFinite(hours)) date.setHours(hours)
+  if (Number.isFinite(minutes)) date.setMinutes(minutes)
+  date.setSeconds(0, 0)
+  return date
+}
+
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
@@ -99,6 +117,8 @@ export function ReviewScreen({ navigation }: Props) {
   const [rejecting, setRejecting] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [pendingDate, setPendingDate] = useState(new Date())
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [pendingTime, setPendingTime] = useState(new Date())
 
   // Picker sheets
   const [catPickerOpen, setCatPickerOpen] = useState(false)
@@ -124,6 +144,7 @@ export function ReviewScreen({ navigation }: Props) {
     setActiveTx(tx)
     setForm(txToFormState(tx))
     setShowDatePicker(false)
+    setShowTimePicker(false)
     setSheetOpen(true)
   }
 
@@ -462,31 +483,57 @@ export function ReviewScreen({ navigation }: Props) {
               </View>
             )}
 
-            {/* Date */}
-            <View style={s.field}>
-              <Text style={s.label}>DATE</Text>
-              <Pressable
-                style={s.textInput}
-                onPress={() => {
-                  if (Platform.OS === 'android') {
-                    DateTimePickerAndroid.open({
-                      value: formDate,
-                      mode: 'date',
-                      maximumDate: new Date(),
-                      onChange: (_, selected) => {
-                        if (selected && form) setForm({ ...form, date: selected.toISOString().slice(0, 10) })
-                      },
-                    })
-                  } else {
-                    setPendingDate(formDate)
-                    setShowDatePicker(true)
-                  }
-                }}
-              >
-                <Text style={s.dateText}>
-                  {formDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </Text>
-              </Pressable>
+            {/* Date + Time */}
+            <View style={s.twoCol}>
+              <View style={s.colField}>
+                <Text style={s.label}>DATE</Text>
+                <Pressable
+                  style={s.textInput}
+                  onPress={() => {
+                    if (Platform.OS === 'android') {
+                      DateTimePickerAndroid.open({
+                        value: formDate,
+                        mode: 'date',
+                        maximumDate: new Date(),
+                        onChange: (_, selected) => {
+                          if (selected && form) setForm({ ...form, date: selected.toISOString().slice(0, 10) })
+                        },
+                      })
+                    } else {
+                      setPendingDate(formDate)
+                      setShowDatePicker(true)
+                    }
+                  }}
+                >
+                  <Text style={s.dateText}>
+                    {formDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={s.colField}>
+                <Text style={s.label}>TIME</Text>
+                <Pressable
+                  style={s.textInput}
+                  onPress={() => {
+                    const value = form.time ? timeToDate(form.time) : new Date()
+                    if (Platform.OS === 'android') {
+                      DateTimePickerAndroid.open({
+                        value,
+                        mode: 'time',
+                        is24Hour: false,
+                        onChange: (_, selected) => {
+                          if (selected && form) setForm({ ...form, time: formatTime(selected) })
+                        },
+                      })
+                    } else {
+                      setPendingTime(value)
+                      setShowTimePicker(true)
+                    }
+                  }}
+                >
+                  <Text style={[s.dateText, !form.time && s.selectPlaceholder]}>{form.time ? formatTimeLabel(form.time) : 'Not set'}</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* Action buttons */}
@@ -661,6 +708,35 @@ export function ReviewScreen({ navigation }: Props) {
               </Pressable>
             </Modal>
           )}
+
+          {/* iOS time picker modal */}
+          {Platform.OS === 'ios' && (
+            <Modal visible={showTimePicker} transparent animationType="fade">
+              <Pressable style={s.modalOverlay} onPress={() => setShowTimePicker(false)}>
+                <View style={s.modalCard}>
+                  <View style={s.pickerWrapper}>
+                    <DateTimePicker
+                      value={pendingTime}
+                      mode="time"
+                      display="spinner"
+                      is24Hour={false}
+                      onChange={(_, selected) => { if (selected) setPendingTime(selected) }}
+                      textColor={C.ink}
+                    />
+                  </View>
+                  <Pressable
+                    style={s.modalDoneBtn}
+                    onPress={() => {
+                      setForm((prev) => prev ? { ...prev, time: formatTime(pendingTime) } : prev)
+                      setShowTimePicker(false)
+                    }}
+                  >
+                    <Text style={s.modalDoneText}>Done</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Modal>
+          )}
         </Sheet>
       )}
     </View>
@@ -783,6 +859,8 @@ const s = StyleSheet.create({
 
   // Form fields
   field: { gap: 8 },
+  twoCol: { flexDirection: 'row', gap: 16 },
+  colField: { flex: 1, gap: 8 },
   label: { fontSize: 11, fontFamily: F.medium, color: C.ink3, letterSpacing: 0.4 },
   textInput: {
     paddingHorizontal: 14,

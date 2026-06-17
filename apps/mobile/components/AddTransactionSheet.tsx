@@ -72,6 +72,24 @@ function CheckMark({ color }: { color: string }) {
   )
 }
 
+function formatTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function formatTimeLabel(time: string): string {
+  const date = timeToDate(time)
+  return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+}
+
+function timeToDate(time: string): Date {
+  const date = new Date()
+  const [hours, minutes] = time.split(':').map(Number)
+  if (Number.isFinite(hours)) date.setHours(hours)
+  if (Number.isFinite(minutes)) date.setMinutes(minutes)
+  date.setSeconds(0, 0)
+  return date
+}
+
 export function AddTransactionSheet({
   visible,
   onClose,
@@ -94,6 +112,9 @@ export function AddTransactionSheet({
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [pendingDate, setPendingDate] = useState(new Date())
+  const [time, setTime] = useState('')
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [pendingTime, setPendingTime] = useState(new Date())
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -117,6 +138,8 @@ export function AddTransactionSheet({
       setToAccountId(editTx?.to_account_id ?? '')
       setDate(editTx ? new Date(editTx.date + 'T00:00:00') : new Date())
       setShowDatePicker(false)
+      setTime(editTx ? (editTx.time ?? '') : formatTime(new Date()))
+      setShowTimePicker(false)
       setNotes(editTx?.description ?? '')
     }
   }, [visible, editTx])
@@ -155,6 +178,7 @@ export function AddTransactionSheet({
         type,
         amount: parseAmountToPaise(amountStr),
         date: date.toISOString().slice(0, 10),
+        time: time || null,
         merchant: merchant.trim(),
         description: notes.trim(),
         category,
@@ -292,28 +316,52 @@ export function AddTransactionSheet({
         </View>
 
         {/* ── Date ── */}
-        <View style={s.field}>
-          <Text style={s.label}>DATE</Text>
-          <Pressable
-            style={s.textInput}
-            onPress={() => {
-              if (Platform.OS === 'android') {
-                DateTimePickerAndroid.open({
-                  value: date,
-                  mode: 'date',
-                  maximumDate: new Date(),
-                  onChange: (_, selected) => { if (selected) setDate(selected) },
-                })
-              } else {
-                setPendingDate(date)
-                setShowDatePicker(true)
-              }
-            }}
-          >
-            <Text style={s.dateText}>
-              {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </Text>
-          </Pressable>
+        <View style={s.twoCol}>
+          <View style={s.colField}>
+            <Text style={s.label}>DATE</Text>
+            <Pressable
+              style={s.textInput}
+              onPress={() => {
+                if (Platform.OS === 'android') {
+                  DateTimePickerAndroid.open({
+                    value: date,
+                    mode: 'date',
+                    maximumDate: new Date(),
+                    onChange: (_, selected) => { if (selected) setDate(selected) },
+                  })
+                } else {
+                  setPendingDate(date)
+                  setShowDatePicker(true)
+                }
+              }}
+            >
+              <Text style={s.dateText}>
+                {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={s.colField}>
+            <Text style={s.label}>TIME</Text>
+            <Pressable
+              style={s.textInput}
+              onPress={() => {
+                const value = time ? timeToDate(time) : new Date()
+                if (Platform.OS === 'android') {
+                  DateTimePickerAndroid.open({
+                    value,
+                    mode: 'time',
+                    is24Hour: false,
+                    onChange: (_, selected) => { if (selected) setTime(formatTime(selected)) },
+                  })
+                } else {
+                  setPendingTime(value)
+                  setShowTimePicker(true)
+                }
+              }}
+            >
+              <Text style={[s.dateText, !time && s.selectPlaceholder]}>{time ? formatTimeLabel(time) : 'Not set'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* ── Submit ── */}
@@ -467,6 +515,32 @@ export function AddTransactionSheet({
           </Pressable>
         </Modal>
       )}
+
+      {/* iOS time picker modal */}
+      {Platform.OS === 'ios' && (
+        <Modal visible={showTimePicker} transparent animationType="fade">
+          <Pressable style={s.modalOverlay} onPress={() => setShowTimePicker(false)}>
+            <View style={s.modalCard}>
+              <View style={s.pickerWrapper}>
+                <DateTimePicker
+                  value={pendingTime}
+                  mode="time"
+                  display="spinner"
+                  is24Hour={false}
+                  onChange={(_, selected) => { if (selected) setPendingTime(selected) }}
+                  textColor={C.ink}
+                />
+              </View>
+              <Pressable
+                style={s.modalDoneBtn}
+                onPress={() => { setTime(formatTime(pendingTime)); setShowTimePicker(false) }}
+              >
+                <Text style={s.modalDoneText}>Done</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </Sheet>
   )
 }
@@ -503,6 +577,8 @@ const s = StyleSheet.create({
   },
 
   field: { gap: 8 },
+  twoCol: { flexDirection: 'row', gap: 16 },
+  colField: { flex: 1, gap: 8 },
   label: { fontSize: 12, fontFamily: F.medium, color: C.ink3, letterSpacing: 0.4 },
 
   selectField: {
