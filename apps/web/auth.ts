@@ -47,10 +47,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (path.startsWith('/api/receipts/upload')) return true
       if (path.startsWith('/api/transactions/quick')) return true
 
-      // Mobile OTP auth routes — public by design, no session required
-      if (path.startsWith('/api/auth/send-otp')) return true
-      if (path.startsWith('/api/auth/verify-otp')) return true
-
       // Mobile setup-status check — authenticated by Supabase JWT, not NextAuth
       if (path.startsWith('/api/user/setup-status')) return true
 

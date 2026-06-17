@@ -1,76 +1,126 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Animated,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  runOnJS,
+  cancelAnimation,
+  Easing,
+} from 'react-native-reanimated'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { C } from '../lib/tokens'
 
 type SheetProps = {
   visible: boolean
   onClose: () => void
+  onOpen?: () => void
   children: React.ReactNode
   heightFraction?: number
 }
 
-export function Sheet({ visible, onClose, children, heightFraction = 0.80 }: SheetProps) {
+export function Sheet({ visible, onClose, onOpen, children, heightFraction = 0.80 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const screenHeight = Dimensions.get('window').height
   const sheetHeight = screenHeight * heightFraction
-  const translateY = useRef(new Animated.Value(screenHeight)).current
-  const backdropOpacity = useRef(new Animated.Value(0)).current
+
+  const translateY = useSharedValue(sheetHeight)
+  const backdropOpacity = useSharedValue(0)
   const onCloseRef = useRef(onClose)
+  const onOpenRef = useRef(onOpen)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  useEffect(() => { onOpenRef.current = onOpen }, [onOpen])
+
+  // Stays true until exit animation finishes so Modal doesn't unmount early
+  const [localVisible, setLocalVisible] = useState(visible)
+
+  const keyboardVisible = useRef(false)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => { keyboardVisible.current = true })
+    const hide = Keyboard.addListener('keyboardDidHide', () => { keyboardVisible.current = false })
+    return () => { show.remove(); hide.remove() }
+  }, [])
+
+  // Used by the gesture path: animation already done, just hide + notify
+  const hideAfterGesture = useCallback(() => {
+    setLocalVisible(false)
+    onCloseRef.current()
+  }, [])
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, damping: 28, stiffness: 280, mass: 0.8, useNativeDriver: true }),
-      ]).start()
+      setLocalVisible(true)
+      backdropOpacity.value = withTiming(1, { duration: 220 })
+      translateY.value = withSpring(0, { damping: 28, stiffness: 280, mass: 0.8 }, (finished) => {
+        if (finished && onOpenRef.current) runOnJS(onOpenRef.current)()
+      })
     } else {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: screenHeight, duration: 220, useNativeDriver: true }),
-      ]).start()
+      const startExit = () => {
+        backdropOpacity.value = withTiming(0, { duration: 180 })
+        translateY.value = withTiming(sheetHeight, { duration: 220, easing: Easing.out(Easing.cubic) }, (finished) => {
+          if (finished) runOnJS(setLocalVisible)(false)
+        })
+      }
+      if (keyboardVisible.current) {
+        Keyboard.dismiss()
+        const timer = setTimeout(startExit, 100)
+        return () => clearTimeout(timer)
+      } else {
+        startExit()
+      }
     }
   }, [visible])
 
-  // PanResponder lives ONLY on the drag pill — never intercepts child buttons
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => { translateY.stopAnimation() },
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) translateY.setValue(g.dy)
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 80 || g.vy > 0.5) {
-          onCloseRef.current()
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0, damping: 28, stiffness: 280, mass: 0.8, useNativeDriver: true,
-          }).start()
-        }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(translateY, {
-          toValue: 0, damping: 28, stiffness: 280, mass: 0.8, useNativeDriver: true,
-        }).start()
-      },
-    }),
-  ).current
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }))
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }))
+
+  const pan = Gesture.Pan()
+    .activeOffsetY([5, 1000])
+    .onBegin(() => {
+      cancelAnimation(translateY)
+    })
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > 80 || e.velocityY > 500) {
+        translateY.value = withTiming(
+          sheetHeight,
+          { duration: 200, easing: Easing.out(Easing.cubic) },
+          (finished) => { if (finished) runOnJS(hideAfterGesture)() },
+        )
+        backdropOpacity.value = withTiming(0, { duration: 200 })
+      } else {
+        translateY.value = withSpring(0, { damping: 28, stiffness: 280, mass: 0.8 })
+      }
+    })
+    .onFinalize((_e, success) => {
+      if (!success) {
+        translateY.value = withSpring(0, { damping: 28, stiffness: 280, mass: 0.8 })
+      }
+    })
 
   return (
     <Modal
-      visible={visible}
+      visible={localVisible}
       transparent
       animationType="none"
       onRequestClose={() => onCloseRef.current()}
@@ -78,29 +128,28 @@ export function Sheet({ visible, onClose, children, heightFraction = 0.80 }: She
     >
       {/* Backdrop — tap to close */}
       <Pressable style={StyleSheet.absoluteFill} onPress={() => onCloseRef.current()}>
-        <Animated.View style={[StyleSheet.absoluteFill, s.backdrop, { opacity: backdropOpacity }]} />
+        <Animated.View style={[StyleSheet.absoluteFill, s.backdrop, backdropStyle]} />
       </Pressable>
 
       {/* Sheet */}
       <Animated.View
         style={[
           s.sheet,
-          {
-            height: sheetHeight,
-            paddingBottom: Math.max(insets.bottom, 8),
-            transform: [{ translateY }],
-          },
+          { height: sheetHeight, paddingBottom: Math.max(insets.bottom, 8) },
+          sheetStyle,
         ]}
       >
-        {/* Drag pill — PanResponder is scoped here only */}
-        <View style={s.dragZone} {...panResponder.panHandlers}>
-          <View style={s.handle} />
-        </View>
+        {/* Drag pill — Gesture scoped here only */}
+        <GestureDetector gesture={pan}>
+          <View style={s.dragZone}>
+            <View style={s.handle} />
+          </View>
+        </GestureDetector>
 
         {/* Content — children own their own gestures */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           {children}
         </KeyboardAvoidingView>
@@ -121,7 +170,6 @@ const s = StyleSheet.create({
     borderTopRightRadius: 20,
     overflow: 'hidden',
   },
-  // Wide touch target for the handle; the pill is centered inside
   dragZone: {
     alignItems: 'center',
     justifyContent: 'center',

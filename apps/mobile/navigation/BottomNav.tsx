@@ -1,5 +1,10 @@
 import React from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated'
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
@@ -52,6 +57,39 @@ const ICONS: Record<string, (active: boolean) => React.JSX.Element> = {
   Settings: (a) => <SettingsIcon active={a} />,
 }
 
+type TabItemProps = {
+  routeKey: string
+  active: boolean
+  label: string
+  icon: ((active: boolean) => React.JSX.Element) | undefined
+  onPress: () => void
+}
+
+function TabItem({ routeKey, active, label, icon, onPress }: TabItemProps) {
+  const scale = useSharedValue(1)
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }))
+
+  return (
+    <Pressable
+      key={routeKey}
+      style={s.tab}
+      onPressIn={() => { scale.value = withSpring(0.88, { damping: 15, stiffness: 300 }) }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Animated.View style={[s.tabContent, animStyle]}>
+        {icon && icon(active)}
+        <Text style={[s.label, active ? s.labelActive : s.labelInactive]}>{label}</Text>
+      </Animated.View>
+    </Pressable>
+  )
+}
+
 export function CustomBottomNav({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
 
@@ -78,16 +116,14 @@ export function CustomBottomNav({ state, descriptors, navigation }: BottomTabBar
         }
 
         return (
-          <Pressable
+          <TabItem
             key={route.key}
-            style={s.tab}
+            routeKey={route.key}
+            active={active}
+            label={label}
+            icon={icon}
             onPress={onPress}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-          >
-            {icon && icon(active)}
-            <Text style={[s.label, active ? s.labelActive : s.labelInactive]}>{label}</Text>
-          </Pressable>
+          />
         )
       })}
     </View>
@@ -106,6 +142,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     paddingBottom: 6,
+  },
+  tabContent: {
+    alignItems: 'center',
     gap: 4,
   },
   label: { fontSize: 10 },

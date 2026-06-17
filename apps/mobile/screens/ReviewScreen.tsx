@@ -17,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Check, Circle, Polyline, Line, Path } from 'react-native-svg'
 import { Sheet } from '../components/Sheet'
+import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import {
   fetchReviewData,
@@ -408,20 +409,7 @@ export function ReviewScreen({ navigation }: Props) {
             showsVerticalScrollIndicator={false}
           >
             {/* Type selector */}
-            <View style={s.typeBar}>
-              {TYPES.map((t) => {
-                const active = form.type === t.value
-                return (
-                  <Pressable
-                    key={t.value}
-                    style={[s.typeBtn, active && s.typeBtnActive]}
-                    onPress={() => setForm({ ...form, type: t.value })}
-                  >
-                    <Text style={[s.typeBtnText, { color: active ? t.color : C.ink3 }]}>{t.label}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
+            <TypePicker types={TYPES} active={form.type} onChange={(v) => setForm({ ...form, type: v })} />
 
             {/* Amount */}
             <View style={s.amountRow}>
@@ -764,8 +752,6 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.line,
   },
   sheetTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
   sheetCancelBtn: { paddingVertical: 4, paddingHorizontal: 2 },
@@ -773,24 +759,6 @@ const s = StyleSheet.create({
   sheetScroll: { flex: 1 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40, gap: 20 },
 
-  // Type selector
-  typeBar: {
-    flexDirection: 'row',
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  typeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  typeBtnActive: {
-    backgroundColor: C.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  typeBtnText: { fontSize: 14, fontFamily: F.semibold },
 
   // Amount
   amountRow: {

@@ -34,11 +34,11 @@ async function post<T>(path: string, body: object): Promise<T> {
 }
 
 export async function requestOtp(email: string): Promise<void> {
-  await post('/api/auth/send-otp', { email })
+  await post('/api/mobile/auth/send-otp', { email })
 }
 
 export async function confirmOtp(email: string, token: string): Promise<{ supabaseToken: string }> {
-  return post('/api/auth/verify-otp', { email, token })
+  return post('/api/mobile/auth/verify-otp', { email, token })
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

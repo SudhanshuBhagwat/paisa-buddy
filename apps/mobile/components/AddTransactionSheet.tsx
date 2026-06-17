@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { Sheet } from './Sheet'
+import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import {
   createTransaction,
@@ -69,6 +70,7 @@ export function AddTransactionSheet({
   onCategoryCreated,
 }: Props) {
   const isEdit = !!editTx
+  const amountRef = useRef<TextInput>(null)
 
   const [type, setType] = useState<TransactionType>('debit')
   const [amountStr, setAmountStr] = useState('')
@@ -214,6 +216,7 @@ export function AddTransactionSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
+      onOpen={isEdit ? undefined : () => amountRef.current?.focus()}
       heightFraction={0.88}
     >
       {/* Header */}
@@ -231,27 +234,13 @@ export function AddTransactionSheet({
         showsVerticalScrollIndicator={false}
       >
         {/* ── Type selector ── */}
-        <View style={s.typeBar}>
-          {TYPES.map((t) => {
-            const active = type === t.value
-            return (
-              <Pressable
-                key={t.value}
-                style={[s.typeBtn, active && s.typeBtnActive]}
-                onPress={() => setType(t.value)}
-              >
-                <Text style={[s.typeBtnText, { color: active ? t.color : C.ink3 }]}>
-                  {t.label}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <TypePicker types={TYPES} active={type} onChange={setType} />
 
         {/* ── Amount ── */}
         <View style={s.amountRow}>
           <Text style={[s.rupeeSign, { color: activeType.color }]}>₹</Text>
           <TextInput
+            ref={amountRef}
             style={[s.amountInput, { color: activeType.color }]}
             value={formatDisplayAmount(amountStr)}
             onChangeText={(v) => setAmountStr(sanitizeAmountInput(v.replace(/,/g, '')))}
@@ -259,7 +248,6 @@ export function AddTransactionSheet({
             placeholderTextColor={activeType.color + '60'}
             keyboardType="decimal-pad"
             returnKeyType="done"
-            autoFocus={!isEdit}
           />
           {/* invisible spacer mirrors the ₹ to keep amount visually centered */}
           <Text style={[s.rupeeSign, { color: 'transparent' }]} aria-hidden>₹</Text>
@@ -513,29 +501,6 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 20 },
 
-  // Type selector
-  typeBar: {
-    flexDirection: 'row',
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  typeBtnActive: {
-    backgroundColor: C.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  typeBtnText: { fontSize: 14, fontFamily: F.semibold },
 
   // Amount — 3.5rem = 56px, invisible spacer mirrors ₹ for centering
   amountRow: {

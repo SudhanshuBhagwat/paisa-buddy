@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native'
 import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import {
@@ -246,10 +247,24 @@ function TabSwitcher({ active, onChange }: { active: Tab; onChange: (t: Tab) => 
     { id: 'income', label: 'Income' },
     { id: 'budgets', label: 'Budgets' },
   ]
+  const [tabWidth, setTabWidth] = useState(0)
+  const pillX = useSharedValue(0)
+  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pillX.value }] }))
+
+  useEffect(() => {
+    if (tabWidth === 0) return
+    const idx = tabs.findIndex((t) => t.id === active)
+    pillX.value = withTiming(idx * tabWidth, { duration: 200 })
+  }, [active, tabWidth])
+
   return (
-    <View style={ts.wrap}>
+    <View
+      style={ts.wrap}
+      onLayout={(e) => setTabWidth((e.nativeEvent.layout.width - 6) / 3)}
+    >
+      <Animated.View style={[ts.pill, { width: tabWidth }, pillStyle]} />
       {tabs.map((t) => (
-        <Pressable key={t.id} onPress={() => onChange(t.id)} style={[ts.btn, active === t.id && ts.btnActive]}>
+        <Pressable key={t.id} onPress={() => onChange(t.id)} style={ts.btn}>
           <Text style={[ts.label, active === t.id && ts.labelActive]}>{t.label}</Text>
         </Pressable>
       ))}
@@ -267,8 +282,13 @@ const ts = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
   },
-  btn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center' },
-  btnActive: {
+  btn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', zIndex: 1 },
+  pill: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    borderRadius: 8,
     backgroundColor: C.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -397,6 +417,28 @@ const bs = StyleSheet.create({
 
 export function StatsScreen() {
   const insets = useSafeAreaInsets()
+  const addBudgetScale = useSharedValue(1)
+  const addBudgetAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBudgetScale.value }] }))
+
+  const contentOpacity = useSharedValue(1)
+  const contentTranslateX = useSharedValue(0)
+  const contentAnimStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateX: contentTranslateX.value }],
+  }))
+
+  const TABS: Tab[] = ['expenses', 'income', 'budgets']
+  function handleTabChange(next: Tab) {
+    if (next === activeTab) return
+    const dir = TABS.indexOf(next) > TABS.indexOf(activeTab) ? 1 : -1
+    contentOpacity.value = withTiming(0, { duration: 110 }, (finished) => {
+      if (!finished) return
+      runOnJS(setActiveTab)(next)
+      contentTranslateX.value = dir * 28
+      contentOpacity.value = withTiming(1, { duration: 160 })
+      contentTranslateX.value = withTiming(0, { duration: 160 })
+    })
+  }
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -519,18 +561,25 @@ export function StatsScreen() {
             </View>
 
             {/* Tab switcher */}
-            <TabSwitcher active={activeTab} onChange={setActiveTab} />
+            <TabSwitcher active={activeTab} onChange={handleTabChange} />
 
             {/* Content */}
+            <Animated.View style={contentAnimStyle}>
             {activeTab === 'budgets' ? (
               <>
                 <View style={s.budgetHeader}>
                   <Text style={s.sectionTitle}>Budgets</Text>
-                  <Pressable onPress={openAdd} style={s.addBtn}>
-                    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                      <Path d="M12 5v14M5 12h14" />
-                    </Svg>
-                    <Text style={s.addBtnText}>Add</Text>
+                  <Pressable
+                    onPress={openAdd}
+                    onPressIn={() => { addBudgetScale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
+                    onPressOut={() => { addBudgetScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+                  >
+                    <Animated.View style={[s.addBtn, addBudgetAnimStyle]}>
+                      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                        <Path d="M12 5v14M5 12h14" />
+                      </Svg>
+                      <Text style={s.addBtnText}>Add</Text>
+                    </Animated.View>
                   </Pressable>
                 </View>
                 {budgets.length === 0 ? (
@@ -578,6 +627,7 @@ export function StatsScreen() {
                 )}
               </>
             )}
+            </Animated.View>
           </View>
         )}
         <View style={{ height: 80 }} />
@@ -627,7 +677,7 @@ const s = StyleSheet.create({
   summaryColBorder: { borderLeftWidth: 1, borderLeftColor: C.line },
   summaryLabel: { fontSize: 10.5, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { fontSize: 13.5, fontFamily: F.monoBold },
-  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 7,

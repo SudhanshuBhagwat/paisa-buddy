@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native'
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import {
@@ -144,6 +145,7 @@ function AccountSheet({
 }) {
   const [form, setForm] = useState<AccForm>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
+  const nameRef = useRef<TextInput>(null)
 
   React.useEffect(() => {
     if (visible) {
@@ -183,7 +185,7 @@ function AccountSheet({
   const isCredit = form.type === 'credit'
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.72}>
+    <Sheet visible={visible} onClose={onClose} heightFraction={0.72} onOpen={!editing ? () => nameRef.current?.focus() : undefined}>
       <View style={af.header}>
         <Text style={af.title}>{editing ? 'Edit Account' : 'New Account'}</Text>
         <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
@@ -192,12 +194,12 @@ function AccountSheet({
         <View style={af.field}>
           <Text style={af.label}>NAME <Text style={{ color: C.neg }}>*</Text></Text>
           <TextInput
+            ref={nameRef}
             style={af.input}
             value={form.name}
             onChangeText={(v) => setF('name', v)}
             placeholder="e.g. HDFC Savings"
             placeholderTextColor={C.ink3}
-            autoFocus
           />
         </View>
 
@@ -284,6 +286,7 @@ function InvestmentSheet({
 }) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const nameRef = useRef<TextInput>(null)
 
   React.useEffect(() => {
     if (visible) setName(editing?.name ?? '')
@@ -310,7 +313,7 @@ function InvestmentSheet({
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} heightFraction={0.45}>
+    <Sheet visible={visible} onClose={onClose} heightFraction={0.65} onOpen={!editing ? () => nameRef.current?.focus() : undefined}>
       <View style={af.header}>
         <Text style={af.title}>{editing ? 'Edit Investment' : 'New Investment'}</Text>
         <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
@@ -319,12 +322,12 @@ function InvestmentSheet({
         <View style={af.field}>
           <Text style={af.label}>NAME <Text style={{ color: C.neg }}>*</Text></Text>
           <TextInput
+            ref={nameRef}
             style={af.input}
             value={name}
             onChangeText={setName}
             placeholder="e.g. Zerodha, SBI PPF"
             placeholderTextColor={C.ink3}
-            autoFocus
             onSubmitEditing={handleSave}
             returnKeyType="done"
           />
@@ -350,6 +353,10 @@ const inv_s = StyleSheet.create({
 
 export function AccountsScreen() {
   const insets = useSafeAreaInsets()
+  const addAccScale = useSharedValue(1)
+  const addInvScale = useSharedValue(1)
+  const addAccAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addAccScale.value }] }))
+  const addInvAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addInvScale.value }] }))
   const [accounts, setAccounts] = useState<Account[]>([])
   const [investments, setInvestments] = useState<InvestmentWithTotal[]>([])
   const [loading, setLoading] = useState(true)
@@ -481,11 +488,17 @@ export function AccountsScreen() {
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
           <Text style={s.pageTitle}>Accounts</Text>
-          <Pressable onPress={openAddAcc} style={s.addBtn}>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-              <Path d="M12 5v14M5 12h14" />
-            </Svg>
-            <Text style={s.addBtnText}>Add</Text>
+          <Pressable
+            onPress={openAddAcc}
+            onPressIn={() => { addAccScale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
+            onPressOut={() => { addAccScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+          >
+            <Animated.View style={[s.addBtn, addAccAnimStyle]}>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                <Path d="M12 5v14M5 12h14" />
+              </Svg>
+              <Text style={s.addBtnText}>Add</Text>
+            </Animated.View>
           </Pressable>
         </View>
 
@@ -532,11 +545,17 @@ export function AccountsScreen() {
             {/* Investments section */}
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Investments</Text>
-              <Pressable onPress={openAddInv} style={s.goldBtn}>
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                  <Path d="M12 5v14M5 12h14" />
-                </Svg>
-                <Text style={s.goldBtnText}>Add</Text>
+              <Pressable
+                onPress={openAddInv}
+                onPressIn={() => { addInvScale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
+                onPressOut={() => { addInvScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+              >
+                <Animated.View style={[s.goldBtn, addInvAnimStyle]}>
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                    <Path d="M12 5v14M5 12h14" />
+                  </Svg>
+                  <Text style={s.goldBtnText}>Add</Text>
+                </Animated.View>
               </Pressable>
             </View>
 

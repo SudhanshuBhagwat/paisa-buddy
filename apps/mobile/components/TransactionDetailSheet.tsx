@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { Sheet } from './Sheet'
+import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { updateTransaction, deleteTransaction, createAccount, createCategory } from '../lib/api'
 import { PREDEFINED_CATEGORIES } from '@paisa-buddy/shared/categories'
@@ -212,20 +213,7 @@ export function TransactionDetailSheet({
         showsVerticalScrollIndicator={false}
       >
         {/* Type selector */}
-        <View style={s.typeBar}>
-          {TYPES.map((t) => {
-            const active = type === t.value
-            return (
-              <Pressable
-                key={t.value}
-                style={[s.typeBtn, active && s.typeBtnActive]}
-                onPress={() => setType(t.value)}
-              >
-                <Text style={[s.typeBtnText, { color: active ? t.color : C.ink3 }]}>{t.label}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <TypePicker types={TYPES} active={type} onChange={setType} />
 
         {/* Amount — 2.25rem = 36px */}
         <View style={s.amountRow}>
@@ -541,24 +529,6 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
 
-  // Type selector
-  typeBar: {
-    flexDirection: 'row',
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  typeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  typeBtnActive: {
-    backgroundColor: C.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  typeBtnText: { fontSize: 14, fontFamily: F.semibold },
 
   // Amount — 2.25rem = 36px
   amountRow: {

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated'
 import Svg, {
   Circle,
   Line,
@@ -43,6 +47,7 @@ import {
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { deleteTransaction } from '../lib/api'
+import { Sheet } from '../components/Sheet'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
@@ -117,9 +122,17 @@ function TxItem({
   const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
   const accountName = tx.account_id ? accountMap[tx.account_id] : null
+  const scale = useSharedValue(1)
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   return (
-    <Pressable style={ti.row} onPress={onPress} android_ripple={{ color: C.line }}>
+    <Pressable
+      onPressIn={() => { scale.value = withSpring(0.98, { damping: 20, stiffness: 300 }) }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }) }}
+      onPress={onPress}
+      android_ripple={{ color: C.line }}
+    >
+      <Animated.View style={[ti.row, animStyle]}>
       <View style={[ti.dot, { backgroundColor: catC }]} />
       <View style={ti.info}>
         <Text style={ti.name} numberOfLines={1}>
@@ -150,6 +163,7 @@ function TxItem({
           </Svg>
         </Pressable>
       </View>
+      </Animated.View>
     </Pressable>
   )
 }
@@ -180,6 +194,8 @@ const ti = StyleSheet.create({
 export function HomeScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const fabScale = useSharedValue(1)
+  const fabAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: fabScale.value }] }))
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
   const [allTxs, setAllTxs] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -203,6 +219,7 @@ export function HomeScreen() {
   // Sheets
   const [addSheetOpen, setAddSheetOpen] = useState(false)
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
 
   const load = useCallback(async () => {
@@ -400,7 +417,7 @@ export function HomeScreen() {
             </View>
             <View style={s.pendingInfo}>
               <Text style={s.pendingTitle}>Transactions pending review</Text>
-              <Text style={s.pendingSub}>Tap to review · from imports &amp; shortcuts</Text>
+              <Text style={s.pendingSub}>Tap to review · From imports &amp; shortcuts</Text>
             </View>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
@@ -471,7 +488,7 @@ export function HomeScreen() {
                   tx={tx}
                   accountMap={accountMap}
                   catColors={catColors}
-                  onPress={() => setDetailTx(tx)}
+                  onPress={() => { setDetailTx(tx); setDetailOpen(true) }}
                   onDelete={() => {
                     Alert.alert('Delete transaction?', 'This cannot be undone.', [
                       { text: 'Cancel', style: 'cancel' },
@@ -499,112 +516,107 @@ export function HomeScreen() {
 
       {/* ── FAB ── */}
       <Pressable
-        style={[s.fab, { bottom: insets.bottom }]}
+        style={[s.fabWrap, { bottom: insets.bottom - 20 }]}
         accessibilityLabel="Add transaction"
+        onPressIn={() => { fabScale.value = withSpring(0.90, { damping: 15, stiffness: 300 }) }}
+        onPressOut={() => { fabScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
         onPress={() => { setEditTx(null); setAddSheetOpen(true) }}
       >
-        <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <Line x1="12" y1="5" x2="12" y2="19" />
-          <Line x1="5" y1="12" x2="19" y2="12" />
-        </Svg>
+        <Animated.View style={[s.fab, fabAnimStyle]}>
+          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <Line x1="12" y1="5" x2="12" y2="19" />
+            <Line x1="5" y1="12" x2="19" y2="12" />
+          </Svg>
+        </Animated.View>
       </Pressable>
 
       {/* ── Filter bottom sheet ── */}
-      <Modal
-        visible={filterSheetOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFilterSheetOpen(false)}
-      >
-        <View style={s.modalOuter}>
-          <Pressable style={s.overlay} onPress={() => setFilterSheetOpen(false)} />
-          <View style={[s.filterSheet, { paddingBottom: Math.max(insets.bottom, 8) + 16 }]}>
-            <View style={s.dragHandle} />
-            <View style={s.filterHeader}>
-              <Text style={s.filterTitle}>Filters</Text>
-              {hasFilters && (
-                <Pressable onPress={clearFilters}>
-                  <Text style={s.clearAll}>Clear all</Text>
-                </Pressable>
-              )}
-            </View>
-
-            <View style={s.filterSection}>
-              <Text style={s.filterSectionLabel}>TYPE</Text>
-              <View style={s.chips}>
-                {(['debit', 'credit', 'transfer'] as TransactionType[]).map((type) => {
-                  const active = selectedType === type
-                  const tc = TYPE_COLOR[type]
-                  return (
-                    <Pressable
-                      key={type}
-                      onPress={() => setSelectedType(active ? null : type)}
-                      style={[s.chip, active && { backgroundColor: tc, borderColor: tc }]}
-                    >
-                      <Text style={[s.chipText, active && { color: '#fff' }]}>{type}</Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
-            </View>
-
-            {monthCategories.length > 0 && (
-              <View style={s.filterSection}>
-                <Text style={s.filterSectionLabel}>CATEGORY</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={[s.chips, { flexWrap: 'nowrap' }]}>
-                    {monthCategories.map((cat) => {
-                      const active = selectedCategory === cat
-                      const cc = categoryColor(cat, catColors)
-                      return (
-                        <Pressable
-                          key={cat}
-                          onPress={() => setSelectedCategory(active ? null : cat)}
-                          style={[s.chip, active && { backgroundColor: cc, borderColor: cc }]}
-                        >
-                          <Text style={[s.chipText, active && { color: '#fff' }]}>{cat}</Text>
-                        </Pressable>
-                      )
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
+      <Sheet visible={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} heightFraction={0.55}>
+        <View style={s.filterContent}>
+          <View style={s.filterHeader}>
+            <Text style={s.filterTitle}>Filters</Text>
+            {hasFilters && (
+              <Pressable onPress={clearFilters}>
+                <Text style={s.clearAll}>Clear all</Text>
+              </Pressable>
             )}
+          </View>
 
-            {accounts.length > 0 && (
-              <View style={s.filterSection}>
-                <Text style={s.filterSectionLabel}>ACCOUNT</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={[s.chips, { flexWrap: 'nowrap' }]}>
-                    {accounts.map((acc) => {
-                      const active = selectedAccount === acc.id
-                      return (
-                        <Pressable
-                          key={acc.id}
-                          onPress={() => setSelectedAccount(active ? null : acc.id)}
-                          style={[s.chip, active && { backgroundColor: C.brand, borderColor: C.brand }]}
-                        >
-                          <Text style={[s.chipText, active && { color: '#fff' }]}>{acc.name}</Text>
-                        </Pressable>
-                      )
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
-            )}
-
-            <View style={s.filterRow}>
-              <Text style={s.filterRowLabel}>Recurring only</Text>
-              <Switch
-                value={recurringOnly}
-                onValueChange={setRecurringOnly}
-                trackColor={{ false: C.line, true: C.brand }}
-                thumbColor={C.surface}
-              />
+          <View style={s.filterSection}>
+            <Text style={s.filterSectionLabel}>TYPE</Text>
+            <View style={s.chips}>
+              {(['debit', 'credit', 'transfer'] as TransactionType[]).map((type) => {
+                const active = selectedType === type
+                const tc = TYPE_COLOR[type]
+                return (
+                  <Pressable
+                    key={type}
+                    onPress={() => setSelectedType(active ? null : type)}
+                    style={[s.chip, active && { backgroundColor: tc, borderColor: tc }]}
+                  >
+                    <Text style={[s.chipText, active && { color: '#fff' }]}>{type}</Text>
+                  </Pressable>
+                )
+              })}
             </View>
           </View>
+
+          {monthCategories.length > 0 && (
+            <View style={s.filterSection}>
+              <Text style={s.filterSectionLabel}>CATEGORY</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={[s.chips, { flexWrap: 'nowrap' }]}>
+                  {monthCategories.map((cat) => {
+                    const active = selectedCategory === cat
+                    const cc = categoryColor(cat, catColors)
+                    return (
+                      <Pressable
+                        key={cat}
+                        onPress={() => setSelectedCategory(active ? null : cat)}
+                        style={[s.chip, active && { backgroundColor: cc, borderColor: cc }]}
+                      >
+                        <Text style={[s.chipText, active && { color: '#fff' }]}>{cat}</Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {accounts.length > 0 && (
+            <View style={s.filterSection}>
+              <Text style={s.filterSectionLabel}>ACCOUNT</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={[s.chips, { flexWrap: 'nowrap' }]}>
+                  {accounts.map((acc) => {
+                    const active = selectedAccount === acc.id
+                    return (
+                      <Pressable
+                        key={acc.id}
+                        onPress={() => setSelectedAccount(active ? null : acc.id)}
+                        style={[s.chip, active && { backgroundColor: C.brand, borderColor: C.brand }]}
+                      >
+                        <Text style={[s.chipText, active && { color: '#fff' }]}>{acc.name}</Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={s.filterRow}>
+            <Text style={s.filterRowLabel}>Recurring only</Text>
+            <Switch
+              value={recurringOnly}
+              onValueChange={setRecurringOnly}
+              trackColor={{ false: C.line, true: C.brand }}
+              thumbColor={C.surface}
+            />
+          </View>
         </View>
-      </Modal>
+      </Sheet>
 
       {/* ── Add / Edit transaction sheet ── */}
       <AddTransactionSheet
@@ -621,10 +633,10 @@ export function HomeScreen() {
       {/* ── Transaction detail sheet ── */}
       <TransactionDetailSheet
         tx={detailTx}
-        visible={!!detailTx}
-        onClose={() => setDetailTx(null)}
-        onSaved={(tx) => { upsertTx(tx); setDetailTx(null) }}
-        onDeleted={(id) => { removeTx(id); setDetailTx(null) }}
+        visible={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        onSaved={(tx) => { upsertTx(tx); setDetailOpen(false) }}
+        onDeleted={(id) => { removeTx(id); setDetailOpen(false) }}
         accounts={accounts}
         catColors={catColors}
       />
@@ -786,9 +798,11 @@ const s = StyleSheet.create({
   dateHeader: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
   dateLabel: { fontSize: 12, fontFamily: F.bold, color: C.ink3 },
 
-  fab: {
+  fabWrap: {
     position: 'absolute',
     right: 20,
+  },
+  fab: {
     width: 56,
     height: 56,
     borderRadius: 18,
@@ -802,23 +816,7 @@ const s = StyleSheet.create({
     elevation: 12,
   },
 
-  modalOuter: { flex: 1, justifyContent: 'flex-end' },
-  overlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  filterSheet: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  dragHandle: {
-    width: 40, height: 4, borderRadius: 2, backgroundColor: C.line,
-    alignSelf: 'center', marginBottom: 16,
-  },
+  filterContent: { paddingHorizontal: 16, paddingBottom: 16 },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',

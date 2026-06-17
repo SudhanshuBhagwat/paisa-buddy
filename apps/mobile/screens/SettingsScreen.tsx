@@ -271,9 +271,6 @@ export function SettingsScreen() {
                         returnKeyType="done"
                         onSubmitEditing={handleSaveName}
                       />
-                      <View style={s.txPill}>
-                        <Text style={s.txPillText}>{data?.txCount ?? 0} transactions</Text>
-                      </View>
                       {nameSaved && <Text style={s.savedBadge}>Saved</Text>}
                     </View>
                     {email ? <Text style={s.emailText} numberOfLines={1}>{email}</Text> : null}
@@ -303,7 +300,7 @@ export function SettingsScreen() {
                   ))
                 )}
                 <RowDivider />
-                <View style={s.addRow}>
+                <View style={[s.addRow, { paddingVertical: 14 }]}>
                   <TextInput
                     style={s.addInput}
                     value={newUpi}
@@ -329,7 +326,7 @@ export function SettingsScreen() {
             <View style={s.section}>
               <SectionLabel>Income</SectionLabel>
               <Card>
-                <View style={s.addRow}>
+                <View style={[s.addRow, { paddingVertical: 14 }]}>
                   <Text style={s.rupeeLabel}>₹</Text>
                   <TextInput
                     style={[s.addInput, { fontFamily: F.regular }]}
@@ -376,7 +373,7 @@ export function SettingsScreen() {
                   ))
                 )}
                 <RowDivider />
-                <View style={s.addRow}>
+                <View style={[s.addRow, { paddingVertical: 14 }]}>
                   <TextInput
                     style={s.addInput}
                     value={newCat}
