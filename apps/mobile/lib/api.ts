@@ -83,6 +83,7 @@ export type TxInput = {
   type: Transaction['type']
   amount: number
   date: string
+  time?: string | null
   merchant?: string | null
   description?: string
   category?: string | null
