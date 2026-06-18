@@ -79,6 +79,18 @@ export async function confirmOtp(email: string, token: string): Promise<{ supaba
 
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 
+export type MonthlySpend = {
+  month: string
+  spent: number
+}
+
+export type TransactionMonthData = {
+  transactions: Transaction[]
+  monthlySpends: MonthlySpend[]
+  accounts: Account[]
+  categoryColors: Record<string, string>
+}
+
 export type TxInput = {
   type: Transaction['type']
   amount: number
@@ -97,6 +109,10 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export async function fetchTransactionMonthData(month: string): Promise<TransactionMonthData> {
+  return apiFetch(`/api/mobile/transactions?month=${month}`)
 }
 
 export async function updateTransaction(
@@ -242,6 +258,7 @@ export async function deleteBudget(id: string): Promise<void> {
 
 export type StatsData = {
   transactions: Transaction[]
+  monthlySpends: MonthlySpend[]
   budgets: BudgetWithSpent[]
   categoryColors: Record<string, string>
   accounts: Account[]

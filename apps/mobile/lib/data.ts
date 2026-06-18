@@ -1,5 +1,6 @@
 export {
   fetchHomeData as getHomeData,
+  fetchTransactionMonthData as getTransactionMonthData,
   fetchReviewData as getReviewData,
   fetchSettings as getSettings,
   fetchStatsData as getStatsData,

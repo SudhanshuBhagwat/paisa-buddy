@@ -1,6 +1,6 @@
 import 'server-only'
 import type postgres from 'postgres'
-import type { TransactionRepository } from '../types'
+import type { MonthlySpend, TransactionRepository } from '../types'
 import type { Transaction, TransactionFilters } from '@paisa-buddy/shared/types/transaction'
 import { withUserContext } from './client'
 import { detectRecurringGroups } from '../../recurring'
@@ -75,6 +75,22 @@ export class PostgresTransactionRepository implements TransactionRepository {
         ORDER BY date DESC
       `
       return rows.map(rowToTransaction)
+    })
+  }
+
+  async getMonthlySpends(userId: string): Promise<MonthlySpend[]> {
+    return withUserContext(userId, async (db) => {
+      const rows = await db`
+        SELECT to_char(date, 'YYYY-MM') AS month, COALESCE(SUM(amount), 0) AS spent
+        FROM transactions
+        WHERE user_id = ${userId} AND type = 'debit'
+        GROUP BY month
+        ORDER BY month DESC
+      `
+      return rows.map((row) => ({
+        month: row.month as string,
+        spent: Number(row.spent),
+      }))
     })
   }
 

@@ -1,8 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { accountsDb, categoriesDb, db } from '@/lib/db'
 import { resolveMobileUser, isAuthErr } from '@/lib/mobile-auth'
-import { parseBody, VALID_TX_TYPES, isPositiveInt, isValidDate, MAX_DESC_LEN, MAX_NAME_LEN } from '@/lib/mobile-validate'
+import { parseBody, VALID_TX_TYPES, isPositiveInt, isValidDate, isValidMonth, MAX_DESC_LEN, MAX_NAME_LEN } from '@/lib/mobile-validate'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
+
+function monthBounds(month: string): { dateFrom: string; dateTo: string } {
+  const [year, monthNum] = month.split('-')
+  const lastDay = new Date(Number(year), Number(monthNum), 0).getDate().toString().padStart(2, '0')
+  return { dateFrom: `${year}-${monthNum}-01`, dateTo: `${year}-${monthNum}-${lastDay}` }
+}
+
+export async function GET(req: NextRequest) {
+  const auth = await resolveMobileUser(req)
+  if (isAuthErr(auth)) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
+  const { searchParams } = new URL(req.url)
+  const month = searchParams.get('month') ?? new Date().toISOString().slice(0, 7)
+
+  if (!isValidMonth(month)) {
+    return NextResponse.json({ error: 'month must be YYYY-MM' }, { status: 400 })
+  }
+
+  const { dateFrom, dateTo } = monthBounds(month)
+  const [transactions, monthlySpends, accounts, categories] = await Promise.all([
+    db.getAll(auth.userId, { dateFrom, dateTo }),
+    db.getMonthlySpends(auth.userId),
+    accountsDb.getAll(auth.userId),
+    categoriesDb.getCustomWithColors(auth.userId),
+  ])
+
+  const categoryColors: Record<string, string> = {}
+  for (const c of categories) categoryColors[c.name] = c.color
+
+  return NextResponse.json({ transactions, monthlySpends, accounts, categoryColors })
+}
 
 export async function POST(req: NextRequest) {
   const auth = await resolveMobileUser(req)

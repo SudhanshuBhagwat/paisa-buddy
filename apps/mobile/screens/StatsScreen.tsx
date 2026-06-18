@@ -624,7 +624,8 @@ export function StatsScreen() {
   const accounts = data?.accounts ?? []
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const { income, expense, balance } = calcSummary(txs)
-  const monthlySpends = { [month]: expense }
+  const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
+  monthlySpends[month] = monthlySpends[month] ?? expense
   const expenseCats = groupByCategory(txs, 'debit')
   const incomeCats = groupByCategory(txs, 'credit')
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]

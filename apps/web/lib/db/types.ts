@@ -5,6 +5,11 @@ import type { Budget, BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 export type { Investment, InvestmentWithTotal }
 export type { BudgetWithSpent }
 
+export type MonthlySpend = {
+  month: string
+  spent: number
+}
+
 // ---------------------------------------------------------------------------
 // Domain types
 // ---------------------------------------------------------------------------
@@ -37,6 +42,9 @@ export interface TransactionRepository {
 
   /** All transactions for the user, with optional filters. */
   getAll(userId: string, filters?: TransactionFilters): Promise<Transaction[]>
+
+  /** Debit spend totals grouped by YYYY-MM for selector metadata. */
+  getMonthlySpends(userId: string): Promise<MonthlySpend[]>
 
   /** Partial update — only mutates the user's own transaction. */
   update(

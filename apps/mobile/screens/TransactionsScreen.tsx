@@ -16,24 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
-import { filterTransactions, getMonthTransactions, groupByDate } from '@paisa-buddy/shared/logic/transaction'
+import type { TransactionMonthData } from '../lib/api'
+import { filterTransactions, groupByDate } from '@paisa-buddy/shared/logic/transaction'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { deleteTransaction } from '../lib/api'
-import { getHomeData } from '../lib/data'
+import { getTransactionMonthData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
-
-type HomeData = {
-  transactions: Transaction[]
-  accounts: Account[]
-  settings: { display_name: string | null; expected_monthly_income: number | null }
-  categoryColors: Record<string, string>
-}
 
 type TypeFilter = 'all' | 'credit' | 'debit' | 'transfer'
 
@@ -146,9 +140,10 @@ function TypePills({ value, onChange }: { value: TypeFilter; onChange: (value: T
 export function TransactionsScreen() {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
-  const homeQuery = useQuery({
-    queryKey: queryKeys.home,
-    queryFn: getHomeData,
+  const [month, setMonth] = useState(() => toYearMonth(new Date()))
+  const transactionsQuery = useQuery({
+    queryKey: queryKeys.transactions(month),
+    queryFn: () => getTransactionMonthData(month),
   })
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -161,12 +156,10 @@ export function TransactionsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [month, setMonth] = useState(() => toYearMonth(new Date()))
 
-  const allTxs = homeQuery.data?.transactions ?? []
-  const accounts = homeQuery.data?.accounts ?? []
-  const catColors = homeQuery.data?.categoryColors ?? {}
-  const monthTxs = getMonthTransactions(allTxs, month)
+  const monthTxs = transactionsQuery.data?.transactions ?? []
+  const accounts = transactionsQuery.data?.accounts ?? []
+  const catColors = transactionsQuery.data?.categoryColors ?? {}
   const totalSpent = monthTxs
     .filter((tx) => tx.type === 'debit')
     .reduce((total, tx) => total + tx.amount, 0)
@@ -182,14 +175,9 @@ export function TransactionsScreen() {
   const sortedDates = [...grouped.keys()].sort((a, b) => b.localeCompare(a))
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const monthCategories = [...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[])]
-  const monthlySpends = allTxs.reduce<Record<string, number>>((spends, tx) => {
-    if (tx.type !== 'debit') return spends
-    const txMonth = tx.date.slice(0, 7)
-    spends[txMonth] = (spends[txMonth] ?? 0) + tx.amount
-    return spends
-  }, {})
+  const monthlySpends = Object.fromEntries((transactionsQuery.data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
   const recentCategories = [...new Set(
-    [...allTxs]
+    [...monthTxs]
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((t) => t.category)
       .filter((c): c is string => !!c)
@@ -197,7 +185,7 @@ export function TransactionsScreen() {
   const hasExtraFilters = !!(selectedCategory || selectedAccount || recurringOnly)
 
   function upsertTx(tx: Transaction) {
-    queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => {
+    queryClient.setQueryData<TransactionMonthData>(queryKeys.transactions(month), (prev) => {
       if (!prev) return prev
       const idx = prev.transactions.findIndex((t) => t.id === tx.id)
       const transactions = idx === -1 ? [tx, ...prev.transactions] : [...prev.transactions]
@@ -208,7 +196,7 @@ export function TransactionsScreen() {
   }
 
   function removeTx(id: string) {
-    queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => (
+    queryClient.setQueryData<TransactionMonthData>(queryKeys.transactions(month), (prev) => (
       prev ? { ...prev, transactions: prev.transactions.filter((t) => t.id !== id) } : prev
     ))
     invalidateTransactionData(queryClient)
@@ -220,7 +208,7 @@ export function TransactionsScreen() {
     setRecurringOnly(false)
   }
 
-  if (homeQuery.isLoading) {
+  if (transactionsQuery.isLoading) {
     return (
       <View style={s.loading}>
         <ActivityIndicator size="large" color={C.brand} />
