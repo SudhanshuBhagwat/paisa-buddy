@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,6 +33,12 @@ type TypeFilter = 'all' | 'credit' | 'debit' | 'transfer'
 
 const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
 const TYPE_COLOR: Record<string, string> = { credit: C.pos, debit: C.neg, transfer: C.transfer }
+const TYPE_FILTERS: Array<{ value: TypeFilter; label: string; color: string }> = [
+  { value: 'all', label: 'All', color: C.brand },
+  { value: 'credit', label: 'Income', color: TYPE_COLOR.credit },
+  { value: 'debit', label: 'Expense', color: TYPE_COLOR.debit },
+  { value: 'transfer', label: 'Transfer', color: TYPE_COLOR.transfer },
+]
 
 function transactionTypeForFilter(filter: TypeFilter): TransactionType | null {
   return filter === 'all' ? null : filter
@@ -111,23 +117,38 @@ function TxItem({
 }
 
 function TypePills({ value, onChange }: { value: TypeFilter; onChange: (value: TypeFilter) => void }) {
-  const filters: Array<{ value: TypeFilter; label: string }> = [
-    { value: 'all', label: 'All' },
-    { value: 'credit', label: 'Income' },
-    { value: 'debit', label: 'Expense' },
-    { value: 'transfer', label: 'Transfer' },
-  ]
+  const [wrapWidth, setWrapWidth] = useState(0)
+  const pillX = useSharedValue(0)
+  const pillColor = useSharedValue(TYPE_FILTERS[0].color)
+  const gap = 8
+  const horizontalPad = 16
+  const pillWidth = wrapWidth > 0
+    ? (wrapWidth - horizontalPad * 2 - gap * (TYPE_FILTERS.length - 1)) / TYPE_FILTERS.length
+    : 0
+
+  useEffect(() => {
+    const idx = Math.max(0, TYPE_FILTERS.findIndex((filter) => filter.value === value))
+    if (pillWidth > 0) {
+      pillX.value = withTiming(idx * (pillWidth + gap), { duration: 240 })
+    }
+    pillColor.value = withTiming(TYPE_FILTERS[idx].color, { duration: 180 })
+  }, [gap, pillColor, pillWidth, pillX, value])
+
+  const pillStyle = useAnimatedStyle(() => ({
+    backgroundColor: pillColor.value,
+    transform: [{ translateX: pillX.value }],
+  }))
 
   return (
-    <View style={tp.wrap}>
-      {filters.map((filter) => {
+    <View style={tp.wrap} onLayout={(event) => setWrapWidth(event.nativeEvent.layout.width)}>
+      {pillWidth > 0 && <Animated.View style={[tp.slider, { width: pillWidth }, pillStyle]} />}
+      {TYPE_FILTERS.map((filter) => {
         const active = filter.value === value
-        const color = filter.value === 'all' ? C.brand : TYPE_COLOR[filter.value]
         return (
           <Pressable
             key={filter.value}
             onPress={() => onChange(filter.value)}
-            style={[tp.pill, active && { backgroundColor: color, borderColor: color }]}
+            style={tp.pill}
           >
             <Text style={[tp.text, active && tp.textActive]}>{filter.label}</Text>
           </Pressable>
@@ -156,6 +177,8 @@ export function TransactionsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const listOpacity = useSharedValue(1)
+  const listFadeStyle = useAnimatedStyle(() => ({ opacity: listOpacity.value }))
 
   const monthTxs = transactionsQuery.data?.transactions ?? []
   const accounts = transactionsQuery.data?.accounts ?? []
@@ -183,6 +206,11 @@ export function TransactionsScreen() {
       .filter((c): c is string => !!c)
   )].slice(0, 3)
   const hasExtraFilters = !!(selectedCategory || selectedAccount || recurringOnly)
+
+  useEffect(() => {
+    listOpacity.value = 0.86
+    listOpacity.value = withTiming(1, { duration: 280 })
+  }, [listOpacity, typeFilter])
 
   function upsertTx(tx: Transaction) {
     queryClient.setQueryData<TransactionMonthData>(queryKeys.transactions(month), (prev) => {
@@ -296,42 +324,44 @@ export function TransactionsScreen() {
           </View>
         </View>
 
-        {monthTxs.length === 0 ? (
-          <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>No transactions this month</Text>
-            <Text style={s.emptySub}>New transactions will appear here once added.</Text>
-          </View>
-        ) : filteredTxs.length === 0 ? (
-          <View style={s.emptyState}>
-            <Text style={s.emptyTitle}>No results</Text>
-            <Text style={s.emptySub}>Try adjusting your search or filters.</Text>
-          </View>
-        ) : (
-          sortedDates.map((date) => {
-            const txs = grouped.get(date)!
-            const net = dayNet(txs)
-            const netColor = net >= 0 ? C.pos : C.neg
-            return (
-              <View key={date}>
-                <View style={s.dateHeader}>
-                  <Text style={s.dateLabel}>{formatTransactionDateHeader(date)}</Text>
-                  <Text style={[s.dateNet, { color: netColor }]}>
-                    {net < 0 ? '−' : '+'}{formatAmount(Math.abs(net))}
-                  </Text>
+        <Animated.View style={listFadeStyle}>
+          {monthTxs.length === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>No transactions this month</Text>
+              <Text style={s.emptySub}>New transactions will appear here once added.</Text>
+            </View>
+          ) : filteredTxs.length === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>No results</Text>
+              <Text style={s.emptySub}>Try adjusting your search or filters.</Text>
+            </View>
+          ) : (
+            sortedDates.map((date) => {
+              const txs = grouped.get(date)!
+              const net = dayNet(txs)
+              const netColor = net >= 0 ? C.pos : C.neg
+              return (
+                <View key={date}>
+                  <View style={s.dateHeader}>
+                    <Text style={s.dateLabel}>{formatTransactionDateHeader(date)}</Text>
+                    <Text style={[s.dateNet, { color: netColor }]}>
+                      {net < 0 ? '−' : '+'}{formatAmount(Math.abs(net))}
+                    </Text>
+                  </View>
+                  {txs.map((tx) => (
+                    <TxItem
+                      key={tx.id}
+                      tx={tx}
+                      accountMap={accountMap}
+                      catColors={catColors}
+                      onPress={() => { setDetailTx(tx); setDetailOpen(true) }}
+                    />
+                  ))}
                 </View>
-                {txs.map((tx) => (
-                  <TxItem
-                    key={tx.id}
-                    tx={tx}
-                    accountMap={accountMap}
-                    catColors={catColors}
-                    onPress={() => { setDetailTx(tx); setDetailOpen(true) }}
-                  />
-                ))}
-              </View>
-            )
-          })
-        )}
+              )
+            })
+          )}
+        </Animated.View>
 
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -472,15 +502,28 @@ const ti = StyleSheet.create({
 })
 
 const tp = StyleSheet.create({
-  wrap: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
+  wrap: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    position: 'relative',
+  },
   pill: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 8,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
+    zIndex: 1,
+  },
+  slider: {
+    position: 'absolute',
+    left: 16,
+    top: 8,
+    bottom: 10,
+    borderRadius: 10,
   },
   text: { fontSize: 12.5, fontFamily: F.medium, color: C.ink3 },
   textActive: { color: '#fff', fontFamily: F.bold },
