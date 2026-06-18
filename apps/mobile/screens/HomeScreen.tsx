@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import Svg, {
   Circle,
+  Ellipse,
   Line,
   Path,
   Polyline,
@@ -45,33 +46,62 @@ type HomeData = {
 
 // ─── SVG Components ────────────────────────────────────────────────────────────
 
-type BuddyMood = 'happy' | 'neutral' | 'worried' | 'stressed'
+type CornerBuddyMood = 'happy' | 'neutral' | 'sad'
 
-function BuddySVG({ size = 48, mood = 'happy' }: { size?: number; mood?: BuddyMood }) {
-  const mouthPath =
-    mood === 'happy'   ? 'M25 41 Q32 47 39 41' :
-    mood === 'neutral' ? 'M25 42 L39 42' :
-    mood === 'worried' ? 'M26 45 Q32 41 38 45' :
-                         'M26 46 Q32 40 38 46'
-  const showFrown = mood === 'worried' || mood === 'stressed'
+function CornerBuddy({ size = 172, mood = 'happy' }: { size?: number; mood?: CornerBuddyMood }) {
+  if (mood === 'neutral') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+        <Path d="M100 54 C100 36, 84 29, 76 37 C70 44, 84 56, 100 56 Z" fill="#6BAA8F" />
+        <Path d="M100 62 L100 50" stroke="#3D7A5E" strokeWidth="4.5" strokeLinecap="round" />
+        <Circle cx="100" cy="116" r="56" fill="#ECF0ED" stroke="#7EA88F" strokeWidth="7" />
+        <Circle cx="100" cy="116" r="43" stroke="#7EA88F" strokeWidth="3" strokeOpacity="0.25" />
+        <Circle cx="86" cy="110" r="6" fill="#3D5A48" />
+        <Circle cx="114" cy="110" r="6" fill="#3D5A48" />
+        <Path d="M88 130 L112 130" stroke="#3D5A48" strokeWidth="6" strokeLinecap="round" />
+        <Path d="M28 176 Q100 150 172 176 Q172 194 100 194 Q28 194 28 176 Z" fill="#3D5A48" />
+        <Ellipse cx="100" cy="176" rx="72" ry="9" fill="#4E7A60" />
+      </Svg>
+    )
+  }
+
+  if (mood === 'sad') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+        <Path d="M98 56 C92 40, 74 38, 72 48 C71 56, 86 60, 98 56 Z" fill="#8FAA9B" />
+        <Path d="M99 60 C100 54, 100 50, 100 46" stroke="#6B8A78" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+        <Circle cx="100" cy="116" r="56" fill="#F5EDEA" stroke="#C4907E" strokeWidth="7" />
+        <Circle cx="100" cy="116" r="43" stroke="#C4907E" strokeWidth="3" strokeOpacity="0.2" />
+        <Path d="M78 101 Q86 96 94 101" stroke="#6B4D42" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        <Path d="M106 101 Q114 96 122 101" stroke="#6B4D42" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        <Circle cx="86" cy="113" r="6" fill="#6B4D42" />
+        <Circle cx="114" cy="113" r="6" fill="#6B4D42" />
+        <Circle cx="75" cy="129" r="7.5" fill="#E09A8A" fillOpacity="0.5" />
+        <Circle cx="125" cy="129" r="7.5" fill="#E09A8A" fillOpacity="0.5" />
+        <Path d="M84 136 Q100 124 116 136" stroke="#6B4D42" strokeWidth="6.5" strokeLinecap="round" fill="none" />
+        <Path d="M139 120 q4 7 0 11 q-4 -4 0 -11 z" fill="#6FB6D6" />
+        <Path d="M28 176 Q100 152 172 176 Q172 194 100 194 Q28 194 28 176 Z" fill="#6B5E50" />
+        <Ellipse cx="100" cy="176" rx="72" ry="9" fill="#8A7A66" />
+      </Svg>
+    )
+  }
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={C.brand} />
-      <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
-      <Path d="M32 16 L 32 11" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="32" cy="36" r="22" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
-      <Circle cx="32" cy="36" r="17" stroke={C.brand} strokeWidth="1.5" strokeOpacity="0.3" />
-      <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
-      <Circle cx="25.5" cy="34" r="2.6" fill={C.brandDeep} />
-      <Circle cx="38.5" cy="34" r="2.6" fill={C.brandDeep} />
-      {showFrown ? (
-        <>
-          <Path d="M22 29 Q25.5 26.5 29 29" stroke={C.brandDeep} strokeWidth="1.8" strokeLinecap="round" fill="none" />
-          <Path d="M35 29 Q38.5 26.5 42 29" stroke={C.brandDeep} strokeWidth="1.8" strokeLinecap="round" fill="none" />
-        </>
-      ) : null}
-      <Path d={mouthPath} stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+    <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+      <Path d="M34 54 l3.5 8 8 3.5 -8 3.5 -3.5 8 -3.5 -8 -8 -3.5 8 -3.5 z" fill="#E0A33C" />
+      <Path d="M166 70 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 z" fill="#2BA77F" />
+      <Path d="M100 50 C100 30, 82 22, 73 31 C66 39, 82 52, 100 52 Z" fill="#1A936F" />
+      <Path d="M100 52 C100 32, 120 25, 128 36 C133 45, 118 56, 100 52 Z" fill="#2BA77F" />
+      <Path d="M100 60 L100 46" stroke="#0F5132" strokeWidth="5" strokeLinecap="round" />
+      <Circle cx="100" cy="116" r="56" fill="#E4F1EA" stroke="#1A936F" strokeWidth="7" />
+      <Circle cx="100" cy="116" r="43" stroke="#1A936F" strokeWidth="3" strokeOpacity="0.3" />
+      <Circle cx="76" cy="126" r="8" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="124" cy="126" r="8" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="86" cy="108" r="6.5" fill="#0F5132" />
+      <Circle cx="114" cy="108" r="6.5" fill="#0F5132" />
+      <Path d="M84 126 Q100 142 116 126" stroke="#0F5132" strokeWidth="6.5" strokeLinecap="round" fill="none" />
+      <Path d="M28 176 Q100 150 172 176 Q172 194 100 194 Q28 194 28 176 Z" fill="#0F5132" />
+      <Ellipse cx="100" cy="176" rx="72" ry="9" fill="#157F4C" />
     </Svg>
   )
 }
@@ -152,12 +182,11 @@ export function HomeScreen() {
     ? Math.min(100, Math.round((expense / expectedIncome) * 100))
     : 0
   const incomeBarColor = incomeSpentPct >= 100 ? C.neg : incomeSpentPct >= 80 ? C.gold : C.brand
-  const buddyMood: BuddyMood = hasIncomeTarget
-    ? incomeSpentPct >= 100 ? 'stressed'
-      : incomeSpentPct >= 80 ? 'worried'
-      : incomeSpentPct >= 60 ? 'neutral'
+  const cornerBuddyMood: CornerBuddyMood = hasIncomeTarget
+    ? displayBalance < 0 ? 'sad'
+      : displayBalance / expectedIncome < 0.05 ? 'neutral'
       : 'happy'
-    : displayBalance >= 0 ? 'happy' : 'stressed'
+    : displayBalance < 0 ? 'sad' : displayBalance === 0 ? 'neutral' : 'happy'
   const pendingCount = allTxs.filter((t) => !t.reviewed).length
   const firstName = settings?.display_name?.split(' ')[0] ?? null
   const greetingDate = new Date().toLocaleDateString('en-IN', {
@@ -265,7 +294,7 @@ export function HomeScreen() {
                         {incomeSpentPct}%
                       </Text>
                     </View>
-                    <View style={s.progressTrack}>
+                    <View style={[s.progressTrack, s.progressStatusWidth]}>
                       <View
                         style={[
                           s.progressFill,
@@ -284,7 +313,9 @@ export function HomeScreen() {
                   </View>
                 )}
               </View>
-              <BuddySVG size={120} mood={buddyMood} />
+            </View>
+            <View pointerEvents="none" style={s.cornerBuddy}>
+              <CornerBuddy size={172} mood={cornerBuddyMood} />
             </View>
             <View style={s.statsRow}>
               {[
@@ -465,6 +496,8 @@ const s = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: C.line,
+    overflow: 'hidden',
+    position: 'relative',
     shadowColor: '#14281E',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -476,8 +509,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+    minHeight: 136,
   },
-  balTopLeft: { flex: 1, minWidth: 0, paddingRight: 8 },
+  balTopLeft: { flex: 1, minWidth: 0, maxWidth: '64%', paddingRight: 8, zIndex: 2 },
   balLabel: {
     fontSize: 11,
     fontFamily: F.bold,
@@ -496,7 +530,8 @@ const s = StyleSheet.create({
     marginBottom: 5,
   },
   progressLabel: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3 },
-  progressPct: { fontSize: 11.5, fontFamily: F.bold },
+  progressPct: { fontSize: 11.5, fontFamily: F.bold, marginRight: 12 },
+  progressStatusWidth: { width: 190 },
   progressTrack: { height: 5, borderRadius: 99, backgroundColor: C.line, overflow: 'hidden' },
   progressFill: { height: 5, borderRadius: 99 },
   statusPill: {
@@ -507,7 +542,23 @@ const s = StyleSheet.create({
     borderRadius: 99,
   },
   statusPillText: { fontSize: 11.5, fontFamily: F.semibold },
-  statsRow: { flexDirection: 'row', gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line },
+  cornerBuddy: {
+    position: 'absolute',
+    right: -10,
+    bottom: 45,
+    width: 172,
+    height: 172,
+    zIndex: 1,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.line,
+    backgroundColor: C.surface,
+    zIndex: 3,
+  },
   statCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
   statColBorder: { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: C.line },
   statIcon: {
