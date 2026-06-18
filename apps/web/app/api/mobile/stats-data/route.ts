@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, accountsDb, budgetsDb, categoriesDb } from '@/lib/db'
+import { db, accountsDb, budgetsDb, categoriesDb, settingsDb } from '@/lib/db'
 import { resolveMobileUser, isAuthErr } from '@/lib/mobile-auth'
 import { isValidMonth } from '@/lib/mobile-validate'
 
@@ -21,16 +21,24 @@ export async function GET(req: NextRequest) {
   }
 
   const { dateFrom, dateTo } = monthBounds(month)
-  const [transactions, monthlySpends, budgets, categories, accounts] = await Promise.all([
+  const [transactions, monthlySpends, budgets, categories, accounts, settings] = await Promise.all([
     db.getAll(auth.userId, { dateFrom, dateTo }),
     db.getMonthlySpends(auth.userId),
     budgetsDb.getAll(auth.userId, month),
     categoriesDb.getCustomWithColors(auth.userId),
     accountsDb.getAll(auth.userId),
+    settingsDb.get(auth.userId),
   ])
 
   const categoryColors: Record<string, string> = {}
   for (const c of categories) categoryColors[c.name] = c.color
 
-  return NextResponse.json({ transactions, monthlySpends, budgets, categoryColors, accounts })
+  return NextResponse.json({
+    transactions,
+    monthlySpends,
+    budgets,
+    categoryColors,
+    accounts,
+    settings: { expected_monthly_income: settings.expectedMonthlyIncome },
+  })
 }

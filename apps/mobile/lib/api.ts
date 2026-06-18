@@ -262,6 +262,7 @@ export type StatsData = {
   budgets: BudgetWithSpent[]
   categoryColors: Record<string, string>
   accounts: Account[]
+  settings: { expected_monthly_income: number | null }
 }
 
 export async function fetchStatsData(month: string): Promise<StatsData> {

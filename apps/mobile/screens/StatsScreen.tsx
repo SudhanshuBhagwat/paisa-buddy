@@ -22,13 +22,14 @@ import { queryKeys } from '../lib/query'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import { calcSummary } from '@paisa-buddy/shared/logic/transaction'
-import { toYearMonth, addMonths, formatMonthLabel } from '@paisa-buddy/shared/logic/date'
+import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { budgetStatus, budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
+import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
 
@@ -310,13 +311,13 @@ const bb = StyleSheet.create({
 
 // ─── Tab switcher ──────────────────────────────────────────────────────────────
 
-type Tab = 'expenses' | 'income' | 'budgets'
+type Tab = 'story' | 'plan' | 'spending'
 
 function TabSwitcher({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'expenses', label: 'Expenses' },
-    { id: 'income', label: 'Income' },
-    { id: 'budgets', label: 'Budgets' },
+    { id: 'story', label: 'Story' },
+    { id: 'plan', label: 'Plan' },
+    { id: 'spending', label: 'Spending' },
   ]
   const [tabWidth, setTabWidth] = useState(0)
   const pillX = useSharedValue(0)
@@ -353,7 +354,7 @@ const ts = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
   },
-  btn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', zIndex: 1 },
+  btn: { flex: 1, paddingVertical: 13, borderRadius: 8, alignItems: 'center', zIndex: 1 },
   pill: {
     position: 'absolute',
     top: 3,
@@ -497,18 +498,18 @@ function SkeletonBlock({ style }: { style?: object }) {
 function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (tab: Tab) => void }) {
   return (
     <View style={s.body}>
-      <View style={s.summaryCard}>
-        {[0, 1, 2].map((idx) => (
-          <View key={idx} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
-            <SkeletonBlock style={sk.summaryLabel} />
-            <SkeletonBlock style={sk.summaryValue} />
-          </View>
-        ))}
-      </View>
-
       <TabSwitcher active={activeTab} onChange={onTabChange} />
 
-      {activeTab === 'budgets' ? (
+      {activeTab === 'story' ? (
+        <View style={s.summaryCard}>
+          {[0, 1, 2].map((idx) => (
+            <View key={idx} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+              <SkeletonBlock style={sk.summaryLabel} />
+              <SkeletonBlock style={sk.summaryValue} />
+            </View>
+          ))}
+        </View>
+      ) : activeTab === 'plan' ? (
         <View>
           <View style={s.budgetHeader}>
             <SkeletonBlock style={sk.sectionTitle} />
@@ -587,7 +588,7 @@ export function StatsScreen() {
     transform: [{ translateX: contentTranslateX.value }],
   }))
 
-  const TABS: Tab[] = ['expenses', 'income', 'budgets']
+  const TABS: Tab[] = ['story', 'plan', 'spending']
   function handleTabChange(next: Tab) {
     if (next === activeTab) return
     const dir = TABS.indexOf(next) > TABS.indexOf(activeTab) ? 1 : -1
@@ -604,18 +605,18 @@ export function StatsScreen() {
     queryKey: queryKeys.stats(month),
     queryFn: () => getStatsData(month),
   })
-  const [activeTab, setActiveTab] = useState<Tab>('expenses')
+  const [activeTab, setActiveTab] = useState<Tab>('story')
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false)
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
+  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
 
   const data = statsQuery.data ?? null
 
-  function monthPillLabel(): string {
-    const currentMonth = toYearMonth(new Date())
-    if (month === currentMonth) return 'This Month'
-    if (month === addMonths(currentMonth, -1)) return 'Last Month'
-    return formatMonthLabel(month)
+  function monthHeaderLabel(): string {
+    const [year, monthNumber] = month.split('-').map(Number)
+    const label = new Date(year, monthNumber - 1, 1).toLocaleString('en-US', { month: 'long' })
+    return `${label} ${year}`
   }
 
   const txs = data?.transactions ?? []
@@ -623,11 +624,16 @@ export function StatsScreen() {
   const colorMap = data?.categoryColors ?? {}
   const accounts = data?.accounts ?? []
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
-  const { income, expense, balance } = calcSummary(txs)
+  const { income, expense } = calcSummary(txs)
+  const expectedIncome = data?.settings.expected_monthly_income ?? 0
+  const remaining = expectedIncome - expense
   const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
   monthlySpends[month] = monthlySpends[month] ?? expense
+  const transactionCounts = txs.reduce<Record<string, number>>((counts, tx) => {
+    counts[tx.date] = (counts[tx.date] ?? 0) + 1
+    return counts
+  }, {})
   const expenseCats = groupByCategory(txs, 'debit')
-  const incomeCats = groupByCategory(txs, 'credit')
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
@@ -668,7 +674,7 @@ export function StatsScreen() {
   const summaryStrip = [
     { label: 'INCOME', value: income, color: C.pos },
     { label: 'SPENT', value: expense, color: C.neg },
-    { label: 'BALANCE', value: balance, color: balance >= 0 ? C.pos : C.neg },
+    { label: 'REMAINING', value: remaining, color: remaining >= 0 ? C.pos : C.neg },
   ]
 
   return (
@@ -680,37 +686,49 @@ export function StatsScreen() {
       >
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
-          <Text style={s.title}>Stats</Text>
-          <View style={s.monthRow}>
-            <Pressable onPress={() => setMonthSheetOpen(true)} style={s.monthPill}>
-              <Text style={s.monthLabel}>{monthPillLabel()}</Text>
-              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <Polyline points="6 9 12 15 18 9" />
-              </Svg>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => setMonthSheetOpen(true)}
+            style={s.monthTitleButton}
+            accessibilityLabel="Select month"
+          >
+            <Text style={s.title}>{monthHeaderLabel()}</Text>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <Polyline points="6 9 12 15 18 9" />
+            </Svg>
+          </Pressable>
+          <Pressable
+            onPress={() => setCalendarSheetOpen(true)}
+            style={s.calendarButton}
+            accessibilityLabel="Open month calendar"
+          >
+            <Svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M8 2v4" />
+              <Path d="M16 2v4" />
+              <Path d="M3 10h18" />
+              <Path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+            </Svg>
+          </Pressable>
         </View>
 
         {statsQuery.isLoading ? (
           <StatsSkeleton activeTab={activeTab} onTabChange={handleTabChange} />
         ) : (
           <View style={s.body}>
-            {/* Summary strip */}
-            <View style={s.summaryCard}>
-              {summaryStrip.map(({ label, value, color }, idx) => (
-                <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
-                  <Text style={s.summaryLabel}>{label}</Text>
-                  <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
-                </View>
-              ))}
-            </View>
-
             {/* Tab switcher */}
             <TabSwitcher active={activeTab} onChange={handleTabChange} />
 
             {/* Content */}
             <Animated.View style={contentAnimStyle}>
-            {activeTab === 'budgets' ? (
+            {activeTab === 'story' ? (
+              <View style={s.summaryCard}>
+                {summaryStrip.map(({ label, value, color }, idx) => (
+                  <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+                    <Text style={s.summaryLabel}>{label}</Text>
+                    <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : activeTab === 'plan' ? (
               <>
                 <View style={s.budgetHeader}>
                   <Text style={s.sectionTitle}>Budgets</Text>
@@ -757,7 +775,7 @@ export function StatsScreen() {
                   </View>
                 )}
               </>
-            ) : txs.length === 0 ? (
+            ) : activeTab === 'spending' && txs.length === 0 ? (
               <View style={s.emptyState}>
                 <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <Path d="M18 20V10M12 20V4M6 20v-6" />
@@ -765,24 +783,12 @@ export function StatsScreen() {
                 <Text style={s.emptyText}>No data this month</Text>
               </View>
             ) : (
-              <>
-                {activeTab === 'expenses' && (
-                  <View style={s.chartCard}>
-                    <Text style={s.chartLabel}>EXPENSES BY CATEGORY</Text>
-                    {expenseCats.length > 0
-                      ? <DonutChart categories={expenseCats} total={expense} colorMap={colorMap} />
-                      : <Text style={s.emptyText}>No expenses this month</Text>}
-                  </View>
-                )}
-                {activeTab === 'income' && (
-                  <View style={s.chartCard}>
-                    <Text style={s.chartLabel}>INCOME BY CATEGORY</Text>
-                    {incomeCats.length > 0
-                      ? <DonutChart categories={incomeCats} total={income} colorMap={colorMap} />
-                      : <Text style={s.emptyText}>No income this month</Text>}
-                  </View>
-                )}
-              </>
+              <View style={s.chartCard}>
+                <Text style={s.chartLabel}>SPENDING BY CATEGORY</Text>
+                {expenseCats.length > 0
+                  ? <DonutChart categories={expenseCats} total={expense} colorMap={colorMap} />
+                  : <Text style={s.emptyText}>No spending this month</Text>}
+              </View>
             )}
             </Animated.View>
           </View>
@@ -804,6 +810,12 @@ export function StatsScreen() {
         monthlySpends={monthlySpends}
         onSelectMonth={setMonth}
       />
+      <MonthCalendarSheet
+        visible={calendarSheetOpen}
+        onClose={() => setCalendarSheetOpen(false)}
+        month={month}
+        transactionCounts={transactionCounts}
+      />
     </View>
   )
 }
@@ -819,21 +831,18 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   title: { fontSize: 23, fontFamily: F.extrabold, color: C.ink },
-  monthRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  monthPill: {
-    minWidth: 112,
-    height: 28,
+  monthTitleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.surface,
+    gap: 6,
+    flexShrink: 1,
   },
-  monthLabel: { fontSize: 12.5, fontFamily: F.semibold, color: C.ink2, textAlign: 'center' },
+  calendarButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   summaryCard: {
     flexDirection: 'row',

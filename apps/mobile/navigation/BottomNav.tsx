@@ -22,12 +22,13 @@ function HomeIcon({ active }: { active: boolean }) {
   )
 }
 
-function StatsIcon({ active }: { active: boolean }) {
+function MonthIcon({ active }: { active: boolean }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={active ? C.brand : C.ink3} strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
-      <Line x1="18" y1="20" x2="18" y2="10" />
-      <Line x1="12" y1="20" x2="12" y2="4" />
-      <Line x1="6" y1="20" x2="6" y2="14" />
+      <Path d="M8 2v4" />
+      <Path d="M16 2v4" />
+      <Path d="M3 10h18" />
+      <Path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
     </Svg>
   )
 }
@@ -69,7 +70,7 @@ function SettingsIcon({ active }: { active: boolean }) {
 const ICONS: Record<string, (active: boolean) => React.JSX.Element> = {
   Home: (a) => <HomeIcon active={a} />,
   Transactions: (a) => <TransactionsIcon active={a} />,
-  Stats: (a) => <StatsIcon active={a} />,
+  Month: (a) => <MonthIcon active={a} />,
   Accounts: (a) => <AccountsIcon active={a} />,
   Settings: (a) => <SettingsIcon active={a} />,
 }

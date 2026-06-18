@@ -30,7 +30,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   Home: undefined
   Transactions: undefined
-  Stats: undefined
+  Month: undefined
   Accounts: undefined
   Settings: undefined
 }
@@ -46,7 +46,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
-      <Tab.Screen name="Stats" component={StatsScreen} />
+      <Tab.Screen name="Month" component={StatsScreen} />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
