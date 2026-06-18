@@ -18,13 +18,14 @@ import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/tra
 import type { Account } from '@paisa-buddy/shared/types/account'
 import { filterTransactions, getMonthTransactions, groupByDate } from '@paisa-buddy/shared/logic/transaction'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
-import { addMonths, formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
+import { formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { deleteTransaction } from '../lib/api'
 import { getHomeData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
+import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
 type HomeData = {
@@ -68,13 +69,11 @@ function TxItem({
   accountMap,
   catColors,
   onPress,
-  onDelete,
 }: {
   tx: Transaction
   accountMap: Record<string, string>
   catColors: Record<string, string>
   onPress: () => void
-  onDelete: () => void
 }) {
   const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
@@ -111,14 +110,6 @@ function TxItem({
           <Text style={[ti.amount, { color: typeColor }]}>
             {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
           </Text>
-          <Pressable onPress={onDelete} hitSlop={8} style={ti.deleteBtn}>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <Polyline points="3 6 5 6 21 6" />
-              <Path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              <Path d="M10 11v6M14 11v6" />
-              <Path d="M9 6V4h6v2" />
-            </Svg>
-          </Pressable>
         </View>
       </Animated.View>
     </Pressable>
@@ -191,6 +182,12 @@ export function TransactionsScreen() {
   const sortedDates = [...grouped.keys()].sort((a, b) => b.localeCompare(a))
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const monthCategories = [...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[])]
+  const monthlySpends = allTxs.reduce<Record<string, number>>((spends, tx) => {
+    if (tx.type !== 'debit') return spends
+    const txMonth = tx.date.slice(0, 7)
+    spends[txMonth] = (spends[txMonth] ?? 0) + tx.amount
+    return spends
+  }, {})
   const recentCategories = [...new Set(
     [...allTxs]
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -341,23 +338,6 @@ export function TransactionsScreen() {
                     accountMap={accountMap}
                     catColors={catColors}
                     onPress={() => { setDetailTx(tx); setDetailOpen(true) }}
-                    onDelete={() => {
-                      Alert.alert('Delete transaction?', 'This cannot be undone.', [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: async () => {
-                            try {
-                              await deleteTransaction(tx.id)
-                              removeTx(tx.id)
-                            } catch {
-                              Alert.alert('Error', 'Could not delete transaction.')
-                            }
-                          },
-                        },
-                      ])
-                    }}
                   />
                 ))}
               </View>
@@ -443,45 +423,38 @@ export function TransactionsScreen() {
         </View>
       </Sheet>
 
-      <Sheet
+      <MonthSelectionSheet
         visible={monthSheetOpen}
         onClose={() => setMonthSheetOpen(false)}
-        heightFraction={0.38}
-        header={(
-          <View style={s.filterHeaderWrap}>
-            <View style={s.filterHeader}>
-              <Text style={s.filterTitle}>Month</Text>
-              <Pressable onPress={() => setMonthSheetOpen(false)}>
-                <Text style={s.clearAll}>Done</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      >
-        <View style={s.monthSheetContent}>
-          <Pressable style={s.monthSheetBtn} onPress={() => setMonth((current) => addMonths(current, -1))}>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <Polyline points="15 18 9 12 15 6" />
-            </Svg>
-            <Text style={s.monthSheetBtnText}>Previous month</Text>
-          </Pressable>
-          <View style={s.monthSheetCurrent}>
-            <Text style={s.monthSheetCurrentText}>{formatMonthLabel(month)}</Text>
-          </View>
-          <Pressable style={s.monthSheetBtn} onPress={() => setMonth((current) => addMonths(current, 1))}>
-            <Text style={s.monthSheetBtnText}>Next month</Text>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <Polyline points="9 18 15 12 9 6" />
-            </Svg>
-          </Pressable>
-        </View>
-      </Sheet>
+        selectedMonth={month}
+        monthlySpends={monthlySpends}
+        onSelectMonth={setMonth}
+      />
 
       <TransactionDetailSheet
         tx={detailTx}
         visible={detailOpen}
         onClose={() => setDetailOpen(false)}
         onSaved={(tx) => { upsertTx(tx); setDetailOpen(false) }}
+        onDelete={(tx) => {
+          Alert.alert('Delete transaction?', 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await deleteTransaction(tx.id)
+                  removeTx(tx.id)
+                  setDetailOpen(false)
+                  setDetailTx(null)
+                } catch {
+                  Alert.alert('Error', 'Could not delete transaction.')
+                }
+              },
+            },
+          ])
+        }}
         accounts={accounts}
         catColors={catColors}
         recentCategories={recentCategories}
@@ -508,7 +481,6 @@ const ti = StyleSheet.create({
   right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
   unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.neg },
   amount: { fontSize: 14, fontFamily: F.monoBold },
-  deleteBtn: { padding: 2, marginLeft: 2 },
 })
 
 const tp = StyleSheet.create({
@@ -638,19 +610,4 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   filterRowLabel: { fontSize: 14, fontFamily: F.regular, color: C.ink },
-  monthSheetContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  monthSheetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.bg,
-  },
-  monthSheetBtnText: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
-  monthSheetCurrent: { alignItems: 'center', paddingVertical: 6 },
-  monthSheetCurrentText: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },
 })

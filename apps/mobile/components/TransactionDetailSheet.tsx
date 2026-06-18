@@ -38,6 +38,7 @@ type Props = {
   visible: boolean
   onClose: () => void
   onSaved: (tx: Transaction) => void
+  onDelete?: (tx: Transaction) => void
   accounts: Account[]
   catColors: Record<string, string>
   recentCategories?: string[]
@@ -88,6 +89,7 @@ export function TransactionDetailSheet({
   visible,
   onClose,
   onSaved,
+  onDelete,
   accounts,
   catColors,
   recentCategories = [],
@@ -386,6 +388,14 @@ export function TransactionDetailSheet({
             : <Text style={s.saveBtnText}>Save</Text>
           }
         </Pressable>
+        {onDelete ? (
+          <Pressable
+            style={s.deleteBtn}
+            onPress={() => onDelete(tx)}
+          >
+            <Text style={s.deleteBtnText}>Delete Transaction</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       {/* ── Category picker sheet ── */}
@@ -637,6 +647,8 @@ const s = StyleSheet.create({
 
   saveBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 4 },
   saveBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
+  deleteBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(219,90,75,0.35)' },
+  deleteBtnText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
   btnDisabled: { opacity: 0.4 },
 
   // Picker sheet header

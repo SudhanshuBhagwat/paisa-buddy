@@ -28,6 +28,7 @@ import { budgetStatus, budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
+import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
 
@@ -605,12 +606,16 @@ export function StatsScreen() {
   })
   const [activeTab, setActiveTab] = useState<Tab>('expenses')
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false)
+  const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
 
   const data = statsQuery.data ?? null
 
-  function changeMonth(delta: number) {
-    setMonth((current) => addMonths(current, delta))
+  function monthPillLabel(): string {
+    const currentMonth = toYearMonth(new Date())
+    if (month === currentMonth) return 'This Month'
+    if (month === addMonths(currentMonth, -1)) return 'Last Month'
+    return formatMonthLabel(month)
   }
 
   const txs = data?.transactions ?? []
@@ -619,6 +624,7 @@ export function StatsScreen() {
   const accounts = data?.accounts ?? []
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const { income, expense, balance } = calcSummary(txs)
+  const monthlySpends = { [month]: expense }
   const expenseCats = groupByCategory(txs, 'debit')
   const incomeCats = groupByCategory(txs, 'credit')
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
@@ -675,15 +681,10 @@ export function StatsScreen() {
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
           <Text style={s.title}>Stats</Text>
           <View style={s.monthRow}>
-            <Pressable onPress={() => changeMonth(-1)} hitSlop={8} style={s.navBtn}>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <Polyline points="15 18 9 12 15 6" />
-              </Svg>
-            </Pressable>
-            <Text style={s.monthLabel}>{formatMonthLabel(month)}</Text>
-            <Pressable onPress={() => changeMonth(1)} hitSlop={8} style={s.navBtn}>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <Polyline points="9 18 15 12 9 6" />
+            <Pressable onPress={() => setMonthSheetOpen(true)} style={s.monthPill}>
+              <Text style={s.monthLabel}>{monthPillLabel()}</Text>
+              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <Polyline points="6 9 12 15 18 9" />
               </Svg>
             </Pressable>
           </View>
@@ -795,6 +796,13 @@ export function StatsScreen() {
         allCategories={allCategories}
         onSaved={handleBudgetSaved}
       />
+      <MonthSelectionSheet
+        visible={monthSheetOpen}
+        onClose={() => setMonthSheetOpen(false)}
+        selectedMonth={month}
+        monthlySpends={monthlySpends}
+        onSelectMonth={setMonth}
+      />
     </View>
   )
 }
@@ -811,13 +819,20 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 23, fontFamily: F.extrabold, color: C.ink },
   monthRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  navBtn: {
-    width: 28, height: 28, borderRadius: 8,
-    borderWidth: 1, borderColor: C.line,
+  monthPill: {
+    minWidth: 112,
+    height: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: C.line,
     backgroundColor: C.surface,
-    alignItems: 'center', justifyContent: 'center',
   },
-  monthLabel: { fontSize: 12.5, fontFamily: F.semibold, color: C.ink2, minWidth: 90, textAlign: 'center' },
+  monthLabel: { fontSize: 12.5, fontFamily: F.semibold, color: C.ink2, textAlign: 'center' },
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   summaryCard: {
     flexDirection: 'row',
