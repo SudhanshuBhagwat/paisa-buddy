@@ -191,6 +191,13 @@ function formatTimeLabel(time: string): string {
   return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
 }
 
+function getDayGreeting(date: Date): string {
+  const hour = date.getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
 export function HomeScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
@@ -238,8 +245,10 @@ export function HomeScreen() {
       : 'happy'
     : displayBalance < 0 ? 'sad' : displayBalance === 0 ? 'neutral' : 'happy'
   const pendingCount = allTxs.filter((t) => !t.reviewed).length
+  const now = new Date()
   const firstName = settings?.display_name?.split(' ')[0] ?? null
-  const greetingDate = new Date().toLocaleDateString('en-IN', {
+  const dayGreeting = getDayGreeting(now)
+  const greetingDate = now.toLocaleDateString('en-IN', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -307,7 +316,9 @@ export function HomeScreen() {
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
           <BuddyWelcomeSVG size={48} />
           <View style={s.headerText}>
-            <Text style={s.greetName}>{firstName ?? 'Welcome!'}</Text>
+            <Text style={s.greetName}>
+              {firstName ? `${dayGreeting}, ${firstName}` : dayGreeting}
+            </Text>
             <Text style={s.greetDate}>{greetingDate}</Text>
           </View>
         </View>
