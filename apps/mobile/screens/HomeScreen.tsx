@@ -1,17 +1,13 @@
 import React, { useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated'
 import Svg, {
   Circle,
   Line,
@@ -19,7 +15,7 @@ import Svg, {
   Polyline,
 } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useNavigation } from '@react-navigation/native'
+import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -70,8 +66,6 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const queryClient = useQueryClient()
-  const fabScale = useSharedValue(1)
-  const fabAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: fabScale.value }] }))
   const month = toYearMonth(new Date())
   const homeQuery = useQuery({
     queryKey: queryKeys.home,
@@ -128,6 +122,35 @@ export function HomeScreen() {
   const dotIdx = absFmt.lastIndexOf('.')
   const balInt = dotIdx === -1 ? absFmt : absFmt.slice(0, dotIdx)
   const balDec = dotIdx === -1 ? '' : absFmt.slice(dotIdx)
+  const quickActions = [
+    {
+      key: 'add-transaction',
+      label: 'Add Transaction',
+      icon: 'plus',
+      onPress: () => { setEditTx(null); setAddSheetOpen(true) },
+    },
+    {
+      key: 'import-statement',
+      label: 'Import Statement',
+      icon: 'import',
+      onPress: () => Alert.alert('Import Statement', 'Statement import is not available on mobile yet.'),
+    },
+    {
+      key: 'add-account',
+      label: 'Add Account',
+      icon: 'account',
+      onPress: () => navigation.dispatch(CommonActions.navigate({
+        name: 'Main',
+        params: { screen: 'Accounts' },
+      })),
+    },
+    ...(pendingCount > 0 ? [{
+      key: 'review',
+      label: `Review (${pendingCount})`,
+      icon: 'review',
+      onPress: () => navigation.navigate('Review'),
+    }] : []),
+  ]
 
   if (homeQuery.isLoading) {
     return (
@@ -226,24 +249,53 @@ export function HomeScreen() {
           </Pressable>
         )}
 
+        {/* ── Quick actions ── */}
+        <View style={s.quickActionsWrap}>
+          <Text style={s.quickActionsTitle}>Quick Actions</Text>
+          <View style={s.quickActionsRow}>
+            {quickActions.map((action) => (
+              <Pressable
+                key={action.key}
+                style={s.quickAction}
+                onPress={action.onPress}
+              >
+                <View style={s.quickActionIcon}>
+                  {action.icon === 'plus' ? (
+                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round">
+                      <Line x1="12" y1="5" x2="12" y2="19" />
+                      <Line x1="5" y1="12" x2="19" y2="12" />
+                    </Svg>
+                  ) : action.icon === 'import' ? (
+                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M12 3v12" />
+                      <Path d="M7 10l5 5 5-5" />
+                      <Path d="M5 21h14" />
+                    </Svg>
+                  ) : action.icon === 'account' ? (
+                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M3 21h18" />
+                      <Path d="M5 21V10" />
+                      <Path d="M19 21V10" />
+                      <Path d="M9 21V10" />
+                      <Path d="M15 21V10" />
+                      <Path d="M3 10h18" />
+                      <Path d="M12 3 3 8h18z" />
+                    </Svg>
+                  ) : (
+                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M9 11l2 2 4-5" />
+                      <Path d="M21 12a9 9 0 1 1-3-6.7" />
+                    </Svg>
+                  )}
+                </View>
+                <Text style={s.quickActionText} numberOfLines={2}>{action.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <View style={{ height: 80 }} />
       </ScrollView>
-
-      {/* ── FAB ── */}
-      <Pressable
-        style={[s.fabWrap, { bottom: insets.bottom - 20 }]}
-        accessibilityLabel="Add transaction"
-        onPressIn={() => { fabScale.value = withSpring(0.90, { damping: 15, stiffness: 300 }) }}
-        onPressOut={() => { fabScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
-        onPress={() => { setEditTx(null); setAddSheetOpen(true) }}
-      >
-        <Animated.View style={[s.fab, fabAnimStyle]}>
-          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <Line x1="12" y1="5" x2="12" y2="19" />
-            <Line x1="5" y1="12" x2="19" y2="12" />
-          </Svg>
-        </Animated.View>
-      </Pressable>
 
       {/* ── Add / Edit transaction sheet ── */}
       <AddTransactionSheet
@@ -348,22 +400,38 @@ const s = StyleSheet.create({
   pendingTitle: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
   pendingSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
 
-  fabWrap: {
-    position: 'absolute',
-    right: 20,
+  quickActionsWrap: { paddingTop: 14, paddingHorizontal: 16 },
+  quickActionsTitle: {
+    marginBottom: 10,
+    fontSize: 16,
+    fontFamily: F.extrabold,
+    color: C.ink,
   },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: C.brand,
+  quickActionsRow: { flexDirection: 'row', gap: 16 },
+  quickAction: {
+    alignItems: 'center',
+    gap: 7,
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  quickActionIcon: {
+    alignSelf: 'stretch',
+    height: 58,
+    borderRadius: 12,
+    backgroundColor: C.brandPale,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.brand,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 11,
-    elevation: 12,
+  },
+  quickActionText: {
+    minHeight: 30,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: F.semibold,
+    color: C.ink,
+    textAlign: 'center',
   },
 
 })

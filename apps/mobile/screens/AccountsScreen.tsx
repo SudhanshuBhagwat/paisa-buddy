@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg'
+import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -28,6 +28,53 @@ import { Sheet } from '../components/Sheet'
 
 const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
 
+type AccountSectionKey = 'bank' | 'credit' | 'wallet' | 'other'
+
+type AccountSection = {
+  key: AccountSectionKey
+  title: string
+  accounts: Account[]
+}
+
+function sectionKeyForAccount(type: AccountType): AccountSectionKey {
+  if (type === 'savings' || type === 'current') return 'bank'
+  if (type === 'credit') return 'credit'
+  if (type === 'wallet') return 'wallet'
+  return 'other'
+}
+
+function buildAccountSections(accounts: Account[]): AccountSection[] {
+  const sections: Record<AccountSectionKey, AccountSection> = {
+    bank: { key: 'bank', title: 'Bank Accounts', accounts: [] },
+    credit: { key: 'credit', title: 'Credit Cards', accounts: [] },
+    wallet: { key: 'wallet', title: 'Wallets', accounts: [] },
+    other: { key: 'other', title: 'Other Accounts', accounts: [] },
+  }
+
+  for (const account of accounts) {
+    sections[sectionKeyForAccount(account.type)].accounts.push(account)
+  }
+
+  return Object.values(sections).filter((section) => section.accounts.length > 0)
+}
+
+function BuddySVG({ size = 48 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill={C.brand} />
+      <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
+      <Path d="M32 16 L 32 11" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke={C.brand} strokeWidth="1.5" strokeOpacity="0.3" />
+      <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="25.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Circle cx="38.5" cy="34" r="2.6" fill={C.brandDeep} />
+      <Path d="M25 41 Q32 47 39 41" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
+}
+
 // ─── Icons ─────────────────────────────────────────────────────────────────────
 
 function accountIconColors(type: AccountType): { bg: string; fg: string } {
@@ -38,17 +85,30 @@ function accountIconColors(type: AccountType): { bg: string; fg: string } {
 
 function AccountIcon({ type, size = 42 }: { type: AccountType; size?: number }) {
   const { bg, fg } = accountIconColors(type)
+  const isBank = type === 'savings' || type === 'current'
+  const isCredit = type === 'credit'
+
   return (
     <View style={[ico.wrap, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: bg }]}>
-      {type === 'wallet' ? (
+      {isBank ? (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-          <Path d="M16 12h4v4h-4z" />
+          <Path d="M3 21h18" />
+          <Path d="M5 21V10" />
+          <Path d="M19 21V10" />
+          <Path d="M9 21V10" />
+          <Path d="M15 21V10" />
+          <Path d="M3 10h18" />
+          <Path d="M12 3 3 8h18z" />
         </Svg>
-      ) : (
+      ) : isCredit ? (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <Rect x="2" y="5" width="20" height="14" rx="2" />
           <Path d="M2 10h20" />
+        </Svg>
+      ) : (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+          <Path d="M16 12h4v4h-4z" />
         </Svg>
       )}
     </View>
@@ -67,9 +127,7 @@ function HeroCard({ totalBalance, bankCount, cardCount, accountCount }: {
   return (
     <View style={hero.green}>
       <View style={{ opacity: 0.12, position: 'absolute', right: -18, bottom: -12 }}>
-        <Svg width={110} height={110} viewBox="0 0 64 64" fill="none">
-          <Circle cx="32" cy="36" r="22" fill="#fff" />
-        </Svg>
+        <BuddySVG size={110} />
       </View>
       <Text style={hero.tag}>Total across accounts</Text>
       <Text style={hero.amount}>{formatAmount(totalBalance)}</Text>
@@ -101,12 +159,13 @@ type AccForm = { name: string; type: AccountType; bank: string; opening_balance:
 const DEFAULT_FORM: AccForm = { name: '', type: 'savings', bank: '', opening_balance: '' }
 
 function AccountSheet({
-  visible, onClose, editing, onSaved,
+  visible, onClose, editing, onSaved, onDelete,
 }: {
   visible: boolean
   onClose: () => void
   editing: Account | null
   onSaved: (acc: Account) => void
+  onDelete: (acc: Account) => void
 }) {
   const [form, setForm] = useState<AccForm>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
@@ -223,6 +282,14 @@ function AccountSheet({
         >
           <Text style={af.saveText}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Account'}</Text>
         </Pressable>
+        {editing ? (
+          <Pressable
+            style={af.delete}
+            onPress={() => onDelete(editing)}
+          >
+            <Text style={af.deleteText}>Delete Account</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </Sheet>
   )
@@ -244,6 +311,8 @@ const af = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 14, fontFamily: F.mono, color: C.ink, padding: 0 },
   save: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
+  delete: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(219,90,75,0.35)' },
+  deleteText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
 })
 
 // ─── AccountsScreen ────────────────────────────────────────────────────────────
@@ -267,6 +336,7 @@ export function AccountsScreen() {
   const totalBalance = accounts.reduce((sum, account) => sum + account.current_balance, 0)
   const bankCount = accounts.filter((account) => account.type === 'savings' || account.type === 'current').length
   const cardCount = accounts.filter((account) => account.type === 'credit').length
+  const accountSections = buildAccountSections(accounts)
 
   function openAddAcc() { setEditingAcc(null); setAccSheetOpen(true) }
   function openEditAcc(acc: Account) { setEditingAcc(acc); setAccSheetOpen(true) }
@@ -290,6 +360,8 @@ export function AccountsScreen() {
             await deleteAccount(acc.id)
             queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== acc.id))
             invalidateAccountData(queryClient)
+            setAccSheetOpen(false)
+            setEditingAcc(null)
           } catch {
             Alert.alert('Error', 'Could not delete account.')
           }
@@ -297,28 +369,6 @@ export function AccountsScreen() {
       },
     ])
   }
-
-  const EditIcon = () => (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </Svg>
-  )
-
-  const TrashIcon = () => (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <Polyline points="3 6 5 6 21 6" />
-      <Path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <Path d="M10 11v6M14 11v6" />
-    </Svg>
-  )
-
-  const ActionBtns = ({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) => (
-    <View style={s.actionBtns}>
-      <Pressable onPress={onEdit} style={s.iconBtn} hitSlop={4}><EditIcon /></Pressable>
-      <Pressable onPress={onDelete} style={s.iconBtn} hitSlop={4}><TrashIcon /></Pressable>
-    </View>
-  )
 
   return (
     <View style={s.root}>
@@ -361,25 +411,35 @@ export function AccountsScreen() {
             ) : (
               <>
                 <HeroCard totalBalance={totalBalance} bankCount={bankCount} cardCount={cardCount} accountCount={accounts.length} />
-                <View style={s.listCard}>
-                  {accounts.map((acc, idx) => {
-                    const balColor = acc.current_balance >= 0 ? C.pos : C.neg
-                    return (
-                      <View key={acc.id} style={[s.listRow, idx < accounts.length - 1 && s.listRowBorder]}>
-                        <AccountIcon type={acc.type} />
-                        <View style={s.listInfo}>
-                          <Text style={s.listName} numberOfLines={1}>{acc.name}</Text>
-                          <Text style={s.listSub} numberOfLines={1}>
-                            {ACCOUNT_TYPE_LABELS[acc.type]}{acc.bank ? ` · ${acc.bank}` : ''}
-                          </Text>
-                        </View>
-                        <Text style={[s.listBalance, { color: balColor }]} numberOfLines={1}>
-                          {formatAmount(acc.current_balance)}
-                        </Text>
-                        <ActionBtns onEdit={() => openEditAcc(acc)} onDelete={() => handleDeleteAcc(acc)} />
+                <View style={s.sections}>
+                  {accountSections.map((section) => (
+                    <View key={section.key} style={s.section}>
+                      <Text style={s.sectionTitle}>{section.title}</Text>
+                      <View style={s.listCard}>
+                        {section.accounts.map((acc, idx) => {
+                          const balColor = acc.current_balance >= 0 ? C.pos : C.neg
+                          return (
+                            <Pressable
+                              key={acc.id}
+                              style={[s.listRow, idx < section.accounts.length - 1 && s.listRowBorder]}
+                              onPress={() => openEditAcc(acc)}
+                            >
+                              <AccountIcon type={acc.type} />
+                              <View style={s.listInfo}>
+                                <Text style={s.listName} numberOfLines={1}>{acc.name}</Text>
+                                <Text style={s.listSub} numberOfLines={1}>
+                                  {ACCOUNT_TYPE_LABELS[acc.type]}{acc.bank ? ` · ${acc.bank}` : ''}
+                                </Text>
+                              </View>
+                              <Text style={[s.listBalance, { color: balColor }]} numberOfLines={1}>
+                                {formatAmount(acc.current_balance)}
+                              </Text>
+                            </Pressable>
+                          )
+                        })}
                       </View>
-                    )
-                  })}
+                    </View>
+                  ))}
                 </View>
               </>
             )}
@@ -394,6 +454,7 @@ export function AccountsScreen() {
         onClose={() => setAccSheetOpen(false)}
         editing={editingAcc}
         onSaved={handleAccSaved}
+        onDelete={handleDeleteAcc}
       />
     </View>
   )
@@ -413,6 +474,9 @@ const s = StyleSheet.create({
   addBtnText: { fontSize: 13.5, fontFamily: F.bold, color: '#fff' },
   loadingWrap: { paddingTop: 80, alignItems: 'center' },
   body: { paddingHorizontal: 18, paddingTop: 4, gap: 12 },
+  sections: { gap: 16 },
+  section: { gap: 8 },
+  sectionTitle: { fontSize: 16, fontFamily: F.extrabold, color: C.ink },
   listCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
@@ -427,8 +491,6 @@ const s = StyleSheet.create({
   listName: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   listSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 1 },
   listBalance: { fontSize: 14, fontFamily: F.monoBold, flexShrink: 0 },
-  actionBtns: { flexDirection: 'row', gap: 2, flexShrink: 0 },
-  iconBtn: { width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   emptyLink: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
