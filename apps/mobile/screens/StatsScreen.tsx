@@ -368,6 +368,70 @@ const ts = StyleSheet.create({
   labelActive: { fontFamily: F.bold, color: C.ink },
 })
 
+// ─── Spending trend ────────────────────────────────────────────────────────────
+
+function SpendingTrend({ month, monthlySpends }: {
+  month: string
+  monthlySpends: Record<string, number>
+}) {
+  const [year, monthNum] = month.split('-').map(Number)
+  const months: string[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(year, monthNum - 1 - i, 1)
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const values = months.map((m) => monthlySpends[m] ?? 0)
+  const maxVal = Math.max(...values, 1)
+  const BAR_MAX_H = 96
+
+  return (
+    <View style={stt.card}>
+      <Text style={stt.title}>SPENDING TREND</Text>
+      <View style={stt.chart}>
+        {months.map((m, i) => {
+          const isCurrent = m === month
+          const val = values[i]
+          const barH = val > 0 ? Math.max((val / maxVal) * BAR_MAX_H, 4) : 0
+          const [y, mo] = m.split('-').map(Number)
+          const shortLabel = new Date(y, mo - 1, 1).toLocaleString('en-US', { month: 'short' })
+          return (
+            <View key={m} style={stt.col}>
+              <View style={stt.barWrap}>
+                <View style={[stt.bar, { height: barH, backgroundColor: isCurrent ? C.brandDeep : C.brand }]} />
+              </View>
+              <Text style={[stt.barLabel, isCurrent && stt.barLabelCurrent]}>{shortLabel}</Text>
+            </View>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
+const stt = StyleSheet.create({
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 18,
+    gap: 14,
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  title: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.6 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  col: { flex: 1, alignItems: 'center', gap: 8 },
+  barWrap: { width: '100%', height: 96, justifyContent: 'flex-end', alignItems: 'center' },
+  bar: { width: '100%', borderRadius: 5 },
+  barLabel: { fontSize: 11, fontFamily: F.medium, color: C.ink3 },
+  barLabelCurrent: { fontFamily: F.bold, color: C.ink },
+})
+
 // ─── Budget sheet ──────────────────────────────────────────────────────────────
 
 function BudgetSheet({
@@ -841,20 +905,27 @@ export function StatsScreen() {
                   </View>
                 )}
               </>
-            ) : activeTab === 'spending' && txs.length === 0 ? (
-              <View style={s.emptyState}>
-                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <Path d="M18 20V10M12 20V4M6 20v-6" />
-                </Svg>
-                <Text style={s.emptyText}>No data this month</Text>
-              </View>
             ) : (
-              <View style={s.chartCard}>
-                <Text style={s.chartLabel}>SPENDING BY CATEGORY</Text>
-                {expenseCats.length > 0
-                  ? <DonutChart categories={expenseCats} total={expense} colorMap={colorMap} />
-                  : <Text style={s.emptyText}>No spending this month</Text>}
-              </View>
+              <>
+                {txs.length > 0 ? (
+                  <View style={s.chartCard}>
+                    <Text style={s.chartLabel}>SPENDING BY CATEGORY</Text>
+                    {expenseCats.length > 0
+                      ? <DonutChart categories={expenseCats} total={expense} colorMap={colorMap} />
+                      : <Text style={s.emptyText}>No spending this month</Text>}
+                  </View>
+                ) : (
+                  <View style={s.emptyState}>
+                    <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M18 20V10M12 20V4M6 20v-6" />
+                    </Svg>
+                    <Text style={s.emptyText}>No data this month</Text>
+                  </View>
+                )}
+                <View style={{ marginTop: 8 }}>
+                  <SpendingTrend month={month} monthlySpends={monthlySpends} />
+                </View>
+              </>
             )}
             </Animated.View>
           </View>
