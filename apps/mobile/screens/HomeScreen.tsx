@@ -22,6 +22,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import {
@@ -42,6 +43,13 @@ type HomeData = {
   accounts: Account[]
   settings: { display_name: string | null; expected_monthly_income: number | null }
   categoryColors: Record<string, string>
+}
+
+type QuickAction = {
+  key: string
+  label: string
+  icon: 'plus' | 'import' | 'account'
+  onPress: () => void
 }
 
 // ─── SVG Components ────────────────────────────────────────────────────────────
@@ -130,6 +138,48 @@ function BuddyWelcomeSVG({ size = 48 }: { size?: number }) {
   )
 }
 
+function QuickActionButton({ action }: { action: QuickAction }) {
+  const scale = useSharedValue(1)
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+
+  return (
+    <Pressable
+      style={s.quickAction}
+      onPress={action.onPress}
+      onPressIn={() => { scale.value = withSpring(0.98, { damping: 15, stiffness: 300 }) }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+    >
+      <Animated.View style={[s.quickActionContent, animStyle]}>
+        <View style={s.quickActionIcon}>
+          {action.icon === 'plus' ? (
+            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round">
+              <Line x1="12" y1="5" x2="12" y2="19" />
+              <Line x1="5" y1="12" x2="19" y2="12" />
+            </Svg>
+          ) : action.icon === 'import' ? (
+            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M12 3v12" />
+              <Path d="M7 10l5 5 5-5" />
+              <Path d="M5 21h14" />
+            </Svg>
+          ) : (
+            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M3 21h18" />
+              <Path d="M5 21V10" />
+              <Path d="M19 21V10" />
+              <Path d="M9 21V10" />
+              <Path d="M15 21V10" />
+              <Path d="M3 10h18" />
+              <Path d="M12 3 3 8h18z" />
+            </Svg>
+          )}
+        </View>
+        <Text style={s.quickActionText} numberOfLines={2}>{action.label}</Text>
+      </Animated.View>
+    </Pressable>
+  )
+}
+
 // ─── HomeScreen ────────────────────────────────────────────────────────────────
 
 function formatTimeLabel(time: string): string {
@@ -214,7 +264,7 @@ export function HomeScreen() {
   const dotIdx = absFmt.lastIndexOf('.')
   const balInt = dotIdx === -1 ? absFmt : absFmt.slice(0, dotIdx)
   const balDec = dotIdx === -1 ? '' : absFmt.slice(dotIdx)
-  const quickActions = [
+  const quickActions: QuickAction[] = [
     {
       key: 'add-transaction',
       label: 'Add Transaction',
@@ -236,12 +286,6 @@ export function HomeScreen() {
         params: { screen: 'Accounts' },
       })),
     },
-    ...(pendingCount > 0 ? [{
-      key: 'review',
-      label: `Review (${pendingCount})\nTransactions`,
-      icon: 'review',
-      onPress: () => navigation.navigate('Review'),
-    }] : []),
   ]
 
   if (homeQuery.isLoading) {
@@ -358,8 +402,8 @@ export function HomeScreen() {
               <Text style={s.pendingBadgeText}>{pendingCount}</Text>
             </View>
             <View style={s.pendingInfo}>
-              <Text style={s.pendingTitle}>Transactions pending review</Text>
-              <Text style={s.pendingSub}>Tap to review · From imports &amp; shortcuts</Text>
+              <Text style={s.pendingTitle}>Transactions need your attention</Text>
+              <Text style={s.pendingSub}>Review them to keep your records accurate</Text>
             </View>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
@@ -371,44 +415,7 @@ export function HomeScreen() {
         <View style={s.quickActionsWrap}>
           <Text style={s.quickActionsTitle}>Quick Actions</Text>
           <View style={s.quickActionsRow}>
-            {quickActions.map((action) => (
-              <Pressable
-                key={action.key}
-                style={s.quickAction}
-                onPress={action.onPress}
-              >
-                <View style={s.quickActionIcon}>
-                  {action.icon === 'plus' ? (
-                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round">
-                      <Line x1="12" y1="5" x2="12" y2="19" />
-                      <Line x1="5" y1="12" x2="19" y2="12" />
-                    </Svg>
-                  ) : action.icon === 'import' ? (
-                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M12 3v12" />
-                      <Path d="M7 10l5 5 5-5" />
-                      <Path d="M5 21h14" />
-                    </Svg>
-                  ) : action.icon === 'account' ? (
-                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M3 21h18" />
-                      <Path d="M5 21V10" />
-                      <Path d="M19 21V10" />
-                      <Path d="M9 21V10" />
-                      <Path d="M15 21V10" />
-                      <Path d="M3 10h18" />
-                      <Path d="M12 3 3 8h18z" />
-                    </Svg>
-                  ) : (
-                    <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M9 11l2 2 4-5" />
-                      <Path d="M21 12a9 9 0 1 1-3-6.7" />
-                    </Svg>
-                  )}
-                </View>
-                <Text style={s.quickActionText} numberOfLines={2}>{action.label}</Text>
-              </Pressable>
-            ))}
+            {quickActions.map((action) => <QuickActionButton key={action.key} action={action} />)}
           </View>
         </View>
 
@@ -429,7 +436,7 @@ export function HomeScreen() {
                 const amountColor = tx.type === 'credit' ? C.pos : tx.type === 'transfer' ? C.transfer : C.neg
                 const amountPrefix = tx.type === 'credit' ? '+' : tx.type === 'transfer' ? '⇄' : '−'
                 const accountName = tx.account_id ? accountMap[tx.account_id] : null
-                const detail = [tx.category, accountName].filter(Boolean).join(' · ')
+                const categoryColor = tx.category ? catColors[tx.category] : null
                 const dateLabel = new Date(`${tx.date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
                 const timeLabel = tx.time ? formatTimeLabel(tx.time) : null
 
@@ -437,7 +444,14 @@ export function HomeScreen() {
                   <View key={tx.id} style={[s.recentRow, idx < recentTxs.length - 1 && s.recentRowBorder]}>
                     <View style={s.recentInfo}>
                       <Text style={s.recentName} numberOfLines={1}>{tx.merchant || tx.description || 'Transaction'}</Text>
-                      <Text style={s.recentSub} numberOfLines={1}>{detail || 'Uncategorized'}</Text>
+                      <Text style={s.recentSub} numberOfLines={1}>
+                        {tx.category ? (
+                          <Text style={[s.recentCategory, { color: categoryColor ?? C.ink3 }]}>{tx.category}</Text>
+                        ) : (
+                          'Uncategorized'
+                        )}
+                        {accountName ? <Text>{` · ${accountName}`}</Text> : null}
+                      </Text>
                     </View>
                     <View style={s.recentRight}>
                       <Text style={[s.recentAmount, { color: amountColor }]} numberOfLines={1}>
@@ -612,13 +626,16 @@ const s = StyleSheet.create({
   },
   quickActionsRow: { flexDirection: 'row', gap: 16 },
   quickAction: {
-    alignItems: 'center',
-    gap: 7,
     flex: 1,
     minWidth: 0,
     paddingHorizontal: 0,
     paddingVertical: 10,
     borderRadius: 12,
+  },
+  quickActionContent: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: 7,
   },
   quickActionIcon: {
     alignSelf: 'stretch',
@@ -662,6 +679,7 @@ const s = StyleSheet.create({
   recentRowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },
   recentInfo: { flex: 1, minWidth: 0 },
   recentName: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
+  recentCategory: { fontFamily: F.semibold },
   recentSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 2 },
   recentRight: { alignItems: 'flex-end', flexShrink: 0, maxWidth: 132 },
   recentAmount: { fontSize: 14, fontFamily: F.monoBold },
