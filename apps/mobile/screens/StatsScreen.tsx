@@ -24,9 +24,9 @@ import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import { calcSummary } from '@paisa-buddy/shared/logic/transaction'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
-import { budgetStatus, budgetProgress } from '@paisa-buddy/shared/logic/budget'
+import { budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
-import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
+import { C, F, RADIUS } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
@@ -177,136 +177,132 @@ const dc = StyleSheet.create({
 
 // ─── Budget bar ────────────────────────────────────────────────────────────────
 
-const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
-const TYPE_COLOR: Record<string, string> = { credit: C.pos, debit: C.neg, transfer: C.transfer }
-
-function BudgetTransactionItem({
-  tx,
-  accountMap,
-}: {
-  tx: Transaction
-  accountMap: Record<string, string>
-}) {
-  const typeColor = TYPE_COLOR[tx.type] ?? C.ink
-  const accountName = tx.account_id ? accountMap[tx.account_id] : null
-  const title = tx.merchant || tx.description || '—'
-
-  return (
-    <View style={btx.row}>
-      <View style={btx.info}>
-        <Text style={btx.summary} numberOfLines={1}>
-          <Text style={btx.title}>{title}</Text>
-          {accountName ? <Text style={btx.account}> · {accountName}</Text> : null}
-        </Text>
-      </View>
-      {tx.is_recurring && <Text style={btx.recurring}>↻</Text>}
-      <View style={btx.right}>
-        {!tx.reviewed && <View style={btx.unreviewedDot} />}
-        <Text style={[btx.amount, { color: typeColor }]}>
-          {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
-        </Text>
-      </View>
-    </View>
-  )
-}
-
 function BudgetBar({
   budget,
-  transactions,
-  accountMap,
   onEdit,
+  isLast,
 }: {
   budget: BudgetWithSpent
-  transactions: Transaction[]
-  accountMap: Record<string, string>
   onEdit: () => void
+  isLast: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const status = budgetStatus(budget.spent, budget.amount)
   const pct = budgetProgress(budget.spent, budget.amount)
-  const barColor = status === 'red' ? C.neg : status === 'amber' ? C.gold : C.brand
+  const pctLabel = `${Math.round((budget.spent / Math.max(1, budget.amount)) * 100)}%`
+  const overBudget = budget.spent > budget.amount
+  const barColor = overBudget ? C.neg : C.brand
+  const statusLabel = overBudget ? 'Over Budget' : 'On Track'
 
   return (
-    <View style={bb.card}>
-      <Pressable onPress={() => setExpanded((v) => !v)} style={bb.header}>
-        <View style={bb.headerRow}>
-          <Text style={bb.catName} numberOfLines={1}>{budget.category}</Text>
-          <Text style={bb.amounts}>{formatAmount(budget.spent)} of {formatAmount(budget.amount)}</Text>
-          <Pressable onPress={onEdit} hitSlop={8} style={bb.editBtn}>
-            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </Svg>
-          </Pressable>
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}>
-            <Polyline points="6 9 12 15 18 9" />
-          </Svg>
+    <Pressable style={[bb.row, !isLast && bb.rowBorder]} onPress={onEdit}>
+      <View style={bb.header}>
+        <View style={bb.headerMain}>
+          <View style={bb.headerRow}>
+            <View style={bb.titleButton}>
+              <Text style={bb.catName} numberOfLines={1}>{budget.category}</Text>
+            </View>
+            <Text style={bb.amounts} numberOfLines={1}>{formatAmount(budget.spent)} of {formatAmount(budget.amount)}</Text>
+          </View>
+          <View style={bb.progressRow}>
+            <View style={bb.track}>
+              <View style={[bb.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+            </View>
+            <Text style={[bb.pctText, { color: barColor }]}>{pctLabel}</Text>
+          </View>
         </View>
-        <View style={bb.track}>
-          <View style={[bb.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+        <View style={bb.statusCol}>
+          <View style={[bb.statusPill, { backgroundColor: overBudget ? '#FEE2E2' : C.brandPale }]}>
+            <Text style={[bb.statusText, { color: barColor }]} numberOfLines={1}>{statusLabel}</Text>
+          </View>
         </View>
-      </Pressable>
-      {expanded && (
-        <View style={bb.expanded}>
-          {transactions.length === 0 ? (
-            <Text style={bb.noTxText}>No transactions this month.</Text>
-          ) : (
-            transactions.map((tx) => (
-              <BudgetTransactionItem
-                key={tx.id}
-                tx={tx}
-                accountMap={accountMap}
-              />
-            ))
-          )}
+      </View>
+    </Pressable>
+  )
+}
+
+function PlanSummary({ budgets }: { budgets: BudgetWithSpent[] }) {
+  const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0)
+  const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0)
+  const pctUsed = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0
+  const fillPct = Math.min(100, pctUsed)
+  const remaining = totalBudget - totalSpent
+  const overBudget = remaining < 0
+  const accent = overBudget ? C.neg : C.brand
+  const remainingText = overBudget
+    ? `${formatAmount(Math.abs(remaining))} over`
+    : `${formatAmount(remaining)} remaining`
+
+  return (
+    <View style={ps.card}>
+      <View style={ps.topRow}>
+        <Text style={ps.title}>Overall Plan</Text>
+        <View style={ps.metricRow}>
+          <View style={ps.left}>
+          <Text style={ps.amount}>{formatAmount(totalBudget)}</Text>
+          <Text style={ps.label}>monthly budget</Text>
+          </View>
+          <View style={ps.right}>
+          <Text style={[ps.percent, { color: accent }]}>{pctUsed}%</Text>
+          <Text style={ps.label}>of budget used</Text>
+          </View>
         </View>
-      )}
+      </View>
+      <View style={ps.track}>
+        <View style={[ps.fill, { width: `${fillPct}%` as `${number}%`, backgroundColor: accent }]} />
+      </View>
+      <Text style={[ps.remaining, { color: accent }]}>{remainingText}</Text>
     </View>
   )
 }
 
-const btx = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: Math.max(8, ROW_PAD - 2),
-    borderBottomWidth: 1,
-    borderBottomColor: C.line,
-    gap: 10,
-  },
-  info: { flex: 1, minWidth: 0 },
-  summary: { fontSize: 13, fontFamily: F.regular, color: C.ink2 },
-  title: { fontFamily: F.semibold, color: C.ink2 },
-  account: { color: C.ink3 },
-  recurring: { fontSize: 11, fontFamily: F.semibold, color: C.ink3, flexShrink: 0 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
-  unreviewedDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.neg },
-  amount: { fontSize: 13, fontFamily: F.monoBold },
-})
-
-const bb = StyleSheet.create({
+const ps = StyleSheet.create({
   card: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
     borderWidth: 1,
     borderColor: C.line,
-    overflow: 'hidden',
+    padding: 16,
+    gap: 12,
     shadowColor: '#14281E',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 6,
   },
-  header: { padding: 14, gap: 10 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  catName: { flex: 1, fontSize: 14, fontFamily: F.semibold, color: C.ink },
-  amounts: { fontSize: 12, fontFamily: F.regular, color: C.ink3, flexShrink: 0 },
-  editBtn: { padding: 2 },
-  track: { height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' },
+  topRow: { gap: 12 },
+  metricRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  left: { flex: 1, minWidth: 0 },
+  right: { alignItems: 'flex-end', flexShrink: 0 },
+  title: { fontSize: 13, fontFamily: F.semibold, color: C.ink },
+  amount: { fontSize: 20, fontFamily: F.monoBold, color: C.ink },
+  percent: { fontSize: 20, fontFamily: F.monoBold },
+  label: { fontSize: 11, fontFamily: F.bold, color: C.ink3, letterSpacing: 0.2, marginTop: 2 },
+  track: { height: 8, borderRadius: 4, backgroundColor: C.line, overflow: 'hidden' },
+  fill: { height: 8, borderRadius: 4 },
+  remaining: { alignSelf: 'flex-end', fontSize: 12, fontFamily: F.monoBold },
+})
+
+const bb = StyleSheet.create({
+  row: { backgroundColor: C.surface },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  headerMain: { flex: 1, gap: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  titleButton: { flex: 1, minWidth: 0 },
+  catName: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
+  amounts: { fontSize: 12, fontFamily: F.semibold, color: C.ink, textAlign: 'right', flexShrink: 0 },
+  statusCol: { minWidth: 86, alignItems: 'flex-end', justifyContent: 'center', alignSelf: 'stretch', flexShrink: 0 },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignItems: 'center',
+  },
+  statusText: { fontSize: 10.5, fontFamily: F.bold },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
-  expanded: { borderTopWidth: 1, borderTopColor: C.line },
-  noTxText: { paddingHorizontal: 16, paddingVertical: 12, fontSize: 13, fontFamily: F.regular, color: C.ink3 },
+  pctText: { width: 38, fontSize: 12, fontFamily: F.monoBold, textAlign: 'right' },
 })
 
 // ─── Tab switcher ──────────────────────────────────────────────────────────────
@@ -517,7 +513,7 @@ function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange
           </View>
           <View style={s.budgetList}>
             {[0, 1, 2].map((idx) => (
-              <View key={idx} style={bb.card}>
+              <View key={idx} style={[bb.row, idx < 2 && bb.rowBorder]}>
                 <View style={bb.header}>
                   <View style={bb.headerRow}>
                     <SkeletonBlock style={sk.budgetName} />
@@ -622,8 +618,6 @@ export function StatsScreen() {
   const txs = data?.transactions ?? []
   const budgets = data?.budgets ?? []
   const colorMap = data?.categoryColors ?? {}
-  const accounts = data?.accounts ?? []
-  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const { income, expense } = calcSummary(txs)
   const expectedIncome = data?.settings.expected_monthly_income ?? 0
   const remaining = expectedIncome - expense
@@ -730,18 +724,16 @@ export function StatsScreen() {
               </View>
             ) : activeTab === 'plan' ? (
               <>
+                <PlanSummary budgets={budgets} />
                 <View style={s.budgetHeader}>
-                  <Text style={s.sectionTitle}>Budgets</Text>
+                  <Text style={s.sectionTitle}>Plan vs Actual</Text>
                   <Pressable
                     onPress={openAdd}
                     onPressIn={() => { addBudgetScale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
                     onPressOut={() => { addBudgetScale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
                   >
                     <Animated.View style={[s.addBtn, addBudgetAnimStyle]}>
-                      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                        <Path d="M12 5v14M5 12h14" />
-                      </Svg>
-                      <Text style={s.addBtnText}>Add</Text>
+                      <Text style={s.addBtnText}>Edit Plan</Text>
                     </Animated.View>
                   </Pressable>
                 </View>
@@ -757,21 +749,14 @@ export function StatsScreen() {
                   </View>
                 ) : (
                   <View style={s.budgetList}>
-                    {budgets.map((b) => {
-                      const categoryTransactions = txs
-                        .filter((tx) => tx.category === b.category)
-                        .sort((left, right) => right.date.localeCompare(left.date))
-
-                      return (
-                        <BudgetBar
-                          key={b.id}
-                          budget={b}
-                          transactions={categoryTransactions}
-                          accountMap={accountMap}
-                          onEdit={() => openEdit(b)}
-                        />
-                      )
-                    })}
+                    {budgets.map((b, idx) => (
+                      <BudgetBar
+                        key={b.id}
+                        budget={b}
+                        onEdit={() => openEdit(b)}
+                        isLast={idx === budgets.length - 1}
+                      />
+                    ))}
                   </View>
                 )}
               </>
@@ -856,16 +841,26 @@ const s = StyleSheet.create({
   summaryColBorder: { borderLeftWidth: 1, borderLeftColor: C.line },
   summaryLabel: { fontSize: 10.5, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { fontSize: 13.5, fontFamily: F.monoBold },
-  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: C.brand, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 8,
-    shadowColor: C.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  addBtnText: { fontSize: 13, fontFamily: F.bold, color: '#fff' },
-  budgetList: { gap: 10 },
+  addBtnText: { fontSize: 13, fontFamily: F.bold, color: C.brand },
+  budgetList: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    overflow: 'hidden',
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   chartCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
