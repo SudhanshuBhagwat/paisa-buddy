@@ -370,6 +370,15 @@ const ts = StyleSheet.create({
 
 // ─── Spending trend ────────────────────────────────────────────────────────────
 
+const TREND_BAR_H = 96
+
+function compactRupees(paise: number): string {
+  const r = paise / 100
+  if (r >= 100000) return `₹${(r / 100000).toFixed(1).replace(/\.0$/, '')}L`
+  if (r >= 1000) return `₹${Math.round(r / 1000)}k`
+  return `₹${Math.round(r)}`
+}
+
 function SpendingTrend({ month, monthlySpends }: {
   month: string
   monthlySpends: Record<string, number>
@@ -383,27 +392,47 @@ function SpendingTrend({ month, monthlySpends }: {
 
   const values = months.map((m) => monthlySpends[m] ?? 0)
   const maxVal = Math.max(...values, 1)
-  const BAR_MAX_H = 96
 
   return (
     <View style={stt.card}>
       <Text style={stt.title}>SPENDING TREND</Text>
-      <View style={stt.chart}>
-        {months.map((m, i) => {
-          const isCurrent = m === month
-          const val = values[i]
-          const barH = val > 0 ? Math.max((val / maxVal) * BAR_MAX_H, 4) : 0
-          const [y, mo] = m.split('-').map(Number)
-          const shortLabel = new Date(y, mo - 1, 1).toLocaleString('en-US', { month: 'short' })
-          return (
-            <View key={m} style={stt.col}>
-              <View style={stt.barWrap}>
-                <View style={[stt.bar, { height: barH, backgroundColor: isCurrent ? C.brandDeep : C.brand }]} />
-              </View>
-              <Text style={[stt.barLabel, isCurrent && stt.barLabelCurrent]}>{shortLabel}</Text>
-            </View>
-          )
-        })}
+      <View style={stt.chartArea}>
+        {/* Y-axis labels */}
+        <View style={stt.yAxis}>
+          <Text style={stt.yLabel}>{compactRupees(maxVal)}</Text>
+          <Text style={stt.yLabel}>{compactRupees(maxVal / 2)}</Text>
+          <Text style={stt.yLabel}>₹0</Text>
+        </View>
+        {/* Bars + month labels */}
+        <View style={stt.barsSection}>
+          <View style={stt.barsRow}>
+            <View style={[stt.gridLine, { top: 0 }]} pointerEvents="none" />
+            <View style={[stt.gridLine, { top: TREND_BAR_H / 2 }]} pointerEvents="none" />
+            <View style={[stt.gridLine, { top: TREND_BAR_H - 1 }]} pointerEvents="none" />
+            {months.map((m, i) => {
+              const isCurrent = m === month
+              const val = values[i]
+              const barH = val > 0 ? Math.max((val / maxVal) * TREND_BAR_H, 4) : 0
+              return (
+                <View key={m} style={stt.barCol}>
+                  <View style={[stt.bar, { height: barH, backgroundColor: isCurrent ? C.brandDeep : C.brand }]} />
+                </View>
+              )
+            })}
+          </View>
+          <View style={stt.labelsRow}>
+            {months.map((m) => {
+              const isCurrent = m === month
+              const [y, mo] = m.split('-').map(Number)
+              const shortLabel = new Date(y, mo - 1, 1).toLocaleString('en-US', { month: 'short' })
+              return (
+                <View key={m} style={stt.labelCol}>
+                  <Text style={[stt.barLabel, isCurrent && stt.barLabelCurrent]}>{shortLabel}</Text>
+                </View>
+              )
+            })}
+          </View>
+        </View>
       </View>
     </View>
   )
@@ -424,10 +453,16 @@ const stt = StyleSheet.create({
     elevation: 2,
   },
   title: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.6 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
-  col: { flex: 1, alignItems: 'center', gap: 8 },
-  barWrap: { width: '100%', height: 96, justifyContent: 'flex-end', alignItems: 'center' },
+  chartArea: { flexDirection: 'row', gap: 8 },
+  yAxis: { width: 34, height: TREND_BAR_H, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 2 },
+  yLabel: { fontSize: 10, fontFamily: F.mono, color: C.ink3 },
+  barsSection: { flex: 1, gap: 6 },
+  barsRow: { flexDirection: 'row', alignItems: 'flex-end', height: TREND_BAR_H, gap: 5, position: 'relative' },
+  gridLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.line },
+  barCol: { flex: 1, height: TREND_BAR_H, justifyContent: 'flex-end' },
   bar: { width: '100%', borderRadius: 5 },
+  labelsRow: { flexDirection: 'row', gap: 5 },
+  labelCol: { flex: 1, alignItems: 'center' },
   barLabel: { fontSize: 11, fontFamily: F.medium, color: C.ink3 },
   barLabelCurrent: { fontFamily: F.bold, color: C.ink },
 })
