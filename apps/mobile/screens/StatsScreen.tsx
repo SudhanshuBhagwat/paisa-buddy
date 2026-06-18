@@ -382,11 +382,13 @@ function BudgetSheet({
   const [category, setCategory] = useState('')
   const [amountStr, setAmountStr] = useState('')
   const [saving, setSaving] = useState(false)
+  const [catPickerOpen, setCatPickerOpen] = useState(false)
 
   React.useEffect(() => {
     if (visible) {
       setCategory(editing?.category ?? '')
       setAmountStr(editing ? String(editing.amount / 100) : '')
+      setCatPickerOpen(false)
     }
   }, [visible, editing])
 
@@ -406,67 +408,102 @@ function BudgetSheet({
   }
 
   return (
-    <Sheet
-      visible={visible}
-      onClose={onClose}
-      heightFraction={0.65}
-      header={(
-        <View style={bs.header}>
-          <Text style={bs.title}>{editing ? 'Edit Budget' : 'Add Budget'}</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={bs.cancel}>Cancel</Text>
-          </Pressable>
-        </View>
-      )}
-    >
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={bs.content} keyboardShouldPersistTaps="handled">
-        <View style={bs.field}>
-          <Text style={bs.label}>CATEGORY</Text>
-          {editing ? (
-            <View style={[bs.input, { justifyContent: 'center' }]}>
-              <Text style={{ fontSize: 14, fontFamily: F.medium, color: C.ink }}>{editing.category}</Text>
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {allCategories.map((cat) => (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setCategory(cat)}
-                    style={[bs.catChip, category === cat && { backgroundColor: categoryColor(cat), borderColor: categoryColor(cat) }]}
-                  >
-                    <Text style={[bs.catChipText, category === cat && { color: '#fff' }]}>{cat}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-          )}
-        </View>
-
-        <View style={bs.field}>
-          <Text style={bs.label}>MONTHLY LIMIT</Text>
-          <View style={bs.amountRow}>
-            <Text style={bs.rupee}>₹</Text>
-            <TextInput
-              style={bs.amountInput}
-              value={amountStr}
-              onChangeText={(t) => setAmountStr(t.replace(/[^0-9.]/g, ''))}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              placeholderTextColor={C.ink3}
-            />
+    <>
+      <Sheet
+        visible={visible}
+        onClose={onClose}
+        heightFraction={0.5}
+        header={(
+          <View style={bs.header}>
+            <Text style={bs.title}>{editing ? 'Edit Budget' : 'Add Budget'}</Text>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Text style={bs.cancel}>Cancel</Text>
+            </Pressable>
           </View>
-        </View>
+        )}
+      >
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={bs.content} keyboardShouldPersistTaps="handled">
+          <View style={bs.field}>
+            <Text style={bs.label}>CATEGORY</Text>
+            <Pressable style={bs.selectField} onPress={() => setCatPickerOpen(true)}>
+              <View style={bs.selectInner}>
+                {!!category && (
+                  <View style={[bs.catDot, { backgroundColor: categoryColor(category) }]} />
+                )}
+                <Text style={[bs.selectText, !category && bs.selectPlaceholder]} numberOfLines={1}>
+                  {category || 'Select category'}
+                </Text>
+              </View>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <Polyline points="6 9 12 15 18 9" />
+              </Svg>
+            </Pressable>
+          </View>
 
-        <Pressable
-          style={[bs.save, (!category || !amountStr) && { opacity: 0.4 }]}
-          onPress={handleSave}
-          disabled={!category || !amountStr || saving}
+          <View style={bs.field}>
+            <Text style={bs.label}>MONTHLY LIMIT</Text>
+            <View style={bs.amountRow}>
+              <Text style={bs.rupee}>₹</Text>
+              <TextInput
+                style={bs.amountInput}
+                value={amountStr}
+                onChangeText={(t) => setAmountStr(t.replace(/[^0-9.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={C.ink3}
+              />
+            </View>
+          </View>
+
+          <Pressable
+            style={[bs.save, (!category || !amountStr) && { opacity: 0.4 }]}
+            onPress={handleSave}
+            disabled={!category || !amountStr || saving}
+          >
+            <Text style={bs.saveText}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Budget'}</Text>
+          </Pressable>
+        </ScrollView>
+
+        <Sheet
+          visible={catPickerOpen}
+          onClose={() => setCatPickerOpen(false)}
+          heightFraction={0.6}
+          header={(
+            <View style={bs.pickerHeader}>
+              <Text style={bs.pickerTitle}>Category</Text>
+              <Pressable onPress={() => setCatPickerOpen(false)} hitSlop={8}>
+                <Text style={bs.pickerDone}>Done</Text>
+              </Pressable>
+            </View>
+          )}
         >
-          <Text style={bs.saveText}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Budget'}</Text>
-        </Pressable>
-      </ScrollView>
-    </Sheet>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={bs.pickerScroll}>
+            <Text style={bs.pickerSectionLabel}>CATEGORIES</Text>
+            {allCategories.map((cat) => {
+              const selected = category === cat
+              const color = categoryColor(cat)
+              return (
+                <Pressable
+                  key={cat}
+                  style={bs.pickerRow}
+                  onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
+                >
+                  <View style={[bs.catDot, { backgroundColor: color }]} />
+                  <Text style={[bs.pickerRowText, selected && { color: C.brand, fontFamily: F.semibold }]}>
+                    {cat}
+                  </Text>
+                  {selected && (
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M20 6 9 17l-5-5" />
+                    </Svg>
+                  )}
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+        </Sheet>
+      </Sheet>
+    </>
   )
 }
 
@@ -478,8 +515,52 @@ const bs = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: 12, fontFamily: F.medium, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { backgroundColor: C.bg, borderRadius: 12, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, paddingVertical: 10 },
-  catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1, borderColor: C.line, backgroundColor: C.bg },
-  catChipText: { fontSize: 14, fontFamily: F.medium, color: C.ink },
+  selectField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.bg,
+  },
+  selectInner: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+  selectText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  selectPlaceholder: { color: C.ink3 },
+  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  pickerTitle: { fontSize: 16, fontFamily: F.semibold, color: C.ink },
+  pickerDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
+  pickerSectionLabel: {
+    fontSize: 11,
+    fontFamily: F.medium,
+    color: C.ink3,
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  pickerRowText: { flex: 1, fontSize: 14, fontFamily: F.regular, color: C.ink },
+  pickerScroll: { paddingBottom: 32 },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.bg, borderRadius: 12, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, paddingVertical: 10 },
   rupee: { fontSize: 14, fontFamily: F.medium, color: C.ink3 },
   amountInput: { flex: 1, fontSize: 14, fontFamily: F.mono, color: C.ink, padding: 0 },
@@ -841,7 +922,7 @@ const s = StyleSheet.create({
   summaryColBorder: { borderLeftWidth: 1, borderLeftColor: C.line },
   summaryLabel: { fontSize: 10.5, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { fontSize: 13.5, fontFamily: F.monoBold },
-  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 8 },
+  budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   addBtn: {
     flexDirection: 'row',
