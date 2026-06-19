@@ -22,7 +22,7 @@ import { queryKeys } from '../lib/query'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import { calcSummary } from '@paisa-buddy/shared/logic/transaction'
-import { toYearMonth } from '@paisa-buddy/shared/logic/date'
+import { addMonths, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
@@ -478,6 +478,77 @@ const stt = StyleSheet.create({
 
 // ─── Budget sheet ──────────────────────────────────────────────────────────────
 
+function SpendingSummary({ spent, previousSpent }: {
+  spent: number
+  previousSpent: number
+}) {
+  const hasPrevious = previousSpent > 0
+  const diff = spent - previousSpent
+  const lower = hasPrevious && diff < 0
+  const same = hasPrevious && diff === 0
+  const pct = hasPrevious ? Math.round((Math.abs(diff) / previousSpent) * 100) : 0
+  const accent = !hasPrevious || same ? C.ink3 : lower ? C.pos : C.neg
+  const pillLabel = !hasPrevious
+    ? 'No last month'
+    : same
+      ? 'No change'
+      : `${pct}% ${lower ? 'lower' : 'above'}`
+
+  return (
+    <View style={ss.card}>
+      <View style={ss.left}>
+        <Text style={ss.kicker}>Total Spent</Text>
+        <Text style={ss.amount} numberOfLines={1}>{formatAmount(spent)}</Text>
+        <Text style={ss.caption}>This Month</Text>
+      </View>
+      <View style={[ss.pill, { backgroundColor: lower ? C.brandPale : same || !hasPrevious ? C.bg : '#FEE2E2' }]}>
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          {lower ? (
+            <><Path d="M12 5v14" /><Path d="m19 12-7 7-7-7" /></>
+          ) : hasPrevious && !same ? (
+            <><Path d="M12 19V5" /><Path d="m5 12 7-7 7 7" /></>
+          ) : same ? (
+            <Path d="M5 12h14" />
+          ) : (
+            <Circle cx="12" cy="12" r="9" />
+          )}
+        </Svg>
+        <View style={ss.pillText}>
+          <Text style={[ss.pillValue, { color: accent }]} numberOfLines={1}>{pillLabel}</Text>
+          <Text style={ss.pillCaption}>vs last month</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+const ss = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 18,
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  left: { flex: 1, minWidth: 0, gap: 5 },
+  kicker: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  amount: { fontSize: 20, fontFamily: F.monoBold, color: C.ink },
+  caption: { fontSize: 12, fontFamily: F.medium, color: C.ink2 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 10, flexShrink: 0 },
+  pillText: { gap: 1 },
+  pillValue: { fontSize: 13, fontFamily: F.bold },
+  pillCaption: { fontSize: 10, fontFamily: F.medium, color: C.ink3 },
+})
+
 function BudgetSheet({
   visible, onClose, editing, allCategories, onSaved,
 }: {
@@ -715,24 +786,34 @@ function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange
           </View>
         </View>
       ) : (
-        <View style={s.chartCard}>
-          <SkeletonBlock style={sk.chartLabel} />
-          <View style={sk.chartWrap}>
-            <View style={sk.donutOuter}>
-              <View style={sk.donutInner} />
+        <>
+          <View style={ss.card}>
+            <View style={ss.left}>
+              <SkeletonBlock style={sk.spendingKicker} />
+              <SkeletonBlock style={sk.spendingAmount} />
+              <SkeletonBlock style={sk.spendingCaption} />
             </View>
-            <View style={sk.legendStack}>
-              {[0, 1, 2, 3, 4, 5].map((idx) => (
-                <View key={idx} style={sk.legendLine}>
-                  <View style={sk.legendLineText}>
-                    <SkeletonBlock style={[sk.legendName, { width: idx % 2 === 0 ? 70 : 54 }]} />
-                    <SkeletonBlock style={sk.legendAmount} />
+            <SkeletonBlock style={sk.spendingPill} />
+          </View>
+          <View style={s.chartCard}>
+            <SkeletonBlock style={sk.chartLabel} />
+            <View style={sk.chartWrap}>
+              <View style={sk.donutOuter}>
+                <View style={sk.donutInner} />
+              </View>
+              <View style={sk.legendStack}>
+                {[0, 1, 2, 3, 4, 5].map((idx) => (
+                  <View key={idx} style={sk.legendLine}>
+                    <View style={sk.legendLineText}>
+                      <SkeletonBlock style={[sk.legendName, { width: idx % 2 === 0 ? 70 : 54 }]} />
+                      <SkeletonBlock style={sk.legendAmount} />
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           </View>
-        </View>
+        </>
       )}
     </View>
   )
@@ -747,6 +828,10 @@ const sk = StyleSheet.create({
   budgetName: { flex: 1, height: 15 },
   budgetAmount: { width: 96, height: 12 },
   budgetTrack: { height: 6, borderRadius: 3 },
+  spendingKicker: { width: 82, height: 10 },
+  spendingAmount: { width: 118, height: 20 },
+  spendingCaption: { width: 78, height: 12 },
+  spendingPill: { width: 122, height: 42, borderRadius: 999 },
   chartLabel: { width: 138, height: 11 },
   chartWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   donutOuter: {
@@ -820,6 +905,7 @@ export function StatsScreen() {
   const remaining = expectedIncome - expense
   const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
   monthlySpends[month] = monthlySpends[month] ?? expense
+  const previousMonthSpend = monthlySpends[addMonths(month, -1)] ?? 0
   const transactionCounts = txs.reduce<Record<string, number>>((counts, tx) => {
     counts[tx.date] = (counts[tx.date] ?? 0) + 1
     return counts
@@ -958,7 +1044,8 @@ export function StatsScreen() {
                 )}
               </>
             ) : (
-              <>
+              <View style={s.spendingStack}>
+                <SpendingSummary spent={expense} previousSpent={previousMonthSpend} />
                 {txs.length > 0 ? (
                   <View style={s.chartCard}>
                     <Text style={s.chartLabel}>SPENDING BY CATEGORY</Text>
@@ -974,10 +1061,8 @@ export function StatsScreen() {
                     <Text style={s.emptyText}>No data this month</Text>
                   </View>
                 )}
-                <View style={{ marginTop: 8 }}>
-                  <SpendingTrend month={month} monthlySpends={monthlySpends} />
-                </View>
-              </>
+                <SpendingTrend month={month} monthlySpends={monthlySpends} />
+              </View>
             )}
             </Animated.View>
           </View>
@@ -1033,6 +1118,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
+  spendingStack: { gap: 8 },
   summaryCard: {
     flexDirection: 'row',
     backgroundColor: C.surface,
