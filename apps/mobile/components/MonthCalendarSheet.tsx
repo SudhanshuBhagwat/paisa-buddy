@@ -74,7 +74,7 @@ export function MonthCalendarSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
-      heightFraction={0.52}
+      heightFraction={0.58}
       header={(
         <View style={s.headerWrap}>
           <View style={s.header}>
@@ -150,7 +150,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 20, fontFamily: F.semibold, color: C.ink },
   done: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-  content: { paddingHorizontal: 16, paddingBottom: 24 },
+  content: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24 },
   calendarCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
