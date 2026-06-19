@@ -120,8 +120,8 @@ function TypePills({ value, onChange }: { value: TypeFilter; onChange: (value: T
   const [wrapWidth, setWrapWidth] = useState(0)
   const pillX = useSharedValue(0)
   const pillColor = useSharedValue(TYPE_FILTERS[0].color)
-  const gap = 8
-  const horizontalPad = 16
+  const gap = 2
+  const horizontalPad = 3
   const pillWidth = wrapWidth > 0
     ? (wrapWidth - horizontalPad * 2 - gap * (TYPE_FILTERS.length - 1)) / TYPE_FILTERS.length
     : 0
@@ -504,26 +504,31 @@ const ti = StyleSheet.create({
 const tp = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
+    gap: 2,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 10,
+    padding: 3,
+    backgroundColor: C.bg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.line,
     position: 'relative',
   },
   pill: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 13,
     borderRadius: 10,
     backgroundColor: 'transparent',
     zIndex: 1,
   },
   slider: {
     position: 'absolute',
-    left: 16,
-    top: 8,
-    bottom: 10,
-    borderRadius: 10,
+    left: 3,
+    top: 3,
+    bottom: 3,
+    borderRadius: 8,
   },
   text: { fontSize: 12.5, fontFamily: F.medium, color: C.ink3 },
   textActive: { color: '#fff', fontFamily: F.bold },
