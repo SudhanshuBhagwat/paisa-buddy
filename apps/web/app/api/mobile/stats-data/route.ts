@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const prevCatMap: Record<string, number> = {}
   for (const tx of prevTransactions) {
-    if (tx.type !== 'debit') continue
+    if (tx.type !== 'debit' || tx.category === null) continue
     prevCatMap[tx.category] = (prevCatMap[tx.category] ?? 0) + tx.amount
   }
   const previousMonthCategorySpends = Object.entries(prevCatMap).map(([category, total]) => ({ category, total }))
