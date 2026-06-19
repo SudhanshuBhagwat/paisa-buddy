@@ -21,8 +21,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { dateFrom, dateTo } = monthBounds(month)
-  const [transactions, monthlySpends, budgets, categories, accounts, settings] = await Promise.all([
+  const [y, m] = month.split('-').map(Number)
+  const prevDate = new Date(y, m - 2, 1)
+  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
+  const { dateFrom: prevDateFrom, dateTo: prevDateTo } = monthBounds(prevMonth)
+
+  const [transactions, prevTransactions, monthlySpends, budgets, categories, accounts, settings] = await Promise.all([
     db.getAll(auth.userId, { dateFrom, dateTo }),
+    db.getAll(auth.userId, { dateFrom: prevDateFrom, dateTo: prevDateTo }),
     db.getMonthlySpends(auth.userId),
     budgetsDb.getAll(auth.userId, month),
     categoriesDb.getCustomWithColors(auth.userId),
@@ -33,6 +39,13 @@ export async function GET(req: NextRequest) {
   const categoryColors: Record<string, string> = {}
   for (const c of categories) categoryColors[c.name] = c.color
 
+  const prevCatMap: Record<string, number> = {}
+  for (const tx of prevTransactions) {
+    if (tx.type !== 'debit') continue
+    prevCatMap[tx.category] = (prevCatMap[tx.category] ?? 0) + tx.amount
+  }
+  const previousMonthCategorySpends = Object.entries(prevCatMap).map(([category, total]) => ({ category, total }))
+
   return NextResponse.json({
     transactions,
     monthlySpends,
@@ -40,5 +53,6 @@ export async function GET(req: NextRequest) {
     categoryColors,
     accounts,
     settings: { expected_monthly_income: settings.expectedMonthlyIncome },
+    previousMonthCategorySpends,
   })
 }

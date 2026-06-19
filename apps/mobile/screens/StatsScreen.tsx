@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -229,6 +229,18 @@ function getRemainingLine(expectedIncome: number, expense: number, remaining: nu
   return `${formatAmount(Math.abs(remaining))} over your monthly target`
 }
 
+function getCategoryImprovementLine(
+  currentCats: Record<string, number>,
+  prevCats: Record<string, number>,
+): string {
+  const best = Object.entries(prevCats)
+    .filter(([cat, prev]) => prev > 0 && (currentCats[cat] ?? 0) < prev)
+    .map(([cat, prev]) => ({ category: cat, pct: Math.round(((prev - (currentCats[cat] ?? 0)) / prev) * 100) }))
+    .sort((a, b) => b.pct - a.pct)[0]
+  if (!best) return ''
+  return `${best.category} down ${best.pct}% vs last month`
+}
+
 function getReviewLine(txs: Transaction[]): string {
   if (txs.length === 0) return 'No transactions to review yet'
   const reviewed = txs.filter((tx) => tx.reviewed).length
@@ -236,26 +248,46 @@ function getReviewLine(txs: Transaction[]): string {
   return `${reviewed} of ${txs.length} transactions reviewed`
 }
 
-function SummaryMascot({ size = 112 }: { size?: number }) {
+function SummaryMascot({ size = 112, mood = 'happy' }: { size?: number; mood?: 'happy' | 'neutral' | 'sad' }) {
+  if (mood === 'sad') return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Path d="M31 15 C 29 9, 23 8, 22 11 C 21.5 13, 26 15, 31 15 Z" fill="#8FAA9B" />
+      <Path d="M31 17 L 31 13" stroke="#6B8A78" strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill="#F5EDEA" stroke="#C4907E" strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke="#C4907E" strokeWidth="1.5" strokeOpacity="0.2" />
+      <Circle cx="22" cy="41" r="3" fill="#E09A8A" fillOpacity="0.5" />
+      <Circle cx="42" cy="41" r="3" fill="#E09A8A" fillOpacity="0.5" />
+      <Circle cx="25.5" cy="35" r="2.3" fill="#6B4D42" />
+      <Circle cx="38.5" cy="35" r="2.3" fill="#6B4D42" />
+      <Path d="M23 31 Q25.5 29.5 28 31" stroke="#6B4D42" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+      <Path d="M36 31 Q38.5 29.5 41 31" stroke="#6B4D42" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+      <Path d="M26 44 Q32 39 38 44" stroke="#6B4D42" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
+  if (mood === 'neutral') return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Path d="M32 14 C 32 8, 27 5, 24 7.5 C 22.5 9.5, 27 13, 32 14 Z" fill="#6BAA8F" />
+      <Path d="M32 14 C 32 9, 36 7, 38 9 C 39 11, 36 14, 32 14 Z" fill="#8BC4A8" />
+      <Path d="M32 17 L 32 12" stroke="#3D7A5E" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill="#ECF0ED" stroke="#7EA88F" strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke="#7EA88F" strokeWidth="1.5" strokeOpacity="0.25" />
+      <Circle cx="25.5" cy="34" r="2.4" fill="#3D5A48" />
+      <Circle cx="38.5" cy="34" r="2.4" fill="#3D5A48" />
+      <Path d="M27 42 L37 42" stroke="#3D5A48" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Rect x="40" y="6" width="20" height="14" rx="5" fill="#1A936F" />
-      <Path d="M45 19 L45 24 L50 19 Z" fill="#1A936F" />
-      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="700">hi!</SvgText>
-      <Path d="M10 16 C 10 18, 12 20, 14 20 C 12 20, 10 22, 10 24 C 10 22, 8 20, 6 20 C 8 20, 10 18, 10 16 Z" fill="#E0A33C" />
-      <Path d="M58 34 C 58 35.6, 59.6 37, 61 37 C 59.6 37, 58 38.4, 58 40 C 58 38.4, 56.4 37, 55 37 C 56.4 37, 58 35.6, 58 34 Z" fill="#2BA77F" />
-      <Path d="M27 22 C 27 16, 22 13, 19 16 C 17 19, 22 22, 27 22 Z" fill="#1A936F" />
-      <Path d="M27 22 C 27 17, 32 15, 34 18 C 35 20, 31 23, 27 22 Z" fill="#2BA77F" />
-      <Path d="M27 25 L 27 20" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="27" cy="44" r="19" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
-      <Circle cx="27" cy="44" r="14.5" stroke="#1A936F" strokeWidth="1.3" strokeOpacity="0.3" />
-      <Circle cx="18.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
-      <Circle cx="35.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
-      <Circle cx="21.5" cy="41" r="2.5" fill="#0F5132" />
-      <Circle cx="32.5" cy="41" r="2.5" fill="#0F5132" />
-      <Path d="M20.5 46 Q27 53 33.5 46" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill="#0F5132" />
-      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill="#1A936F" />
+      <Path d="M32 13 C 32 6, 26 3, 23 6 C 21 9, 26 13, 32 13 Z" fill="#1A936F" />
+      <Path d="M32 13 C 32 7, 38 5, 40 8 C 41 11, 37 14, 32 13 Z" fill="#2BA77F" />
+      <Path d="M32 16 L 32 11" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="32" cy="36" r="22" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
+      <Circle cx="32" cy="36" r="17" stroke="#1A936F" strokeWidth="1.5" strokeOpacity="0.3" />
+      <Circle cx="22" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="42" cy="40" r="3.2" fill="#F4B8A8" fillOpacity="0.7" />
+      <Circle cx="25.5" cy="34" r="2.6" fill="#0F5132" />
+      <Circle cx="38.5" cy="34" r="2.6" fill="#0F5132" />
+      <Path d="M25 41 Q32 47 39 41" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
     </Svg>
   )
 }
@@ -1119,7 +1151,15 @@ export function StatsScreen() {
   const monthProgressPct = getMonthProgressPct(month)
   const storyHeadline = getStoryHeadline({ expectedIncome, expense, remaining, monthProgressPct })
   const storyRemainingLine = getRemainingLine(expectedIncome, expense, remaining)
+  const mascotMood: 'happy' | 'neutral' | 'sad' =
+    remaining < 0 ? 'sad'
+    : (expectedIncome > 0 && remaining / expectedIncome < 0.1) ? 'neutral'
+    : 'happy'
   const reviewLine = getReviewLine(txs)
+  const allReviewed = txs.length > 0 && txs.every((tx) => tx.reviewed)
+  const currentCatMap = Object.fromEntries(groupByCategory(txs, 'debit').map((c) => [c.category, c.total]))
+  const prevCatMap = Object.fromEntries((data?.previousMonthCategorySpends ?? []).map((c) => [c.category, c.total]))
+  const categoryImprovementLine = getCategoryImprovementLine(currentCatMap, prevCatMap)
   const summaryStrip = [
     { label: 'INCOME', value: income, color: C.pos },
     { label: 'SPENT', value: expense, color: C.neg },
@@ -1205,19 +1245,33 @@ export function StatsScreen() {
             <Animated.View style={contentAnimStyle}>
             {activeTab === 'story' ? (
               <View style={s.storyStack}>
+                <View style={s.storySummaryCardWrap}>
                 <View style={s.storySummaryCard}>
+                  <View style={s.mascotWrap}>
+                    <SummaryMascot mood={mascotMood} size={160} />
+                  </View>
                   <View style={s.storySummaryTop}>
                     <View style={s.storySummaryCopy}>
                       <Text style={s.storyHeadline}>{storyHeadline}</Text>
                       <Text style={s.storyRemaining}>
                         {storyRemainingLine}
                       </Text>
+                      {categoryImprovementLine ? (
+                        <Text style={s.storyCategoryImprovement}>{categoryImprovementLine}</Text>
+                      ) : null}
                       <View style={s.reviewPill}>
+                        <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+                          {allReviewed ? (
+                            <Path d="M2 6 L4.5 8.5 L10 3" stroke={C.brandDeep} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          ) : (
+                            <>
+                              <Path d="M6 2.5 L6 6.5" stroke={C.brandDeep} strokeWidth="1.8" strokeLinecap="round" />
+                              <Circle cx="6" cy="9.5" r="1" fill={C.brandDeep} />
+                            </>
+                          )}
+                        </Svg>
                         <Text style={s.reviewPillText}>{reviewLine}</Text>
                       </View>
-                    </View>
-                    <View style={s.mascotWrap}>
-                      <SummaryMascot />
                     </View>
                   </View>
                   <View style={s.monthProgressGroup}>
@@ -1229,6 +1283,7 @@ export function StatsScreen() {
                       <View style={[s.monthProgressFill, { width: `${monthProgressPct}%` }]} />
                     </View>
                   </View>
+                </View>
                 </View>
                 <View style={s.summaryCard}>
                   {summaryStrip.map(({ label, value, color }, idx) => (
@@ -1355,18 +1410,22 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   storyStack: { gap: 16 },
   spendingStack: { gap: 8 },
+  storySummaryCardWrap: {
+    borderRadius: RADIUS,
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   storySummaryCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
     borderWidth: 1,
     borderColor: C.line,
     padding: 16,
-    gap: 16,
-    shadowColor: '#14281E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: 10,
+    overflow: 'hidden',
   },
   storySummaryTop: {
     flexDirection: 'row',
@@ -1376,20 +1435,27 @@ const s = StyleSheet.create({
   storySummaryCopy: { flex: 1, minWidth: 0, gap: 8 },
   storyHeadline: { fontSize: 17, lineHeight: 23, fontFamily: F.extrabold, color: C.ink },
   storyRemaining: { fontSize: 13.5, fontFamily: F.regular, lineHeight: 20, color: C.ink },
+  storyCategoryImprovement: { fontSize: 13.5, fontFamily: F.semibold, lineHeight: 20, color: C.pos },
   reviewPill: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderRadius: 999,
     backgroundColor: C.brandPale,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    marginBottom: 4,
   },
   reviewPillText: { flexShrink: 0, fontSize: 11.5, fontFamily: F.bold, lineHeight: 16, color: C.brandDeep },
   mascotWrap: {
-    width: 112,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+    position: 'absolute',
+    right: -40,
+    top: -8,
+    width: 160,
+    height: 160,
+    transform: [{ rotate: '-20deg' }],
+    opacity: 0.6,
   },
   monthProgressGroup: { gap: 12 },
   monthProgressHeader: {
