@@ -1103,7 +1103,7 @@ export function StatsScreen() {
   const txs = data?.transactions ?? []
   const budgets = data?.budgets ?? []
   const colorMap = data?.categoryColors ?? {}
-  const { expense } = calcSummary(txs)
+  const { income, expense } = calcSummary(txs)
   const expectedIncome = data?.settings.expected_monthly_income ?? 0
   const remaining = expectedIncome - expense
   const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
@@ -1120,6 +1120,11 @@ export function StatsScreen() {
   const storyHeadline = getStoryHeadline({ expectedIncome, expense, remaining, monthProgressPct })
   const storyRemainingLine = getRemainingLine(expectedIncome, expense, remaining)
   const reviewLine = getReviewLine(txs)
+  const summaryStrip = [
+    { label: 'INCOME', value: income, color: C.pos },
+    { label: 'SPENT', value: expense, color: C.neg },
+    { label: 'REMAINING', value: remaining, color: remaining >= 0 ? C.pos : C.neg },
+  ]
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
   function openEdit(b: BudgetWithSpent) { setEditingBudget(b); setBudgetSheetOpen(true) }
@@ -1224,6 +1229,14 @@ export function StatsScreen() {
                       <View style={[s.monthProgressFill, { width: `${monthProgressPct}%` }]} />
                     </View>
                   </View>
+                </View>
+                <View style={s.summaryCard}>
+                  {summaryStrip.map(({ label, value, color }, idx) => (
+                    <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+                      <Text style={s.summaryLabel}>{label}</Text>
+                      <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
+                    </View>
+                  ))}
                 </View>
                 <StoryHighlights highlights={storyHighlights} />
               </View>
