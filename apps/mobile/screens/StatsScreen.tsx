@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -185,6 +185,78 @@ function StoryHighlights({ highlights }: { highlights: Highlight[] }) {
         ))}
       </View>
     </View>
+  )
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n))
+}
+
+function getMonthProgressPct(month: string): number {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const now = new Date()
+  const selectedStart = new Date(year, monthNumber - 1, 1)
+  const currentStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const daysInMonth = new Date(year, monthNumber, 0).getDate()
+
+  if (selectedStart < currentStart) return 100
+  if (selectedStart > currentStart) return 0
+  return clamp(Math.round((now.getDate() / daysInMonth) * 100), 1, 100)
+}
+
+function getStoryHeadline({
+  expectedIncome,
+  expense,
+  remaining,
+  monthProgressPct,
+}: {
+  expectedIncome: number
+  expense: number
+  remaining: number
+  monthProgressPct: number
+}): string {
+  if (expense === 0) return 'No spending story yet.'
+  if (expectedIncome <= 0) return 'You are tracking this month.'
+  const spendPct = (expense / expectedIncome) * 100
+  if (remaining < 0) return 'Spending is over plan this month.'
+  if (spendPct <= monthProgressPct + 15) return "You're doing well this month!"
+  return 'Spending is running a little ahead.'
+}
+
+function getRemainingLine(expectedIncome: number, expense: number, remaining: number): string {
+  if (expectedIncome <= 0) return `${formatAmount(expense)} spent so far`
+  if (remaining >= 0) return `${formatAmount(remaining)} remaining`
+  return `${formatAmount(Math.abs(remaining))} over your monthly target`
+}
+
+function getReviewLine(txs: Transaction[]): string {
+  if (txs.length === 0) return 'No transactions to review yet'
+  const reviewed = txs.filter((tx) => tx.reviewed).length
+  if (reviewed === txs.length) return 'All transactions reviewed this month'
+  return `${reviewed} of ${txs.length} transactions reviewed`
+}
+
+function SummaryMascot({ size = 112 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Rect x="40" y="6" width="20" height="14" rx="5" fill="#1A936F" />
+      <Path d="M45 19 L45 24 L50 19 Z" fill="#1A936F" />
+      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="700">hi!</SvgText>
+      <Path d="M10 16 C 10 18, 12 20, 14 20 C 12 20, 10 22, 10 24 C 10 22, 8 20, 6 20 C 8 20, 10 18, 10 16 Z" fill="#E0A33C" />
+      <Path d="M58 34 C 58 35.6, 59.6 37, 61 37 C 59.6 37, 58 38.4, 58 40 C 58 38.4, 56.4 37, 55 37 C 56.4 37, 58 35.6, 58 34 Z" fill="#2BA77F" />
+      <Path d="M27 22 C 27 16, 22 13, 19 16 C 17 19, 22 22, 27 22 Z" fill="#1A936F" />
+      <Path d="M27 22 C 27 17, 32 15, 34 18 C 35 20, 31 23, 27 22 Z" fill="#2BA77F" />
+      <Path d="M27 25 L 27 20" stroke="#0F5132" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="27" cy="44" r="19" fill="#E4F1EA" stroke="#1A936F" strokeWidth="2.5" />
+      <Circle cx="27" cy="44" r="14.5" stroke="#1A936F" strokeWidth="1.3" strokeOpacity="0.3" />
+      <Circle cx="18.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="35.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="21.5" cy="41" r="2.5" fill="#0F5132" />
+      <Circle cx="32.5" cy="41" r="2.5" fill="#0F5132" />
+      <Path d="M20.5 46 Q27 53 33.5 46" stroke="#0F5132" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill="#0F5132" />
+      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill="#1A936F" />
+    </Svg>
   )
 }
 
@@ -1031,7 +1103,7 @@ export function StatsScreen() {
   const txs = data?.transactions ?? []
   const budgets = data?.budgets ?? []
   const colorMap = data?.categoryColors ?? {}
-  const { income, expense } = calcSummary(txs)
+  const { expense } = calcSummary(txs)
   const expectedIncome = data?.settings.expected_monthly_income ?? 0
   const remaining = expectedIncome - expense
   const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
@@ -1044,6 +1116,10 @@ export function StatsScreen() {
   const expenseCats = topSpendingCategories(groupByCategory(txs, 'debit'))
   const storyHighlights = buildStoryHighlights({ txs, expense, expenseCats, previousMonthSpend })
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
+  const monthProgressPct = getMonthProgressPct(month)
+  const storyHeadline = getStoryHeadline({ expectedIncome, expense, remaining, monthProgressPct })
+  const storyRemainingLine = getRemainingLine(expectedIncome, expense, remaining)
+  const reviewLine = getReviewLine(txs)
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
   function openEdit(b: BudgetWithSpent) { setEditingBudget(b); setBudgetSheetOpen(true) }
@@ -1079,12 +1155,6 @@ export function StatsScreen() {
       },
     ])
   }
-
-  const summaryStrip = [
-    { label: 'INCOME', value: income, color: C.pos },
-    { label: 'SPENT', value: expense, color: C.neg },
-    { label: 'REMAINING', value: remaining, color: remaining >= 0 ? C.pos : C.neg },
-  ]
 
   return (
     <View style={s.root}>
@@ -1130,13 +1200,30 @@ export function StatsScreen() {
             <Animated.View style={contentAnimStyle}>
             {activeTab === 'story' ? (
               <View style={s.storyStack}>
-                <View style={s.summaryCard}>
-                  {summaryStrip.map(({ label, value, color }, idx) => (
-                    <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
-                      <Text style={s.summaryLabel}>{label}</Text>
-                      <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
+                <View style={s.storySummaryCard}>
+                  <View style={s.storySummaryTop}>
+                    <View style={s.storySummaryCopy}>
+                      <Text style={s.storyHeadline}>{storyHeadline}</Text>
+                      <Text style={s.storyRemaining}>
+                        {storyRemainingLine}
+                      </Text>
+                      <View style={s.reviewPill}>
+                        <Text style={s.reviewPillText}>{reviewLine}</Text>
+                      </View>
                     </View>
-                  ))}
+                    <View style={s.mascotWrap}>
+                      <SummaryMascot />
+                    </View>
+                  </View>
+                  <View style={s.monthProgressGroup}>
+                    <View style={s.monthProgressHeader}>
+                      <Text style={s.monthProgressLabel}>{monthHeaderLabel()}</Text>
+                      <Text style={s.monthProgressValue}>{monthProgressPct}% completed</Text>
+                    </View>
+                    <View style={s.monthProgressTrack}>
+                      <View style={[s.monthProgressFill, { width: `${monthProgressPct}%` }]} />
+                    </View>
+                  </View>
                 </View>
                 <StoryHighlights highlights={storyHighlights} />
               </View>
@@ -1255,6 +1342,63 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   storyStack: { gap: 16 },
   spendingStack: { gap: 8 },
+  storySummaryCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 16,
+    gap: 16,
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  storySummaryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  storySummaryCopy: { flex: 1, minWidth: 0, gap: 8 },
+  storyHeadline: { fontSize: 17, lineHeight: 23, fontFamily: F.extrabold, color: C.ink },
+  storyRemaining: { fontSize: 13.5, fontFamily: F.regular, lineHeight: 20, color: C.ink },
+  reviewPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: C.brandPale,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reviewPillText: { flexShrink: 0, fontSize: 11.5, fontFamily: F.bold, lineHeight: 16, color: C.brandDeep },
+  mascotWrap: {
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  monthProgressGroup: { gap: 12 },
+  monthProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  monthProgressLabel: { fontSize: 12, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  monthProgressValue: { fontSize: 12, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  monthProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: C.bg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.line,
+  },
+  monthProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: C.brand,
+  },
   summaryCard: {
     flexDirection: 'row',
     backgroundColor: C.surface,
