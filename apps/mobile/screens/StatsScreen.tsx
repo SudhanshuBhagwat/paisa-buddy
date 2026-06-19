@@ -87,6 +87,12 @@ function groupByCategory(txs: Transaction[], type: 'debit' | 'credit'): { catego
     .sort((a, b) => b.total - a.total)
 }
 
+function topSpendingCategories(cats: { category: string; total: number }[]): { category: string; total: number }[] {
+  const top = cats.slice(0, 5)
+  const otherTotal = cats.slice(5).reduce((sum, cat) => sum + cat.total, 0)
+  return otherTotal > 0 ? [...top, { category: 'Other', total: otherTotal }] : top
+}
+
 function DonutChart({ categories, total, colorMap }: {
   categories: { category: string; total: number }[]
   total: number
@@ -99,8 +105,8 @@ function DonutChart({ categories, total, colorMap }: {
 
   return (
     <View style={dc.wrap}>
-      <View style={{ alignItems: 'center' }}>
-        <Svg width={200} height={200} viewBox="0 0 200 200">
+      <View style={dc.content}>
+        <Svg width={168} height={168} viewBox="0 0 200 200" style={dc.chart}>
           {slices.length === 1 ? (
             <>
               <Circle cx={CX} cy={CY} r={R} fill={slices[0].color} onPress={() => setActive(active === 0 ? null : 0)} />
@@ -138,20 +144,23 @@ function DonutChart({ categories, total, colorMap }: {
             </>
           )}
         </Svg>
-      </View>
-      <View style={dc.legend}>
-        {slices.map((s, i) => (
-          <Pressable
-            key={i}
-            onPress={() => setActive(active === i ? null : i)}
-            style={[dc.chip, active === i && { backgroundColor: s.color, borderColor: s.color }]}
-          >
-            <View style={[dc.dot, { backgroundColor: active === i ? '#fff' : s.color }]} />
-            <Text style={[dc.chipText, active === i && { color: '#fff' }]}>
-              {s.category}
-            </Text>
-          </Pressable>
-        ))}
+        <View style={dc.legend}>
+          {slices.map((s, i) => (
+            <Pressable
+              key={s.category}
+              onPress={() => setActive(active === i ? null : i)}
+              style={[dc.legendRow, active === i && { backgroundColor: C.bg }]}
+            >
+              <View style={dc.legendText}>
+                <View style={dc.legendTop}>
+                  <Text style={[dc.categoryName, { color: s.color }]} numberOfLines={1}>{s.category}</Text>
+                  <Text style={dc.pctText}>{s.pct.toFixed(1)}%</Text>
+                  <Text style={dc.amountText} numberOfLines={1}>{formatAmount(s.total)}</Text>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </View>
       </View>
     </View>
   )
@@ -159,20 +168,20 @@ function DonutChart({ categories, total, colorMap }: {
 
 const dc = StyleSheet.create({
   wrap: { gap: 14 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
+  content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 0 },
+  chart: { flexShrink: 0 },
+  legend: { flex: 1, gap: 6 },
+  legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: C.surface,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
-  chipText: { fontSize: 12, fontFamily: F.medium, color: C.ink },
+  legendText: { flex: 1, minWidth: 0, gap: 2 },
+  legendTop: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  categoryName: { flex: 1, fontSize: 12, fontFamily: F.semibold },
+  pctText: { width: 36, fontSize: 11, fontFamily: F.monoBold, color: C.ink, textAlign: 'right' },
+  amountText: { width: 66, fontSize: 11, fontFamily: F.mono, color: C.ink3, textAlign: 'right', flexShrink: 0 },
 })
 
 // ─── Budget bar ────────────────────────────────────────────────────────────────
@@ -712,11 +721,16 @@ function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange
             <View style={sk.donutOuter}>
               <View style={sk.donutInner} />
             </View>
-          </View>
-          <View style={sk.legend}>
-            {[80, 112, 68, 96, 74].map((width, idx) => (
-              <SkeletonBlock key={idx} style={[sk.legendChip, { width }]} />
-            ))}
+            <View style={sk.legendStack}>
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <View key={idx} style={sk.legendLine}>
+                  <View style={sk.legendLineText}>
+                    <SkeletonBlock style={[sk.legendName, { width: idx % 2 === 0 ? 70 : 54 }]} />
+                    <SkeletonBlock style={sk.legendAmount} />
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       )}
@@ -734,19 +748,22 @@ const sk = StyleSheet.create({
   budgetAmount: { width: 96, height: 12 },
   budgetTrack: { height: 6, borderRadius: 3 },
   chartLabel: { width: 138, height: 11 },
-  chartWrap: { alignItems: 'center', paddingVertical: 6 },
+  chartWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   donutOuter: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     backgroundColor: C.line,
     opacity: 0.75,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  donutInner: { width: 108, height: 108, borderRadius: 54, backgroundColor: C.surface },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  legendChip: { height: 25, borderRadius: 99 },
+  donutInner: { width: 91, height: 91, borderRadius: 45.5, backgroundColor: C.surface },
+  legendStack: { flex: 1, gap: 10 },
+  legendLine: { flexDirection: 'row', alignItems: 'center' },
+  legendLineText: { flex: 1, gap: 4 },
+  legendName: { height: 10 },
+  legendAmount: { width: 48, height: 9 },
 })
 
 // ─── StatsScreen ───────────────────────────────────────────────────────────────
@@ -807,7 +824,7 @@ export function StatsScreen() {
     counts[tx.date] = (counts[tx.date] ?? 0) + 1
     return counts
   }, {})
-  const expenseCats = groupByCategory(txs, 'debit')
+  const expenseCats = topSpendingCategories(groupByCategory(txs, 'debit'))
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
@@ -1053,11 +1070,13 @@ const s = StyleSheet.create({
     borderRadius: RADIUS,
     borderWidth: 1,
     borderColor: C.line,
-    padding: 18,
+    paddingVertical: 18,
+    paddingLeft: 0,
+    paddingRight: 18,
     gap: 14,
     shadowColor: '#14281E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  chartLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.6 },
+  chartLabel: { marginLeft: 18, fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.6 },
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   emptyLink: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
