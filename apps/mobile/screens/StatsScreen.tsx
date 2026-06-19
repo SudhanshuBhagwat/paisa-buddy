@@ -106,7 +106,7 @@ function DonutChart({ categories, total, colorMap }: {
   return (
     <View style={dc.wrap}>
       <View style={dc.content}>
-        <Svg width={168} height={168} viewBox="0 0 200 200" style={dc.chart}>
+        <Svg width={144} height={144} viewBox="18 18 164 164" style={dc.chart}>
           {slices.length === 1 ? (
             <>
               <Circle cx={CX} cy={CY} r={R} fill={slices[0].color} onPress={() => setActive(active === 0 ? null : 0)} />
@@ -169,12 +169,12 @@ function DonutChart({ categories, total, colorMap }: {
 const dc = StyleSheet.create({
   wrap: { gap: 14 },
   content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 0 },
-  chart: { flexShrink: 0 },
-  legend: { flex: 1, gap: 6 },
+  chart: { flexShrink: 0, marginLeft: 16, marginRight: 8 },
+  legend: { flex: 1, gap: 2 },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 3,
     borderRadius: 8,
   },
   legendText: { flex: 1, minWidth: 0, gap: 2 },
@@ -750,15 +750,15 @@ const sk = StyleSheet.create({
   chartLabel: { width: 138, height: 11 },
   chartWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   donutOuter: {
-    width: 168,
-    height: 168,
-    borderRadius: 84,
+    width: 144,
+    height: 144,
+    borderRadius: 72,
     backgroundColor: C.line,
     opacity: 0.75,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  donutInner: { width: 91, height: 91, borderRadius: 45.5, backgroundColor: C.surface },
+  donutInner: { width: 78, height: 78, borderRadius: 39, backgroundColor: C.surface },
   legendStack: { flex: 1, gap: 10 },
   legendLine: { flexDirection: 'row', alignItems: 'center' },
   legendLineText: { flex: 1, gap: 4 },
