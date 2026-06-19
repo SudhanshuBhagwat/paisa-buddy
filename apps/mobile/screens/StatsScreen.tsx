@@ -93,6 +93,120 @@ function topSpendingCategories(cats: { category: string; total: number }[]): { c
   return otherTotal > 0 ? [...top, { category: 'Other', total: otherTotal }] : top
 }
 
+type Highlight = { label: string; text: string; accent: string; icon: 'category' | 'day' | 'month' }
+
+function formatHighlightDate(date: string): string {
+  const d = new Date(date + 'T00:00:00')
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+function buildStoryHighlights({
+  txs,
+  expense,
+  expenseCats,
+  previousMonthSpend,
+}: {
+  txs: Transaction[]
+  expense: number
+  expenseCats: { category: string; total: number }[]
+  previousMonthSpend: number
+}): Highlight[] {
+  const topCat = expenseCats[0]
+  const dayTotals = new Map<string, number>()
+  for (const tx of txs) {
+    if (tx.type !== 'debit') continue
+    dayTotals.set(tx.date, (dayTotals.get(tx.date) ?? 0) + tx.amount)
+  }
+  const biggestDay = Array.from(dayTotals.entries()).sort((a, b) => b[1] - a[1])[0]
+  const hasPrevious = previousMonthSpend > 0
+  const diff = expense - previousMonthSpend
+  const lower = hasPrevious && diff < 0
+  const same = hasPrevious && diff === 0
+  const pct = hasPrevious ? Math.round((Math.abs(diff) / previousMonthSpend) * 100) : 0
+
+  return [
+    {
+      label: 'TOP CATEGORY',
+      text: topCat && expense > 0
+        ? `Top category: ${topCat.category} took the biggest share.`
+        : 'Top category: no spending category stood out.',
+      accent: topCat ? C.brand : C.ink3,
+      icon: 'category',
+    },
+    {
+      label: 'BIGGEST DAY',
+      text: biggestDay
+        ? `Biggest day: your spending peaked on ${formatHighlightDate(biggestDay[0])}.`
+        : 'Biggest day: no debit activity this month.',
+      accent: biggestDay ? C.gold : C.ink3,
+      icon: 'day',
+    },
+    {
+      label: 'LAST MONTH',
+      text: !hasPrevious
+        ? 'Last month: start comparing once data is available.'
+        : same
+          ? 'Last month: you are spending at the same pace.'
+          : `Last month: you spent ${pct}% ${lower ? 'less' : 'more'}.`,
+      accent: !hasPrevious || same ? C.ink3 : lower ? C.pos : C.neg,
+      icon: 'month',
+    },
+  ]
+}
+
+function HighlightIcon({ type, color }: { type: Highlight['icon']; color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      {type === 'category' ? (
+        <><Path d="M20 12v7a2 2 0 0 1-2 2h-7" /><Path d="M14 3H5a2 2 0 0 0-2 2v9" /><Path d="m7 7 10 10" /><Path d="M7 17 17 7" /></>
+      ) : type === 'day' ? (
+        <><Path d="M8 2v4" /><Path d="M16 2v4" /><Path d="M3 10h18" /><Path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /></>
+      ) : (
+        <><Path d="M3 12a9 9 0 1 0 3-6.7" /><Path d="M3 4v6h6" /><Path d="M12 7v5l3 2" /></>
+      )}
+    </Svg>
+  )
+}
+
+function StoryHighlights({ highlights }: { highlights: Highlight[] }) {
+  return (
+    <View>
+      <View style={s.highlightsHeader}>
+        <Text style={s.sectionTitle}>Highlights</Text>
+      </View>
+      <View style={hl.card}>
+        {highlights.map((item, idx) => (
+          <View key={item.label} style={[hl.row, idx > 0 && hl.rowBorder]}>
+            <View style={hl.icon}>
+              <HighlightIcon type={item.icon} color={item.accent} />
+            </View>
+            <Text style={hl.text}>{item.text}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+const hl = StyleSheet.create({
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    overflow: 'hidden',
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  rowBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  icon: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  text: { flex: 1, fontSize: 13.5, fontFamily: F.semibold, lineHeight: 19, color: C.ink },
+})
+
 function DonutChart({ categories, total, colorMap }: {
   categories: { category: string; total: number }[]
   total: number
@@ -515,7 +629,7 @@ function SpendingSummary({ spent, previousSpent }: {
         </Svg>
         <View style={ss.pillText}>
           <Text style={[ss.pillValue, { color: accent }]} numberOfLines={1}>{pillLabel}</Text>
-          <Text style={ss.pillCaption}>vs last month</Text>
+          <Text style={ss.pillCaption}>than last month</Text>
         </View>
       </View>
     </View>
@@ -757,13 +871,28 @@ function StatsSkeleton({ activeTab, onTabChange }: { activeTab: Tab; onTabChange
       <TabSwitcher active={activeTab} onChange={onTabChange} />
 
       {activeTab === 'story' ? (
-        <View style={s.summaryCard}>
-          {[0, 1, 2].map((idx) => (
-            <View key={idx} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
-              <SkeletonBlock style={sk.summaryLabel} />
-              <SkeletonBlock style={sk.summaryValue} />
+        <View style={s.storyStack}>
+          <View style={s.summaryCard}>
+            {[0, 1, 2].map((idx) => (
+              <View key={idx} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+                <SkeletonBlock style={sk.summaryLabel} />
+                <SkeletonBlock style={sk.summaryValue} />
+              </View>
+            ))}
+          </View>
+          <View>
+            <View style={s.highlightsHeader}>
+              <SkeletonBlock style={sk.sectionTitle} />
             </View>
-          ))}
+            <View style={hl.card}>
+              {[0, 1, 2].map((idx) => (
+                <View key={idx} style={[hl.row, idx > 0 && hl.rowBorder]}>
+                  <SkeletonBlock style={sk.highlightIcon} />
+                  <SkeletonBlock style={[sk.highlightText, { width: idx === 0 ? 210 : idx === 1 ? 226 : 196 }]} />
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
       ) : activeTab === 'plan' ? (
         <View>
@@ -823,6 +952,8 @@ const sk = StyleSheet.create({
   block: { backgroundColor: C.line, opacity: 0.75, borderRadius: 6 },
   summaryLabel: { width: 48, height: 9 },
   summaryValue: { width: 72, height: 14 },
+  highlightIcon: { width: 30, height: 30, borderRadius: 15 },
+  highlightText: { height: 14 },
   sectionTitle: { width: 76, height: 18 },
   addButton: { width: 62, height: 34, borderRadius: 12 },
   budgetName: { flex: 1, height: 15 },
@@ -911,6 +1042,7 @@ export function StatsScreen() {
     return counts
   }, {})
   const expenseCats = topSpendingCategories(groupByCategory(txs, 'debit'))
+  const storyHighlights = buildStoryHighlights({ txs, expense, expenseCats, previousMonthSpend })
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
@@ -997,13 +1129,16 @@ export function StatsScreen() {
             {/* Content */}
             <Animated.View style={contentAnimStyle}>
             {activeTab === 'story' ? (
-              <View style={s.summaryCard}>
-                {summaryStrip.map(({ label, value, color }, idx) => (
-                  <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
-                    <Text style={s.summaryLabel}>{label}</Text>
-                    <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
-                  </View>
-                ))}
+              <View style={s.storyStack}>
+                <View style={s.summaryCard}>
+                  {summaryStrip.map(({ label, value, color }, idx) => (
+                    <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
+                      <Text style={s.summaryLabel}>{label}</Text>
+                      <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
+                    </View>
+                  ))}
+                </View>
+                <StoryHighlights highlights={storyHighlights} />
               </View>
             ) : activeTab === 'plan' ? (
               <>
@@ -1118,6 +1253,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
+  storyStack: { gap: 16 },
   spendingStack: { gap: 8 },
   summaryCard: {
     flexDirection: 'row',
@@ -1132,6 +1268,7 @@ const s = StyleSheet.create({
   summaryLabel: { fontSize: 10.5, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { fontSize: 13.5, fontFamily: F.monoBold },
   budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 8 },
+  highlightsHeader: { marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   addBtn: {
     flexDirection: 'row',
