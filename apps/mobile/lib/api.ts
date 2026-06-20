@@ -102,6 +102,9 @@ export type TxInput = {
   account_id?: string | null
   to_account_id?: string | null
   is_recurring?: boolean
+  reviewed?: boolean
+  source?: Transaction['source']
+  upi_ref?: string | null
 }
 
 export async function createTransaction(input: TxInput): Promise<Transaction> {

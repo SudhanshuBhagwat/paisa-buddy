@@ -326,6 +326,7 @@ export function ReviewScreen({ navigation }: Props) {
             setSheetOpen(false)
           } catch (e) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Failed to reject.')
+          } finally {
             setRejecting(false)
           }
         },

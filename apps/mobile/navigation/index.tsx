@@ -18,12 +18,14 @@ import { StatsScreen } from '../screens/StatsScreen'
 import { AccountsScreen } from '../screens/AccountsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 import { ReviewScreen } from '../screens/ReviewScreen'
+import { ImportStatementScreen } from '../screens/ImportStatementScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 
 export type RootStackParamList = {
   Login: undefined
   Setup: undefined
   Main: undefined
+  ImportStatement: undefined
   Review: undefined
 }
 
@@ -116,6 +118,7 @@ export function RootNavigator() {
           ) : (
             <>
               <Stack.Screen name="Main" component={MainTabs} />
+              <Stack.Screen name="ImportStatement" component={ImportStatementScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
             </>
           )}

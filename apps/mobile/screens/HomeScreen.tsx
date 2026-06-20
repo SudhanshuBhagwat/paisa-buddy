@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -284,7 +283,7 @@ export function HomeScreen() {
       key: 'import-statement',
       label: 'Import Statement',
       icon: 'import',
-      onPress: () => Alert.alert('Import Statement', 'Statement import is not available on mobile yet.'),
+      onPress: () => navigation.navigate('ImportStatement'),
     },
     {
       key: 'add-account',
