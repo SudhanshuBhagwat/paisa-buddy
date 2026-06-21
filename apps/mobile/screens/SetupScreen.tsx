@@ -32,11 +32,11 @@ import { useSetupComplete, type SetupStartAction } from '../navigation'
 import type { AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 
-type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 type TrackingPreference = 'import' | 'manual' | 'both'
 
 const BANK_TYPES: AccountType[] = ['savings', 'current', 'credit']
-const TOTAL_STEPS = 8
+const TOTAL_STEPS = 7
 const INCOME_KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del']
 const UPI_EXAMPLES = ['yourname@oksbi', 'yourname@ybl', 'yourname@paytm']
 
@@ -64,7 +64,7 @@ function WelcomeMascot({ size = 112 }: { size?: number }) {
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none" accessibilityLabel="Buddy mascot saying hi">
       <Rect x="40" y="6" width="20" height="14" rx="5" fill={C.brand} />
       <Path d="M45 19 L45 24 L50 19 Z" fill={C.brand} />
-      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="700">Hi</SvgText>
+      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontFamily={F.bold}>Hi</SvgText>
 
       <Path d="M10 16 C10 18 12 20 14 20 C12 20 10 22 10 24 C10 22 8 20 6 20 C8 20 10 18 10 16 Z" fill="#E0A33C" />
       <Path d="M58 34 C58 35.6 59.6 37 61 37 C59.6 37 58 38.4 58 40 C58 38.4 56.4 37 55 37 C56.4 37 58 35.6 58 34 Z" fill="#2BA77F" />
@@ -83,14 +83,6 @@ function WelcomeMascot({ size = 112 }: { size?: number }) {
 
       <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill={C.brandDeep} />
       <Rect x="2" y="53" width="60" height="3" rx="1.5" fill={C.brand} />
-    </Svg>
-  )
-}
-
-function SparkleIcon({ size = 16, color = '#E0A33C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill={color}>
-      <Path d="M8 0 L9.4 6.6 L16 8 L9.4 9.4 L8 16 L6.6 9.4 L0 8 L6.6 6.6 Z" />
     </Svg>
   )
 }
@@ -244,7 +236,6 @@ export function SetupScreen() {
   const [accountName, setAccountName] = useState('')
   const [bankName, setBankName] = useState('')
   const [balanceInput, setBalanceInput] = useState('')
-  const [skipAccount, setSkipAccount] = useState(false)
 
   // UPI IDs
   const [upiInput, setUpiInput] = useState('')
@@ -258,7 +249,7 @@ export function SetupScreen() {
   const [error, setError] = useState<string | null>(null)
 
   function goTo(s: Step) { setError(null); setStep(s) }
-  function goBack() { if (step === 0 || step === 8) return; goTo((step - 1) as Step) }
+  function goBack() { if (step === 0) return; goTo((step - 1) as Step) }
 
   function pickAccountCategory(cat: 'bank' | 'cash') {
     setAccountCategory(cat)
@@ -291,6 +282,12 @@ export function SetupScreen() {
     setEmailError(null); setError(null); goTo(3)
   }
 
+  function startActionForTrackingPreference(): SetupStartAction {
+    if (trackingPreference === 'import') return 'import'
+    if (trackingPreference === 'manual') return 'addTransaction'
+    return 'dashboard'
+  }
+
   async function handleFinish(action: SetupStartAction = 'dashboard') {
     if (saving) return
     setSaving(true); setError(null)
@@ -301,7 +298,7 @@ export function SetupScreen() {
       if (trimmedEmail) await saveEmail(trimmedEmail)
       const incomePaise = parseAmountToPaise(incomeInput)
       await setExpectedMonthlyIncome(incomePaise > 0 ? incomePaise : 0)
-      if (!skipAccount && accountName.trim()) {
+      if (accountName.trim()) {
         const balR = parseInt(balanceInput.replace(/[^0-9]/g, ''), 10)
         await createAccount(accountName.trim(), accountType, bankName.trim() || null, isNaN(balR) || balR < 0 ? 0 : balR * 100)
       }
@@ -368,68 +365,6 @@ export function SetupScreen() {
             <Text style={s.welcomeFooterText}>All data stays on your device.</Text>
           </View>
         </ScrollView>
-      </View>
-    )
-  }
-
-  // ── Step 8: All Set ──────────────────────────────────────────────────────────
-  if (step === 8) {
-    const startOptions =
-      trackingPreference === 'both'
-        ? [
-            { key: 'import', label: 'Import Statement', action: 'import' as const, primary: true },
-            { key: 'add', label: 'Add Transaction', action: 'addTransaction' as const, primary: false },
-            { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: false },
-          ]
-        : trackingPreference === 'import'
-          ? [
-              { key: 'import', label: 'Import Statement', action: 'import' as const, primary: true },
-              { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: false },
-            ]
-          : [
-              { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: true },
-              { key: 'import', label: 'Import Statement', action: 'import' as const, primary: false },
-            ]
-
-    return (
-      <View style={[s.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 24) }]}>
-        <View style={s.allSetWrap}>
-          {/* Buddy in circle with sparkles */}
-          <View style={s.allSetCircleWrap}>
-            <View style={s.allSetCircle}>
-              <BuddySVG size={96} />
-            </View>
-            <View style={[s.sparklePos, { top: 2, right: 14 }]}><SparkleIcon size={20} /></View>
-            <View style={[s.sparklePos, { top: 32, left: 2 }]}><SparkleIcon size={12} /></View>
-            <View style={[s.sparklePos, { bottom: 6, right: 2 }]}><SparkleIcon size={14} /></View>
-          </View>
-
-          <Text style={s.allSetTitle}>You're ready</Text>
-          <Text style={s.allSetSub}>
-            How would you like to start?
-          </Text>
-
-          {error && <Text style={[s.err, { textAlign: 'center', marginBottom: 8 }]}>{error}</Text>}
-
-          <View style={s.startActions}>
-            {startOptions.map((option) => (
-              <Pressable
-                key={option.key}
-                style={({ pressed }) => [
-                  option.primary ? s.btn : s.secondaryBtn,
-                  saving && s.btnOff,
-                  pressed && s.btnPress,
-                ]}
-                onPress={() => void handleFinish(option.action)}
-                disabled={saving}
-              >
-                {saving && option.primary
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={option.primary ? s.btnText : s.secondaryBtnText}>{option.label}</Text>}
-              </Pressable>
-            ))}
-          </View>
-        </View>
       </View>
     )
   }
@@ -710,15 +645,11 @@ export function SetupScreen() {
                 style={({ pressed }) => [s.btn, { marginTop: 8 }, !accountName.trim() && s.btnOff, pressed && s.btnPress]}
                 onPress={() => {
                   if (!accountName.trim()) { setError('Account name is required.'); return }
-                  setSkipAccount(false); goTo(6)
+                  goTo(6)
                 }}
                 disabled={!accountName.trim()}
               >
                 <Text style={s.btnText}>Continue</Text>
-              </Pressable>
-
-              <Pressable style={s.skipBtn} onPress={() => { setSkipAccount(true); goTo(6) }}>
-                <Text style={s.skipText}>Skip account setup</Text>
               </Pressable>
             </View>
           )}
@@ -808,10 +739,13 @@ export function SetupScreen() {
               </View>
 
               <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]}
-                onPress={() => goTo(8)}
+                style={({ pressed }) => [s.btn, { marginTop: 28 }, saving && s.btnOff, pressed && s.btnPress]}
+                onPress={() => void handleFinish(startActionForTrackingPreference())}
+                disabled={saving}
               >
-                <Text style={s.btnText}>Continue</Text>
+                {saving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={s.btnText}>Finish Setup</Text>}
               </Pressable>
             </View>
           )}
@@ -853,16 +787,6 @@ const s = StyleSheet.create({
   welcomeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 },
   welcomeFooterText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
 
-  // All Set
-  allSetWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  allSetCircleWrap: { position: 'relative', width: 164, height: 164, marginBottom: 28 },
-  allSetCircle: { width: 164, height: 164, borderRadius: 82, backgroundColor: C.brandPale, alignItems: 'center', justifyContent: 'center' },
-  sparklePos: { position: 'absolute' },
-  allSetTitle: { fontSize: 34, fontFamily: F.extrabold, color: C.ink, marginBottom: 10, textAlign: 'center' },
-  allSetSub: { fontSize: 15, fontFamily: F.medium, color: C.ink3, textAlign: 'center', lineHeight: 23 },
-  startActions: { alignSelf: 'stretch', gap: 12, marginTop: 32 },
-  // Step hero (privacy)
-  privacyHero: { alignItems: 'center' },
   stepTitle: { fontSize: 28, fontFamily: F.extrabold, color: C.ink, marginBottom: 8, lineHeight: 34, letterSpacing: -0.5 },
   stepSub: { fontSize: 14, fontFamily: F.medium, color: C.ink3, lineHeight: 21 },
 
@@ -963,8 +887,6 @@ const s = StyleSheet.create({
   btnOff: { opacity: 0.45 },
   btnPress: { opacity: 0.85 },
   btnText: { color: '#ffffff', fontSize: 16, fontFamily: F.bold },
-  secondaryBtn: { borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', borderWidth: 1.5, borderColor: C.line, backgroundColor: C.surface },
-  secondaryBtnText: { color: C.ink, fontSize: 16, fontFamily: F.bold },
   skipBtn: { alignItems: 'center', paddingVertical: 14 },
   skipText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
 
