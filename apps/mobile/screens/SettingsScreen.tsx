@@ -13,7 +13,6 @@ import {
 import Svg, { Circle, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchExportCsv } from '../lib/api'
 import {
   setDisplayName,
   setExpectedMonthlyIncome,
@@ -23,6 +22,7 @@ import {
 } from '../repositories/settingsRepository'
 import { createCategory, deleteCategory } from '../repositories/categoryRepository'
 import {
+  generateExportCsv,
   getSettingsData,
   type SettingsData,
   type CategoryWithCount,
@@ -217,7 +217,7 @@ export function SettingsScreen() {
   async function handleExport() {
     setExporting(true)
     try {
-      const csv = await fetchExportCsv()
+      const csv = await generateExportCsv()
       await Share.share({ message: csv, title: 'Paisa Buddy Export' })
     } catch {
       Alert.alert('Error', 'Could not export data.')

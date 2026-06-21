@@ -120,6 +120,39 @@ export async function getStatsData(month: string): Promise<StatsData> {
   }
 }
 
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+function escCsv(v: string | null | undefined): string {
+  const s = v ?? ''
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
+
+export async function generateExportCsv(): Promise<string> {
+  const [transactions, accounts] = await Promise.all([getAll(), listAccounts()])
+  const accountMap = new Map(accounts.map((a) => [a.id, a.name]))
+  const rows: string[] = [
+    'Date,Time,Merchant,Description,Category,Type,Amount (₹),Account,Recurring,Reviewed',
+    ...transactions
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''))
+      .map((tx) => [
+        escCsv(tx.date),
+        escCsv(tx.time),
+        escCsv(tx.merchant),
+        escCsv(tx.description),
+        escCsv(tx.category),
+        escCsv(tx.type),
+        (tx.amount / 100).toFixed(2),
+        escCsv(tx.account_id ? accountMap.get(tx.account_id) ?? '' : ''),
+        tx.is_recurring ? 'Yes' : '',
+        tx.reviewed ? 'Yes' : '',
+      ].join(',')),
+  ]
+  return rows.join('\n')
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 export type CategoryWithCount = { name: string; color: string; transactionCount: number }
