@@ -1084,7 +1084,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  processingTitle: { fontSize: 22, fontFamily: F.extrabold, color: C.ink },
+  processingTitle: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },
   processingSub: { fontSize: 13, fontFamily: F.regular, color: C.ink3, textAlign: 'center', lineHeight: 19 },
   processingSteps: {
     width: '100%',
@@ -1103,14 +1103,14 @@ const s = StyleSheet.create({
 
   // Empty
   checkCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },
+  emptyTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   emptySub: { fontSize: 14, fontFamily: F.regular, color: C.ink3, textAlign: 'center' },
 
   // Summary
   summaryContent: { paddingHorizontal: 16, paddingTop: 24, gap: 20 },
   summaryHero: { alignItems: 'center', gap: 4 },
   summaryCount: { fontSize: 64, fontFamily: F.extrabold, color: C.ink, lineHeight: 72 },
-  summaryCountLabel: { fontSize: 16, fontFamily: F.medium, color: C.ink2 },
+  summaryCountLabel: { fontSize: 16, fontFamily: F.extrabold, color: C.ink },
   summaryPrivacy: { fontSize: 13, fontFamily: F.regular, color: C.brand, marginTop: 4 },
   summaryCards: { gap: 10 },
   summaryCard: {
@@ -1133,7 +1133,7 @@ const s = StyleSheet.create({
     flexShrink: 0,
   },
   summaryCardBody: { flex: 1, gap: 2 },
-  summaryCardNum: { fontSize: 15, fontFamily: F.semibold, color: C.ink },
+  summaryCardNum: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   summaryCardSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
   summaryCardBadge: {
     backgroundColor: C.brandPale,
@@ -1171,7 +1171,7 @@ const s = StyleSheet.create({
   },
   groupCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   groupCardInfo: { flex: 1, gap: 6 },
-  groupName: { fontSize: 20, fontFamily: F.extrabold, color: C.ink, lineHeight: 26 },
+  groupName: { fontSize: 18, fontFamily: F.extrabold, color: C.ink, lineHeight: 24 },
   suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   suggestionChip: {
     alignSelf: 'flex-start',
@@ -1210,7 +1210,7 @@ const s = StyleSheet.create({
   nextGroupBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
 
   // Category pills
-  catQuestion: { fontSize: 13, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  catQuestion: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   catPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catPill: {
     flexDirection: 'row',
@@ -1226,7 +1226,7 @@ const s = StyleSheet.create({
   catPillSuggested: { borderColor: C.brand + '60', backgroundColor: C.brandPale + '60' },
   accountPillSelected: { borderColor: C.brand },
   catPillDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  catPillText: { fontSize: 13.5, fontFamily: F.medium, color: C.ink },
+  catPillText: { fontSize: 14, fontFamily: F.medium, color: C.ink },
   suggestedTag: { fontSize: 10, color: C.brand },
   inlineEmptyText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 19 },
 
@@ -1282,7 +1282,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   rowBorder: { borderTopWidth: 1, borderTopColor: C.line },
   rowBody: { flex: 1, minWidth: 0, gap: 2 },
-  rowMerchant: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
+  rowMerchant: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   rowCat: { fontSize: 12, fontFamily: F.bold, color: C.ink3 },
   rowChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   rowInfoChip: {
@@ -1304,13 +1304,13 @@ const s = StyleSheet.create({
   rowDate: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
   typeBadge: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   typeBadgeText: { fontSize: 9, fontFamily: F.extrabold, letterSpacing: 0.4, textTransform: 'uppercase' },
-  rowAmount: { fontSize: 15, fontFamily: F.monoBold, flexShrink: 0 },
+  rowAmount: { fontSize: 14, fontFamily: F.monoBold, flexShrink: 0 },
 
   // Done
   doneContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
   doneCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
-  doneTitle: { fontSize: 28, fontFamily: F.extrabold, color: C.ink },
-  doneSub: { fontSize: 15, fontFamily: F.medium, color: C.ink2 },
+  doneTitle: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },
+  doneSub: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   doneStats: {
     width: '100%',
     backgroundColor: C.surface,
@@ -1336,7 +1336,7 @@ const s = StyleSheet.create({
 
   // Sheet
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-  sheetTitle: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
+  sheetTitle: { flex: 1, marginRight: 12, fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   sheetCancelBtn: { paddingVertical: 4, paddingHorizontal: 2 },
   sheetCancelText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   sheetScroll: { flex: 1 },
@@ -1347,7 +1347,7 @@ const s = StyleSheet.create({
   field: { gap: 8 },
   twoCol: { flexDirection: 'row', gap: 16 },
   colField: { flex: 1, gap: 8 },
-  label: { fontSize: 11, fontFamily: F.medium, color: C.ink3, letterSpacing: 0.4 },
+  label: { fontSize: 11, fontFamily: F.bold, color: C.ink3, letterSpacing: 0.4 },
   textInput: {
     paddingHorizontal: 14,
     paddingVertical: 11,
