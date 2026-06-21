@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
 import type { Budget, BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 
@@ -43,7 +44,7 @@ export async function listPlans(month: string): Promise<BudgetWithSpent[]> {
 export async function upsertPlan(category: string, amount: number): Promise<Budget> {
   const db = getDb()
   const now = new Date().toISOString()
-  const id = crypto.randomUUID()
+  const id = generateId()
   await db.runAsync(
     `INSERT INTO plans (id, category, amount, created_at)
      VALUES (?, ?, ?, ?)

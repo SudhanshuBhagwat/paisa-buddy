@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
 import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
 
@@ -65,7 +66,7 @@ export async function createAccount(
   opening_balance: number = 0,
 ): Promise<Account> {
   const db = getDb()
-  const id = crypto.randomUUID()
+  const id = generateId()
   const now = new Date().toISOString()
   await db.runAsync(
     'INSERT INTO accounts (id, name, type, bank, opening_balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',

@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 
@@ -68,7 +69,7 @@ export type TxPatch = Partial<TxInput>
 
 export async function createTransaction(input: TxInput): Promise<Transaction> {
   const db = getDb()
-  const id = crypto.randomUUID()
+  const id = generateId()
   const now = new Date().toISOString()
   await db.runAsync(
     `INSERT INTO transactions

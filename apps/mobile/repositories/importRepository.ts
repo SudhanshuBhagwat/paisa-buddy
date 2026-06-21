@@ -1,9 +1,10 @@
+import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
 import type { TxInput } from './transactionRepository'
 
 export async function createImportSession(filename: string | null): Promise<string> {
   const db = getDb()
-  const id = crypto.randomUUID()
+  const id = generateId()
   await db.runAsync(
     'INSERT INTO import_sessions (id, filename, status) VALUES (?, ?, ?)',
     [id, filename, 'reviewing'],
@@ -23,7 +24,7 @@ export async function bulkInsertUnreviewed(
   const db = getDb()
   await db.withTransactionAsync(async () => {
     for (const row of rows) {
-      const id = crypto.randomUUID()
+      const id = generateId()
       await db.runAsync(
         `INSERT INTO transactions
           (id, type, amount, date, time, merchant, description, category,
