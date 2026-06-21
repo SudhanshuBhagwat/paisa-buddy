@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg'
+import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { C, F, RADIUS } from '../lib/tokens'
 import {
@@ -55,6 +55,34 @@ function BuddySVG({ size = 64 }: { size?: number }) {
       <Circle cx="25.5" cy="34" r="2.6" fill={C.brandDeep} />
       <Circle cx="38.5" cy="34" r="2.6" fill={C.brandDeep} />
       <Path d="M25 41 Q32 47 39 41" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
+}
+
+function WelcomeMascot({ size = 112 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none" accessibilityLabel="Buddy mascot saying hi">
+      <Rect x="40" y="6" width="20" height="14" rx="5" fill={C.brand} />
+      <Path d="M45 19 L45 24 L50 19 Z" fill={C.brand} />
+      <SvgText x="50" y="16" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="700">Hi</SvgText>
+
+      <Path d="M10 16 C10 18 12 20 14 20 C12 20 10 22 10 24 C10 22 8 20 6 20 C8 20 10 18 10 16 Z" fill="#E0A33C" />
+      <Path d="M58 34 C58 35.6 59.6 37 61 37 C59.6 37 58 38.4 58 40 C58 38.4 56.4 37 55 37 C56.4 37 58 35.6 58 34 Z" fill="#2BA77F" />
+
+      <Path d="M27 22 C27 16 22 13 19 16 C17 19 22 22 27 22 Z" fill={C.brand} />
+      <Path d="M27 22 C27 17 32 15 34 18 C35 20 31 23 27 22 Z" fill="#2BA77F" />
+      <Path d="M27 25 L27 20" stroke={C.brandDeep} strokeWidth="2" strokeLinecap="round" />
+
+      <Circle cx="27" cy="44" r="19" fill={C.brandPale} stroke={C.brand} strokeWidth="2.5" />
+      <Circle cx="27" cy="44" r="14.5" stroke={C.brand} strokeWidth="1.3" strokeOpacity="0.3" />
+      <Circle cx="18.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="35.5" cy="46" r="3" fill="#F4B8A8" fillOpacity="0.75" />
+      <Circle cx="21.5" cy="41" r="2.5" fill={C.brandDeep} />
+      <Circle cx="32.5" cy="41" r="2.5" fill={C.brandDeep} />
+      <Path d="M20.5 46 Q27 53 33.5 46" stroke={C.brandDeep} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+
+      <Path d="M2 55 H62 V62 a2 2 0 0 1 -2 2 H4 a2 2 0 0 1 -2 -2 Z" fill={C.brandDeep} />
+      <Rect x="2" y="53" width="60" height="3" rx="1.5" fill={C.brand} />
     </Svg>
   )
 }
@@ -296,14 +324,9 @@ export function SetupScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Buddy + sparkle */}
+          {/* Buddy */}
           <View style={s.welcomeHero}>
-            <View style={{ position: 'relative' }}>
-              <BuddySVG size={104} />
-              <View style={s.welcomeSparkle}>
-                <SparkleIcon size={20} />
-              </View>
-            </View>
+            <WelcomeMascot size={118} />
             <View style={s.wordmarkRow}>
               <Text style={s.wordmarkPaisa}>Paisa </Text>
               <Text style={s.wordmarkBuddy}>Buddy</Text>
@@ -435,13 +458,10 @@ export function SetupScreen() {
           {/* ── Step 1: Privacy First ─────────────────────────────────────── */}
           {step === 1 && (
             <View>
-              <View style={[s.privacyHero, { marginBottom: 28 }]}>
-                <BuddySVG size={66} />
-                <Text style={s.stepTitle}>Your data,{'\n'}your rules</Text>
-                <Text style={s.stepSub}>
-                  Paisa Buddy gives you complete control over your financial data.
-                </Text>
-              </View>
+              <Text style={s.stepTitle}>Your data, your rules</Text>
+              <Text style={s.stepSub}>
+                Paisa Buddy gives you complete control over your financial data.
+              </Text>
 
               {(() => {
                 const items = [
@@ -450,7 +470,7 @@ export function SetupScreen() {
                   { icon: <PhoneIcon />, label: 'Delete Anytime', sub: 'Remove all your data with a single tap.' },
                 ]
                 return (
-                  <View style={s.groupCard}>
+                  <View style={[s.groupCard, { marginTop: 28 }]}>
                     {items.map(({ icon, label, sub }, idx) => (
                       <View key={label} style={[s.groupRow, idx < items.length - 1 && s.groupRowBorder]}>
                         <IconTile>{icon}</IconTile>
@@ -814,7 +834,6 @@ const s = StyleSheet.create({
   // Welcome
   welcomeScroll: { paddingHorizontal: 22, flexGrow: 1, justifyContent: 'center' },
   welcomeHero: { alignItems: 'center', marginBottom: 36 },
-  welcomeSparkle: { position: 'absolute', top: -4, right: -8 },
   wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 18 },
   wordmarkPaisa: { fontSize: 27, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.ink },
   wordmarkBuddy: { fontSize: 27, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.brand },
