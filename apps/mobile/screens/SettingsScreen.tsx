@@ -31,6 +31,7 @@ import {
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
+import { Dialog } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 import { useSetupReset } from '../navigation'
 
@@ -86,6 +87,7 @@ export function SettingsScreen() {
   // Misc
   const [exporting, setExporting] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -227,27 +229,20 @@ export function SettingsScreen() {
   }
 
   function handleClearAll() {
-    Alert.alert(
-      'Reset all data?',
-      'This will permanently delete all your transactions, accounts, and settings, and restart the app setup. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset & Start Over', style: 'destructive',
-          onPress: async () => {
-            setClearing(true)
-            try {
-              await clearAllData()
-              queryClient.clear()
-              onSetupReset()
-            } catch {
-              Alert.alert('Error', 'Could not reset data.')
-              setClearing(false)
-            }
-          },
-        },
-      ],
-    )
+    setClearDialogOpen(true)
+  }
+
+  async function confirmClearAll() {
+    setClearing(true)
+    try {
+      await clearAllData()
+      queryClient.clear()
+      setClearDialogOpen(false)
+      onSetupReset()
+    } catch {
+      Alert.alert('Error', 'Could not reset data.')
+      setClearing(false)
+    }
   }
 
   const initials = nameInput.trim()
@@ -467,6 +462,29 @@ export function SettingsScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <Dialog
+        visible={clearDialogOpen}
+        onClose={() => {
+          if (!clearing) setClearDialogOpen(false)
+        }}
+        title="Reset all data?"
+        message="This will permanently delete all your transactions, accounts, and settings, and restart the app setup. This cannot be undone."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setClearDialogOpen(false),
+            disabled: clearing,
+          },
+          {
+            label: 'Reset & Start Over',
+            variant: 'destructive',
+            onPress: confirmClearAll,
+            loading: clearing,
+          },
+        ]}
+      />
 
       {/* ── Category Management Sheet ── */}
       <Sheet
