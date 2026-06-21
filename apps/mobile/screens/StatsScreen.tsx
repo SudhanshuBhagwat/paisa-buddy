@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import { budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
 
@@ -764,18 +764,20 @@ const ss = StyleSheet.create({
 })
 
 function BudgetSheet({
-  visible, onClose, editing, allCategories, onSaved,
+  visible, onClose, editing, allCategories, onSaved, onDelete,
 }: {
   visible: boolean
   onClose: () => void
   editing: BudgetWithSpent | null
   allCategories: string[]
   onSaved: (b: BudgetWithSpent) => void
+  onDelete: (b: BudgetWithSpent) => void
 }) {
   const [category, setCategory] = useState('')
   const [amountStr, setAmountStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   React.useEffect(() => {
     if (visible) {
@@ -794,7 +796,7 @@ function BudgetSheet({
       onSaved({ ...saved, spent: editing?.spent ?? 0 })
       onClose()
     } catch (e) {
-      Alert.alert('Error', 'Could not save budget.')
+      setMessageDialog({ title: 'Error', message: 'Could not save budget.' })
     } finally {
       setSaving(false)
     }
@@ -855,6 +857,14 @@ function BudgetSheet({
           >
             <Text style={bs.saveText}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Budget'}</Text>
           </Pressable>
+          {editing ? (
+            <Pressable
+              style={bs.delete}
+              onPress={() => onDelete(editing)}
+            >
+              <Text style={bs.deleteText}>Delete Budget</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
 
         <Sheet
@@ -895,8 +905,12 @@ function BudgetSheet({
             })}
           </ScrollView>
         </Sheet>
-      </Sheet>
-    </>
+        </Sheet>
+        <MessageDialog
+          dialog={messageDialog}
+          onClose={() => setMessageDialog(null)}
+        />
+      </>
   )
 }
 
@@ -959,6 +973,8 @@ const bs = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 14, fontFamily: F.mono, color: C.ink, padding: 0 },
   save: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
+  delete: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(219,90,75,0.35)' },
+  deleteText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
 })
 
 function SkeletonBlock({ style }: { style?: object }) {
@@ -1119,6 +1135,9 @@ export function StatsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
+  const [budgetToDelete, setBudgetToDelete] = useState<BudgetWithSpent | null>(null)
+  const [deletingBudget, setDeletingBudget] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const data = statsQuery.data ?? null
 
@@ -1177,24 +1196,28 @@ export function StatsScreen() {
     queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
   }
 
-  async function handleDeleteBudget(id: string) {
-    Alert.alert('Delete budget?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          try {
-            await deletePlan(id)
-            queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
-              prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== id) } : prev
-            ))
-            queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
-          } catch {
-            Alert.alert('Error', 'Could not delete budget.')
-          }
-        },
-      },
-    ])
+  function handleDeleteBudget(budget: BudgetWithSpent) {
+    setBudgetToDelete(budget)
+  }
+
+  async function confirmDeleteBudget() {
+    if (!budgetToDelete) return
+    setDeletingBudget(true)
+    try {
+      await deletePlan(budgetToDelete.id)
+      queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
+        prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== budgetToDelete.id) } : prev
+      ))
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
+      setBudgetSheetOpen(false)
+      setEditingBudget(null)
+      setBudgetToDelete(null)
+    } catch {
+      setBudgetToDelete(null)
+      setMessageDialog({ title: 'Error', message: 'Could not delete budget.' })
+    } finally {
+      setDeletingBudget(false)
+    }
   }
 
   return (
@@ -1362,6 +1385,33 @@ export function StatsScreen() {
         editing={editingBudget}
         allCategories={allCategories}
         onSaved={handleBudgetSaved}
+        onDelete={handleDeleteBudget}
+      />
+      <Dialog
+        visible={!!budgetToDelete}
+        onClose={() => {
+          if (!deletingBudget) setBudgetToDelete(null)
+        }}
+        title="Delete budget?"
+        message="This cannot be undone."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setBudgetToDelete(null),
+            disabled: deletingBudget,
+          },
+          {
+            label: 'Delete',
+            variant: 'destructive',
+            onPress: confirmDeleteBudget,
+            loading: deletingBudget,
+          },
+        ]}
+      />
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
       />
       <MonthSelectionSheet
         visible={monthSheetOpen}

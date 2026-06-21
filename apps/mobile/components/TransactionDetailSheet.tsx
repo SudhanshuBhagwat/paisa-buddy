@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import Svg, { Polyline } from 'react-native-svg'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
+import { MessageDialog, type MessageDialogState } from './Dialog'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { updateTransaction } from '../repositories/transactionRepository'
@@ -113,6 +113,7 @@ export function TransactionDetailSheet({
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [pendingTime, setPendingTime] = useState(new Date())
   const [saving, setSaving] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const [catPickerOpen, setCatPickerOpen] = useState(false)
   const [accPickerOpen, setAccPickerOpen] = useState(false)
@@ -168,7 +169,7 @@ export function TransactionDetailSheet({
       onSaved(updated)
       onClose()
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save.')
+      setMessageDialog({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to save.' })
     } finally {
       setSaving(false)
     }
@@ -177,6 +178,7 @@ export function TransactionDetailSheet({
   if (!tx) return null
 
   return (
+    <>
     <Sheet
       visible={visible}
       onClose={onClose}
@@ -563,6 +565,11 @@ export function TransactionDetailSheet({
         </Modal>
       )}
     </Sheet>
+    <MessageDialog
+      dialog={messageDialog}
+      onClose={() => setMessageDialog(null)}
+    />
+    </>
   )
 }
 

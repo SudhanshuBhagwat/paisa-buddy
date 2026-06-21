@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Circle, Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { getReviewData } from '../lib/data'
@@ -153,6 +153,8 @@ export function ReviewScreen({ navigation }: Props) {
   const [form, setForm] = useState<ReviewFormState | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [rejecting, setRejecting] = useState(false)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [pendingDate, setPendingDate] = useState(new Date())
   const [showTimePicker, setShowTimePicker] = useState(false)
@@ -245,7 +247,7 @@ export function ReviewScreen({ navigation }: Props) {
       }))
       setGroupJustDone({ count, category: cat })
     } catch {
-      Alert.alert('Error', 'Could not apply category. Please try again.')
+      setMessageDialog({ title: 'Error', message: 'Could not apply category. Please try again.' })
     } finally {
       setApplyingGroup(false)
     }
@@ -295,7 +297,7 @@ export function ReviewScreen({ navigation }: Props) {
   async function handleConfirm() {
     if (!activeTx || !form) return
     if (!isReviewConfirmable(form)) {
-      Alert.alert('Required', 'Choose a category and account to confirm.')
+      setMessageDialog({ title: 'Required', message: 'Choose a category and account to confirm.' })
       return
     }
     setConfirming(true)
@@ -304,31 +306,30 @@ export function ReviewScreen({ navigation }: Props) {
       removeIndividual(activeTx.id)
       setSheetOpen(false)
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to confirm.')
+      setMessageDialog({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to confirm.' })
     } finally {
       setConfirming(false)
     }
   }
 
-  async function handleReject() {
-    Alert.alert('Reject transaction', 'This will permanently delete the transaction.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject', style: 'destructive',
-        onPress: async () => {
-          setRejecting(true)
-          try {
-            await deleteTransaction(activeTx!.id)
-            removeIndividual(activeTx!.id)
-            setSheetOpen(false)
-          } catch (e) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Failed to reject.')
-          } finally {
-            setRejecting(false)
-          }
-        },
-      },
-    ])
+  function handleReject() {
+    setRejectDialogOpen(true)
+  }
+
+  async function confirmReject() {
+    if (!activeTx) return
+    setRejecting(true)
+    try {
+      await deleteTransaction(activeTx.id)
+      removeIndividual(activeTx.id)
+      setRejectDialogOpen(false)
+      setSheetOpen(false)
+    } catch (e) {
+      setRejectDialogOpen(false)
+      setMessageDialog({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to reject.' })
+    } finally {
+      setRejecting(false)
+    }
   }
 
   // ── Render helpers ────────────────────────────────────────────────────────────
@@ -1043,6 +1044,33 @@ export function ReviewScreen({ navigation }: Props) {
           )}
         </Sheet>
       )}
+
+      <Dialog
+        visible={rejectDialogOpen}
+        onClose={() => {
+          if (!rejecting) setRejectDialogOpen(false)
+        }}
+        title="Reject transaction?"
+        message="This will permanently delete the transaction."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setRejectDialogOpen(false),
+            disabled: rejecting,
+          },
+          {
+            label: 'Reject',
+            variant: 'destructive',
+            onPress: confirmReject,
+            loading: rejecting,
+          },
+        ]}
+      />
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
+      />
     </View>
   )
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Share,
@@ -31,7 +30,7 @@ import {
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
-import { Dialog } from '../components/Dialog'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 import { useSetupReset } from '../navigation'
 
@@ -83,11 +82,14 @@ export function SettingsScreen() {
   const [newCat, setNewCat] = useState('')
   const [addingCat, setAddingCat] = useState(false)
   const [catSheetOpen, setCatSheetOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryWithCount | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState(false)
 
   // Misc
   const [exporting, setExporting] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   useEffect(() => {
     if (!data) return
@@ -106,7 +108,7 @@ export function SettingsScreen() {
       setNameSaved(true)
       setTimeout(() => setNameSaved(false), 1500)
     } catch {
-      Alert.alert('Error', 'Could not save name.')
+      setMessageDialog({ title: 'Error', message: 'Could not save name.' })
     }
   }
 
@@ -123,7 +125,7 @@ export function SettingsScreen() {
       setIncomeSaved(true)
       setTimeout(() => setIncomeSaved(false), 1500)
     } catch {
-      Alert.alert('Error', 'Could not save income.')
+      setMessageDialog({ title: 'Error', message: 'Could not save income.' })
     }
   }
 
@@ -145,7 +147,7 @@ export function SettingsScreen() {
       invalidateSettingsData(queryClient)
       setNewUpi('')
     } catch {
-      Alert.alert('Error', 'Could not add UPI ID.')
+      setMessageDialog({ title: 'Error', message: 'Could not add UPI ID.' })
     } finally {
       setAddingUpi(false)
     }
@@ -159,7 +161,7 @@ export function SettingsScreen() {
       ))
       invalidateSettingsData(queryClient)
     } catch {
-      Alert.alert('Error', 'Could not remove UPI ID.')
+      setMessageDialog({ title: 'Error', message: 'Could not remove UPI ID.' })
     }
   }
 
@@ -181,39 +183,40 @@ export function SettingsScreen() {
       invalidateCategoryData(queryClient)
       setNewCat('')
     } catch {
-      Alert.alert('Error', 'Could not add category.')
+      setCatSheetOpen(false)
+      setMessageDialog({ title: 'Error', message: 'Could not add category.' })
     } finally {
       setAddingCat(false)
     }
   }
 
   function handleRemoveCategory(cat: CategoryWithCount) {
-    const msg = cat.transactionCount > 0
-      ? `${cat.transactionCount} transaction${cat.transactionCount !== 1 ? 's' : ''} use this category. Their category will be cleared.`
-      : 'This cannot be undone.'
-    Alert.alert(`Delete "${cat.name}"?`, msg, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteCategory(cat.name, cat.transactionCount > 0)
-            queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
-              prev ? {
-                ...prev,
-                settings: {
-                  ...prev.settings,
-                  customCategories: prev.settings.customCategories.filter((c) => c.name !== cat.name),
-                },
-              } : prev
-            ))
-            invalidateCategoryData(queryClient)
-          } catch {
-            Alert.alert('Error', 'Could not remove category.')
-          }
-        },
-      },
-    ])
+    setCatSheetOpen(false)
+    setCategoryToDelete(cat)
+  }
+
+  async function confirmRemoveCategory() {
+    if (!categoryToDelete) return
+    setDeletingCategory(true)
+    try {
+      await deleteCategory(categoryToDelete.name, categoryToDelete.transactionCount > 0)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            customCategories: prev.settings.customCategories.filter((c) => c.name !== categoryToDelete.name),
+          },
+        } : prev
+      ))
+      invalidateCategoryData(queryClient)
+      setCategoryToDelete(null)
+    } catch {
+      setCategoryToDelete(null)
+      setMessageDialog({ title: 'Error', message: 'Could not remove category.' })
+    } finally {
+      setDeletingCategory(false)
+    }
   }
 
   async function handleExport() {
@@ -222,7 +225,7 @@ export function SettingsScreen() {
       const csv = await generateExportCsv()
       await Share.share({ message: csv, title: 'Paisa Buddy Export' })
     } catch {
-      Alert.alert('Error', 'Could not export data.')
+      setMessageDialog({ title: 'Error', message: 'Could not export data.' })
     } finally {
       setExporting(false)
     }
@@ -240,7 +243,8 @@ export function SettingsScreen() {
       setClearDialogOpen(false)
       onSetupReset()
     } catch {
-      Alert.alert('Error', 'Could not reset data.')
+      setClearDialogOpen(false)
+      setMessageDialog({ title: 'Error', message: 'Could not reset data.' })
       setClearing(false)
     }
   }
@@ -484,6 +488,36 @@ export function SettingsScreen() {
             loading: clearing,
           },
         ]}
+      />
+
+      <Dialog
+        visible={!!categoryToDelete}
+        onClose={() => {
+          if (!deletingCategory) setCategoryToDelete(null)
+        }}
+        title={categoryToDelete ? `Delete "${categoryToDelete.name}"?` : 'Delete category?'}
+        message={categoryToDelete && categoryToDelete.transactionCount > 0
+          ? `${categoryToDelete.transactionCount} transaction${categoryToDelete.transactionCount !== 1 ? 's' : ''} use this category. Their category will be cleared.`
+          : 'This cannot be undone.'}
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setCategoryToDelete(null),
+            disabled: deletingCategory,
+          },
+          {
+            label: 'Delete',
+            variant: 'destructive',
+            onPress: confirmRemoveCategory,
+            loading: deletingCategory,
+          },
+        ]}
+      />
+
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
       />
 
       {/* ── Category Management Sheet ── */}

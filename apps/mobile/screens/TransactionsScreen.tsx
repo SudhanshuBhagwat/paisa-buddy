@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import { deleteTransaction } from '../repositories/transactionRepository'
 import { getTransactionMonthData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
@@ -177,6 +177,9 @@ export function TransactionsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
+  const [deletingTransaction, setDeletingTransaction] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const listOpacity = useSharedValue(1)
   const listFadeStyle = useAnimatedStyle(() => ({ opacity: listOpacity.value }))
 
@@ -234,6 +237,23 @@ export function TransactionsScreen() {
     setSelectedCategory(null)
     setSelectedAccount(null)
     setRecurringOnly(false)
+  }
+
+  async function confirmDeleteTransaction() {
+    if (!transactionToDelete) return
+    setDeletingTransaction(true)
+    try {
+      await deleteTransaction(transactionToDelete.id)
+      removeTx(transactionToDelete.id)
+      setDetailOpen(false)
+      setDetailTx(null)
+      setTransactionToDelete(null)
+    } catch {
+      setTransactionToDelete(null)
+      setMessageDialog({ title: 'Error', message: 'Could not delete transaction.' })
+    } finally {
+      setDeletingTransaction(false)
+    }
   }
 
   if (transactionsQuery.isLoading) {
@@ -454,28 +474,36 @@ export function TransactionsScreen() {
         visible={detailOpen}
         onClose={() => setDetailOpen(false)}
         onSaved={(tx) => { upsertTx(tx); setDetailOpen(false) }}
-        onDelete={(tx) => {
-          Alert.alert('Delete transaction?', 'This cannot be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Delete',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  await deleteTransaction(tx.id)
-                  removeTx(tx.id)
-                  setDetailOpen(false)
-                  setDetailTx(null)
-                } catch {
-                  Alert.alert('Error', 'Could not delete transaction.')
-                }
-              },
-            },
-          ])
-        }}
+        onDelete={setTransactionToDelete}
         accounts={accounts}
         catColors={catColors}
         recentCategories={recentCategories}
+      />
+      <Dialog
+        visible={!!transactionToDelete}
+        onClose={() => {
+          if (!deletingTransaction) setTransactionToDelete(null)
+        }}
+        title="Delete transaction?"
+        message="This cannot be undone."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setTransactionToDelete(null),
+            disabled: deletingTransaction,
+          },
+          {
+            label: 'Delete',
+            variant: 'destructive',
+            onPress: confirmDeleteTransaction,
+            loading: deletingTransaction,
+          },
+        ]}
+      />
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
       />
     </View>
   )

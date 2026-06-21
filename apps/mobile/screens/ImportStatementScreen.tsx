@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { C, F, RADIUS } from '../lib/tokens'
 import { createTransaction, getByMonth } from '../repositories/transactionRepository'
 import { getAccounts } from '../lib/data'
@@ -79,13 +79,14 @@ export function ImportStatementScreen({ navigation }: Props) {
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [unlocking, setUnlocking] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const unlockingRef = useRef(false)
 
   const selectedAccountName = accounts.find((account) => account.id === selectedAccountId)?.name
 
   async function pickStatement() {
     if (!selectedAccountId) {
-      Alert.alert('Account required', 'Choose the account this statement belongs to first.')
+      setMessageDialog({ title: 'Account required', message: 'Choose the account this statement belongs to first.' })
       return
     }
 
@@ -143,7 +144,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       setPhase('summary')
     } catch (error) {
       setPhase('pick')
-      Alert.alert('Import failed', error instanceof Error ? error.message : 'Could not read this statement.')
+      setMessageDialog({ title: 'Import failed', message: error instanceof Error ? error.message : 'Could not read this statement.' })
     }
   }
 
@@ -216,7 +217,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.review })
       setPhase('done')
     } catch (error) {
-      Alert.alert('Import failed', error instanceof Error ? error.message : 'Could not save imported transactions.')
+      setMessageDialog({ title: 'Import failed', message: error instanceof Error ? error.message : 'Could not save imported transactions.' })
     } finally {
       setImporting(false)
     }
@@ -415,6 +416,10 @@ export function ImportStatementScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
+      />
     </View>
   )
 }

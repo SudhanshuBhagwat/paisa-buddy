@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import type { Account, AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 import { formatAmount, openingBalanceForType, parseAmountToPaise } from '@paisa-buddy/shared/logic/amount'
 import { C, F, RADIUS } from '../lib/tokens'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 
 const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
@@ -169,6 +169,7 @@ function AccountSheet({
 }) {
   const [form, setForm] = useState<AccForm>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const nameRef = useRef<TextInput>(null)
 
   React.useEffect(() => {
@@ -200,7 +201,7 @@ function AccountSheet({
       }
       onClose()
     } catch {
-      Alert.alert('Error', 'Could not save account.')
+      setMessageDialog({ title: 'Error', message: 'Could not save account.' })
     } finally {
       setSaving(false)
     }
@@ -209,6 +210,7 @@ function AccountSheet({
   const isCredit = form.type === 'credit'
 
   return (
+    <>
     <Sheet
       visible={visible}
       onClose={onClose}
@@ -292,6 +294,11 @@ function AccountSheet({
         ) : null}
       </ScrollView>
     </Sheet>
+    <MessageDialog
+      dialog={messageDialog}
+      onClose={() => setMessageDialog(null)}
+    />
+    </>
   )
 }
 
@@ -331,6 +338,9 @@ export function AccountsScreen() {
   // Account sheet
   const [accSheetOpen, setAccSheetOpen] = useState(false)
   const [editingAcc, setEditingAcc] = useState<Account | null>(null)
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const loading = accountsQuery.isLoading
   const totalBalance = accounts.reduce((sum, account) => sum + account.current_balance, 0)
@@ -350,24 +360,26 @@ export function AccountsScreen() {
     invalidateAccountData(queryClient)
   }
 
-  async function handleDeleteAcc(acc: Account) {
-    Alert.alert(`Delete "${acc.name}"?`, 'Transactions linked to this account will be unlinked but not deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAccount(acc.id)
-            queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== acc.id))
-            invalidateAccountData(queryClient)
-            setAccSheetOpen(false)
-            setEditingAcc(null)
-          } catch {
-            Alert.alert('Error', 'Could not delete account.')
-          }
-        },
-      },
-    ])
+  function handleDeleteAcc(acc: Account) {
+    setAccountToDelete(acc)
+  }
+
+  async function confirmDeleteAcc() {
+    if (!accountToDelete) return
+    setDeletingAccount(true)
+    try {
+      await deleteAccount(accountToDelete.id)
+      queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== accountToDelete.id))
+      invalidateAccountData(queryClient)
+      setAccSheetOpen(false)
+      setEditingAcc(null)
+      setAccountToDelete(null)
+    } catch {
+      setAccountToDelete(null)
+      setMessageDialog({ title: 'Error', message: 'Could not delete account.' })
+    } finally {
+      setDeletingAccount(false)
+    }
   }
 
   return (
@@ -455,6 +467,32 @@ export function AccountsScreen() {
         editing={editingAcc}
         onSaved={handleAccSaved}
         onDelete={handleDeleteAcc}
+      />
+      <Dialog
+        visible={!!accountToDelete}
+        onClose={() => {
+          if (!deletingAccount) setAccountToDelete(null)
+        }}
+        title={accountToDelete ? `Delete "${accountToDelete.name}"?` : 'Delete account?'}
+        message="Transactions linked to this account will be unlinked but not deleted."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setAccountToDelete(null),
+            disabled: deletingAccount,
+          },
+          {
+            label: 'Delete',
+            variant: 'destructive',
+            onPress: confirmDeleteAcc,
+            loading: deletingAccount,
+          },
+        ]}
+      />
+      <MessageDialog
+        dialog={messageDialog}
+        onClose={() => setMessageDialog(null)}
       />
     </View>
   )

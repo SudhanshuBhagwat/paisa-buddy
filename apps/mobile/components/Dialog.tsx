@@ -17,6 +17,11 @@ export type DialogAction = {
   loading?: boolean
 }
 
+export type MessageDialogState = {
+  title: string
+  message: string
+}
+
 type DialogProps = {
   visible: boolean
   title: string
@@ -80,6 +85,24 @@ export function Dialog({ visible, title, message, children, actions, onClose }: 
         </View>
       </View>
     </Modal>
+  )
+}
+
+export function MessageDialog({
+  dialog,
+  onClose,
+}: {
+  dialog: MessageDialogState | null
+  onClose: () => void
+}) {
+  return (
+    <Dialog
+      visible={!!dialog}
+      onClose={onClose}
+      title={dialog?.title ?? ''}
+      message={dialog?.message}
+      actions={[{ label: 'OK', onPress: onClose }]}
+    />
   )
 }
 
