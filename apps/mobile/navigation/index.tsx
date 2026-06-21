@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { ActivityIndicator, View } from 'react-native'
-import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { supabase } from '../lib/supabase'
+import { isSetupComplete } from '../repositories/settingsRepository'
 import { getAccounts, getHomeData, getReviewData, getSettingsData, getStatsData } from '../lib/data'
 import { queryKeys } from '../lib/query'
 import { CustomBottomNav } from './BottomNav'
-import { LoginScreen } from '../screens/LoginScreen'
 import { SetupScreen } from '../screens/SetupScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { TransactionsScreen } from '../screens/TransactionsScreen'
@@ -22,7 +20,6 @@ import { ImportStatementScreen } from '../screens/ImportStatementScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 
 export type RootStackParamList = {
-  Login: undefined
   Setup: undefined
   Main: undefined
   ImportStatement: undefined
@@ -39,6 +36,11 @@ export type MainTabParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator<MainTabParamList>()
+
+const SetupCompleteCtx = createContext<() => void>(() => {})
+const SetupResetCtx = createContext<() => void>(() => {})
+export const useSetupComplete = () => useContext(SetupCompleteCtx)
+export const useSetupReset = () => useContext(SetupResetCtx)
 
 function MainTabs() {
   return (
@@ -74,46 +76,34 @@ function MainDataPrefetcher() {
 }
 
 export function RootNavigator() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  // setupCompleted will be fetched from DB once auth is confirmed; default false
   const [setupCompleted, setSetupCompleted] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      if (s) setSetupCompleted(true)
+    isSetupComplete().then((done) => {
+      setSetupCompleted(done)
       setLoading(false)
     })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-      if (s) setSetupCompleted(true)
-      else setSetupCompleted(false)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
+
+  const onSetupComplete = useCallback(() => setSetupCompleted(true), [])
+  const onSetupReset = useCallback(() => setSetupCompleted(false), [])
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAF7' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F2' }}>
         <ActivityIndicator size="large" color="#1A936F" />
       </View>
     )
   }
 
-  const shouldPrefetchMainData = !!session && setupCompleted
-
   return (
-    <>
-      {shouldPrefetchMainData && <MainDataPrefetcher />}
+    <SetupCompleteCtx.Provider value={onSetupComplete}>
+    <SetupResetCtx.Provider value={onSetupReset}>
+      {setupCompleted && <MainDataPrefetcher />}
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {!session ? (
-            <Stack.Screen name="Login" component={LoginScreen} />
-          ) : !setupCompleted ? (
+          {!setupCompleted ? (
             <Stack.Screen name="Setup" component={SetupScreen} />
           ) : (
             <>
@@ -124,6 +114,7 @@ export function RootNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-    </>
+    </SetupResetCtx.Provider>
+    </SetupCompleteCtx.Provider>
   )
 }

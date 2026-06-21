@@ -30,9 +30,9 @@ import {
 } from '../lib/data'
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
-import { supabase } from '../lib/supabase'
 import { C, F, RADIUS } from '../lib/tokens'
 import { Sheet } from '../components/Sheet'
+import { useSetupReset } from '../navigation'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -61,12 +61,12 @@ function CheckMark() {
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
+  const onSetupReset = useSetupReset()
   const settingsQuery = useQuery({
     queryKey: queryKeys.settings,
     queryFn: getSettingsData,
   })
   const data = settingsQuery.data?.settings ?? null
-  const email = settingsQuery.data?.email ?? null
 
   // Profile
   const [nameInput, setNameInput] = useState('')
@@ -228,37 +228,26 @@ export function SettingsScreen() {
 
   function handleClearAll() {
     Alert.alert(
-      'Clear all data?',
-      'This will permanently delete all your transactions. This cannot be undone.',
+      'Reset all data?',
+      'This will permanently delete all your transactions, accounts, and settings, and restart the app setup. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear all data', style: 'destructive',
+          text: 'Reset & Start Over', style: 'destructive',
           onPress: async () => {
             setClearing(true)
             try {
               await clearAllData()
-              queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
-                prev ? { ...prev, settings: { ...prev.settings, txCount: 0 } } : prev
-              ))
-              invalidateTransactionData(queryClient)
-              Alert.alert('Done', 'All transactions deleted.')
+              queryClient.clear()
+              onSetupReset()
             } catch {
-              Alert.alert('Error', 'Could not clear data.')
-            } finally {
+              Alert.alert('Error', 'Could not reset data.')
               setClearing(false)
             }
           },
         },
       ],
     )
-  }
-
-  async function handleLogout() {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => supabase.auth.signOut() },
-    ])
   }
 
   const initials = nameInput.trim()
@@ -311,7 +300,6 @@ export function SettingsScreen() {
                       />
                       {nameSaved && <Text style={s.savedBadge}>Saved</Text>}
                     </View>
-                    {email ? <Text style={s.emailText} numberOfLines={1}>{email}</Text> : null}
                   </View>
                 </View>
               </Card>
@@ -472,9 +460,6 @@ export function SettingsScreen() {
                 <Pressable style={s.dangerBtn} onPress={handleClearAll} disabled={clearing}>
                   <Text style={s.dangerText}>{clearing ? 'Clearing…' : 'Clear All Data'}</Text>
                 </Pressable>
-                <Pressable style={s.logoutBtn} onPress={handleLogout}>
-                  <Text style={s.logoutText}>Sign Out</Text>
-                </Pressable>
               </View>
             </View>
 
@@ -596,7 +581,6 @@ const s = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nameInput: { flex: 1, fontSize: 16, fontFamily: F.bold, color: C.ink, padding: 0 },
   savedBadge: { fontSize: 11.5, fontFamily: F.semibold, color: C.pos, flexShrink: 0 },
-  emailText: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 2 },
 
   // Recognition empty state
   emptyRow: { padding: 14, gap: 3 },
@@ -661,11 +645,6 @@ const s = StyleSheet.create({
     alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.neg,
   },
   dangerText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
-  logoutBtn: {
-    paddingVertical: 13, borderRadius: RADIUS,
-    alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
-  },
-  logoutText: { fontSize: 14, fontFamily: F.semibold, color: C.ink2 },
 
   // Categories
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, paddingHorizontal: 16 },

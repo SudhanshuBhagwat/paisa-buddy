@@ -24,6 +24,7 @@ async function deleteSetting(key: string): Promise<void> {
 
 export type AllSettings = {
   displayName: string | null
+  email: string | null
   expectedMonthlyIncome: number
   upiIds: string[]
 }
@@ -36,10 +37,19 @@ export async function getAllSettings(): Promise<AllSettings> {
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   return {
     displayName: map['display_name'] ?? null,
+    email: map['email'] ?? null,
     expectedMonthlyIncome: map['expected_monthly_income']
       ? parseInt(map['expected_monthly_income'], 10)
       : 0,
     upiIds: map['upi_ids'] ? (JSON.parse(map['upi_ids']) as string[]) : [],
+  }
+}
+
+export async function setEmail(email: string | null): Promise<void> {
+  if (email) {
+    await setSetting('email', email)
+  } else {
+    await deleteSetting('email')
   }
 }
 
@@ -67,6 +77,21 @@ export async function removeUpiId(id: string): Promise<void> {
   await setSetting('upi_ids', JSON.stringify(settings.upiIds.filter((u) => u !== id)))
 }
 
+const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [
+  { name: 'Food', color: '#1A936F' },
+  { name: 'Transport', color: '#2E8B9E' },
+  { name: 'Shopping', color: '#C25FA0' },
+  { name: 'Entertainment', color: '#C77D3A' },
+  { name: 'Health', color: '#C65D5D' },
+  { name: 'Utilities', color: '#6B8E3D' },
+  { name: 'Income', color: '#157F4C' },
+  { name: 'Returns', color: '#7B5EA7' },
+  { name: 'Investment', color: '#C99A2E' },
+  { name: 'Transfer', color: '#3B82C4' },
+  { name: 'Settlement', color: '#9B6B9E' },
+  { name: 'Other', color: '#7E8A82' },
+]
+
 export async function clearAllData(): Promise<void> {
   const db = getDb()
   await db.withTransactionAsync(async () => {
@@ -76,6 +101,22 @@ export async function clearAllData(): Promise<void> {
       DELETE FROM plans;
       DELETE FROM user_settings;
       DELETE FROM import_sessions;
+      DELETE FROM categories;
     `)
+    for (const cat of DEFAULT_CATEGORIES) {
+      await db.runAsync(
+        'INSERT INTO categories (name, color, is_custom) VALUES (?, ?, 0)',
+        [cat.name, cat.color],
+      )
+    }
   })
+}
+
+export async function isSetupComplete(): Promise<boolean> {
+  const val = await getSetting('setup_completed')
+  return val === '1'
+}
+
+export async function markSetupComplete(): Promise<void> {
+  await setSetting('setup_completed', '1')
 }

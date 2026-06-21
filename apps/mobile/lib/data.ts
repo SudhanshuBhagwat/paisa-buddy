@@ -19,7 +19,6 @@ import {
   type MonthlySpend,
 } from '../repositories/transactionRepository'
 import { listPlans } from '../repositories/planRepository'
-import { supabase } from './supabase'
 import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -172,11 +171,10 @@ export type SettingsQueryData = {
 }
 
 export async function getSettingsData(): Promise<SettingsQueryData> {
-  const [raw, cats, txCount, { data: { session } }] = await Promise.all([
+  const [raw, cats, txCount] = await Promise.all([
     getAllSettings(),
     listCategories(),
     getTotalCount(),
-    supabase.auth.getSession(),
   ])
   const settings: SettingsData = {
     displayName: raw.displayName,
@@ -190,5 +188,5 @@ export async function getSettingsData(): Promise<SettingsQueryData> {
       .map(({ name, transactionCount }) => ({ name, transactionCount })),
     txCount,
   }
-  return { settings, email: session?.user?.email ?? null }
+  return { settings, email: raw.email }
 }
