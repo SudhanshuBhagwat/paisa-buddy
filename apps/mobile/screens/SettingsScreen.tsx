@@ -500,6 +500,29 @@ export function SettingsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.sheetContent}
         >
+          {/* Add category */}
+          <View style={s.sheetSection}>
+            <Text style={s.sheetSectionLabel}>ADD CATEGORY</Text>
+            <Card>
+              <View style={[s.addRow, { paddingVertical: 14 }]}>
+                <TextInput
+                  style={s.addInput}
+                  value={newCat}
+                  onChangeText={setNewCat}
+                  placeholder="Category name..."
+                  placeholderTextColor={C.ink3}
+                  onSubmitEditing={handleAddCategory}
+                  returnKeyType="done"
+                />
+                <Pressable onPress={handleAddCategory} disabled={!newCat.trim() || addingCat} hitSlop={8}>
+                  {addingCat
+                    ? <ActivityIndicator size="small" color={C.brand} />
+                    : <Text style={[s.addActionText, !newCat.trim() && { opacity: 0.35 }]}>Add</Text>}
+                </Pressable>
+              </View>
+            </Card>
+          </View>
+
           {/* Custom categories */}
           {customCats.length > 0 && (
             <View style={s.sheetSection}>
@@ -527,29 +550,6 @@ export function SettingsScreen() {
               </Card>
             </View>
           )}
-
-          {/* Add custom category */}
-          <View style={s.sheetSection}>
-            <Text style={s.sheetSectionLabel}>ADD CUSTOM</Text>
-            <Card>
-              <View style={[s.addRow, { paddingVertical: 14 }]}>
-                <TextInput
-                  style={s.addInput}
-                  value={newCat}
-                  onChangeText={setNewCat}
-                  placeholder="Category name..."
-                  placeholderTextColor={C.ink3}
-                  onSubmitEditing={handleAddCategory}
-                  returnKeyType="done"
-                />
-                <Pressable onPress={handleAddCategory} disabled={!newCat.trim() || addingCat} hitSlop={8}>
-                  {addingCat
-                    ? <ActivityIndicator size="small" color={C.brand} />
-                    : <Text style={[s.addActionText, !newCat.trim() && { opacity: 0.35 }]}>Add</Text>}
-                </Pressable>
-              </View>
-            </Card>
-          </View>
 
           {/* Predefined categories */}
           {predefinedCats.length > 0 && (
