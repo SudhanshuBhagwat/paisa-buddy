@@ -29,6 +29,7 @@ import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionDa
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { supabase } from '../lib/supabase'
 import { C, F, RADIUS } from '../lib/tokens'
+import { Sheet } from '../components/Sheet'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -45,6 +46,14 @@ const card = StyleSheet.create({
 })
 
 function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
+
+function CheckMark() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="20 6 9 17 4 12" />
+    </Svg>
+  )
+}
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
@@ -69,6 +78,7 @@ export function SettingsScreen() {
   // Categories
   const [newCat, setNewCat] = useState('')
   const [addingCat, setAddingCat] = useState(false)
+  const [catSheetOpen, setCatSheetOpen] = useState(false)
 
   // Misc
   const [exporting, setExporting] = useState(false)
@@ -256,6 +266,10 @@ export function SettingsScreen() {
     ? Number(incomeInput.replace(/,/g, '')).toLocaleString('en-IN')
     : ''
 
+  const totalCatCount = (data?.predefinedCategories ?? []).length + (data?.customCategories ?? []).length
+  const customCats = data?.customCategories ?? []
+  const predefinedCats = data?.predefinedCategories ?? []
+
   return (
     <View style={s.root}>
       <ScrollView
@@ -263,7 +277,6 @@ export function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={[s.header, { paddingTop: insets.top + 16 }]}>
           <Text style={s.title}>Settings</Text>
         </View>
@@ -302,9 +315,12 @@ export function SettingsScreen() {
               <Text style={s.hint}>Your name helps identify you as sender or receiver in uploaded receipts.</Text>
             </View>
 
-            {/* ── UPI IDs ── */}
+            {/* ── Recognition ── */}
             <View style={s.section}>
-              <SectionLabel>UPI IDs <Text style={{ fontWeight: '400', textTransform: 'none', letterSpacing: 0 }}>(optional)</Text></SectionLabel>
+              <SectionLabel>Recognition</SectionLabel>
+
+              {/* UPI IDs */}
+              <Text style={s.subLabel}>UPI IDs</Text>
               <Card>
                 {(data?.upiIds ?? []).length === 0 ? (
                   <View style={s.emptyRow}><Text style={s.emptyRowText}>No UPI IDs added yet</Text></View>
@@ -342,6 +358,15 @@ export function SettingsScreen() {
                 </View>
               </Card>
               <Text style={s.hint}>Your UPI IDs help identify debit vs credit direction in uploaded receipts.</Text>
+
+              {/* Learned Mappings */}
+              <Text style={[s.subLabel, { marginTop: 14 }]}>Learned Mappings</Text>
+              <Card>
+                <View style={s.emptyRow}>
+                  <Text style={s.emptyRowText}>No learned mappings yet</Text>
+                  <Text style={s.emptyRowSub}>Mappings are saved as you review imports — e.g. Rahul Patil → Family</Text>
+                </View>
+              </Card>
             </View>
 
             {/* ── Income ── */}
@@ -369,72 +394,57 @@ export function SettingsScreen() {
 
             {/* ── Categories ── */}
             <View style={s.section}>
-              <SectionLabel>Custom Categories</SectionLabel>
+              <SectionLabel>Categories</SectionLabel>
               <Card>
-                {(data?.customCategories ?? []).length === 0 ? (
-                  <View style={s.emptyRow}><Text style={s.emptyRowText}>No custom categories yet</Text></View>
-                ) : (
-                  (data?.customCategories ?? []).map((cat, idx) => (
-                    <View key={cat.name}>
-                      <View style={s.catRow}>
-                        <View style={[s.catDot, { backgroundColor: cat.color }]} />
-                        <View style={s.catNameGroup}>
-                          <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
-                          {cat.transactionCount > 0 && (
-                            <View style={s.catBadge}>
-                              <Text style={s.catBadgeText}>{cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Pressable onPress={() => handleRemoveCategory(cat)} hitSlop={8}>
-                          <Text style={s.removeText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                      {idx < (data?.customCategories ?? []).length - 1 && <RowDivider />}
-                    </View>
-                  ))
-                )}
-                <RowDivider />
-                <View style={[s.addRow, { paddingVertical: 14 }]}>
-                  <TextInput
-                    style={s.addInput}
-                    value={newCat}
-                    onChangeText={setNewCat}
-                    placeholder="Add category..."
-                    placeholderTextColor={C.ink3}
-                    onSubmitEditing={handleAddCategory}
-                    returnKeyType="done"
-                  />
-                  <Pressable onPress={handleAddCategory} disabled={!newCat.trim() || addingCat} hitSlop={8}>
-                    {addingCat
-                      ? <ActivityIndicator size="small" color={C.brand} />
-                      : <Text style={[s.addActionText, !newCat.trim() && { opacity: 0.35 }]}>Add</Text>}
-                  </Pressable>
-                </View>
+                <Pressable style={s.summaryRow} onPress={() => setCatSheetOpen(true)}>
+                  <View style={s.summaryRowBody}>
+                    <Text style={s.summaryRowTitle}>
+                      {totalCatCount} Categor{totalCatCount !== 1 ? 'ies' : 'y'}
+                    </Text>
+                    {customCats.length > 0 && (
+                      <Text style={s.summaryRowSub}>{customCats.length} custom</Text>
+                    )}
+                  </View>
+                  <Text style={s.summaryRowCta}>Manage</Text>
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <Polyline points="9 18 15 12 9 6" />
+                  </Svg>
+                </Pressable>
               </Card>
-              {(data?.predefinedCategories ?? []).length > 0 && (
-                <View style={s.predefined}>
-                  {(data?.predefinedCategories ?? []).map(({ name, transactionCount }) => (
-                    <View key={name} style={s.predChip}>
-                      <Text style={s.predChipText}>{name}</Text>
-                      {transactionCount > 0 && <Text style={s.predChipCount}>{transactionCount}</Text>}
-                    </View>
-                  ))}
-                </View>
-              )}
-              <Text style={s.hint}>Built-in categories (shown above) cannot be removed.</Text>
             </View>
 
-            {/* ── Data ── */}
+            {/* ── Data & Privacy ── */}
             <View style={s.section}>
-              <SectionLabel>Data</SectionLabel>
-              <Text style={s.txCount}>{data?.txCount ?? 0} transaction{data?.txCount !== 1 ? 's' : ''} stored</Text>
-              <View style={s.dataActions}>
-                <Pressable
-                  style={s.exportBtn}
-                  onPress={handleExport}
-                  disabled={exporting}
-                >
+              <SectionLabel>Data & Privacy</SectionLabel>
+
+              {/* Transaction count */}
+              <Card>
+                <View style={s.txCountRow}>
+                  <Text style={s.txCountNum}>{data?.txCount ?? 0}</Text>
+                  <Text style={s.txCountLabel}>Transaction{data?.txCount !== 1 ? 's' : ''} Stored</Text>
+                </View>
+              </Card>
+
+              {/* Privacy commitments */}
+              <View style={[s.privacyCard, { marginTop: 10 }]}>
+                {[
+                  'Offline First',
+                  'Data Never Leaves Device',
+                  'No Cloud Processing',
+                ].map((item, idx) => (
+                  <View key={item}>
+                    {idx > 0 && <RowDivider />}
+                    <View style={s.privacyRow}>
+                      <CheckMark />
+                      <Text style={s.privacyText}>{item}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* Actions */}
+              <View style={[s.dataActions, { marginTop: 10 }]}>
+                <Pressable style={s.exportBtn} onPress={handleExport} disabled={exporting}>
                   <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <Polyline points="7 10 12 15 17 10" />
@@ -442,15 +452,26 @@ export function SettingsScreen() {
                   </Svg>
                   <Text style={s.exportText}>{exporting ? 'Exporting…' : 'Export to CSV'}</Text>
                 </Pressable>
-                <Pressable
-                  style={s.clearBtn}
-                  onPress={handleClearAll}
-                  disabled={clearing}
-                >
-                  <Text style={s.clearText}>{clearing ? 'Clearing…' : 'Clear all data'}</Text>
+                <Pressable style={[s.exportBtn, s.disabledBtn]} disabled>
+                  <Text style={s.disabledBtnText}>Backup Data</Text>
+                  <View style={s.comingSoonBadge}><Text style={s.comingSoonText}>Soon</Text></View>
+                </Pressable>
+                <Pressable style={[s.exportBtn, s.disabledBtn]} disabled>
+                  <Text style={s.disabledBtnText}>Restore Backup</Text>
+                  <View style={s.comingSoonBadge}><Text style={s.comingSoonText}>Soon</Text></View>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* ── Danger Zone ── */}
+            <View style={s.section}>
+              <SectionLabel>Danger Zone</SectionLabel>
+              <View style={s.dataActions}>
+                <Pressable style={s.dangerBtn} onPress={handleClearAll} disabled={clearing}>
+                  <Text style={s.dangerText}>{clearing ? 'Clearing…' : 'Clear All Data'}</Text>
                 </Pressable>
                 <Pressable style={s.logoutBtn} onPress={handleLogout}>
-                  <Text style={s.logoutText}>Sign out</Text>
+                  <Text style={s.logoutText}>Sign Out</Text>
                 </Pressable>
               </View>
             </View>
@@ -459,6 +480,94 @@ export function SettingsScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Category Management Sheet ── */}
+      <Sheet
+        visible={catSheetOpen}
+        onClose={() => { setCatSheetOpen(false); setNewCat('') }}
+        heightFraction={0.82}
+        header={(
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetTitle}>Categories</Text>
+            <Pressable onPress={() => { setCatSheetOpen(false); setNewCat('') }} hitSlop={8}>
+              <Text style={s.sheetDone}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.sheetContent}
+        >
+          {/* Custom categories */}
+          {customCats.length > 0 && (
+            <View style={s.sheetSection}>
+              <Text style={s.sheetSectionLabel}>CUSTOM</Text>
+              <Card>
+                {customCats.map((cat, idx) => (
+                  <View key={cat.name}>
+                    {idx > 0 && <RowDivider />}
+                    <View style={s.catRow}>
+                      <View style={[s.catDot, { backgroundColor: cat.color }]} />
+                      <View style={s.catNameGroup}>
+                        <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
+                        {cat.transactionCount > 0 && (
+                          <View style={s.catBadge}>
+                            <Text style={s.catBadgeText}>{cat.transactionCount} txn{cat.transactionCount !== 1 ? 's' : ''}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Pressable onPress={() => handleRemoveCategory(cat)} hitSlop={8}>
+                        <Text style={s.removeText}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </Card>
+            </View>
+          )}
+
+          {/* Add custom category */}
+          <View style={s.sheetSection}>
+            <Text style={s.sheetSectionLabel}>ADD CUSTOM</Text>
+            <Card>
+              <View style={[s.addRow, { paddingVertical: 14 }]}>
+                <TextInput
+                  style={s.addInput}
+                  value={newCat}
+                  onChangeText={setNewCat}
+                  placeholder="Category name..."
+                  placeholderTextColor={C.ink3}
+                  onSubmitEditing={handleAddCategory}
+                  returnKeyType="done"
+                />
+                <Pressable onPress={handleAddCategory} disabled={!newCat.trim() || addingCat} hitSlop={8}>
+                  {addingCat
+                    ? <ActivityIndicator size="small" color={C.brand} />
+                    : <Text style={[s.addActionText, !newCat.trim() && { opacity: 0.35 }]}>Add</Text>}
+                </Pressable>
+              </View>
+            </Card>
+          </View>
+
+          {/* Predefined categories */}
+          {predefinedCats.length > 0 && (
+            <View style={s.sheetSection}>
+              <Text style={s.sheetSectionLabel}>BUILT-IN</Text>
+              <View style={s.predefined}>
+                {predefinedCats.map(({ name, transactionCount }) => (
+                  <View key={name} style={s.predChip}>
+                    <Text style={s.predChipText}>{name}</Text>
+                    {transactionCount > 0 && <Text style={s.predChipCount}>{transactionCount}</Text>}
+                  </View>
+                ))}
+              </View>
+              <Text style={s.hint}>Built-in categories cannot be removed.</Text>
+            </View>
+          )}
+        </ScrollView>
+      </Sheet>
     </View>
   )
 }
@@ -472,6 +581,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 18, paddingTop: 4, gap: 0 },
   section: { marginBottom: 22 },
   hint: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, marginTop: 6, lineHeight: 18 },
+  subLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, letterSpacing: 0.5, marginBottom: 6 },
 
   // Profile
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
@@ -485,12 +595,13 @@ const s = StyleSheet.create({
   nameInput: { flex: 1, fontSize: 16, fontFamily: F.bold, color: C.ink, padding: 0 },
   savedBadge: { fontSize: 11.5, fontFamily: F.semibold, color: C.pos, flexShrink: 0 },
   emailText: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 2 },
-  txPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, flexShrink: 0 },
-  txPillText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
+
+  // Recognition empty state
+  emptyRow: { padding: 14, gap: 3 },
+  emptyRowText: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
+  emptyRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
 
   // UPI / shared row patterns
-  emptyRow: { padding: 14 },
-  emptyRowText: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   upiRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13, paddingHorizontal: 16 },
   upiId: { flex: 1, fontSize: 13, fontFamily: F.mono, color: C.ink },
   removeText: { fontSize: 12, fontFamily: F.semibold, color: C.neg },
@@ -499,35 +610,78 @@ const s = StyleSheet.create({
   addActionText: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
   rupeeLabel: { fontSize: 14, fontFamily: F.semibold, color: C.ink3, flexShrink: 0 },
 
-  // Categories
-  catRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, paddingHorizontal: 16 },
-  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-  catNameGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  catName: { fontSize: 13.5, fontFamily: F.regular, color: C.ink, flexShrink: 1 },
-  catBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
-  catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
-  predefined: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  predChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
-  predChipText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  predChipCount: { fontSize: 12, fontFamily: F.bold, color: C.ink },
+  // Categories summary row
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  summaryRowBody: { flex: 1, gap: 2 },
+  summaryRowTitle: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
+  summaryRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  summaryRowCta: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
 
-  // Data
-  txCount: { fontSize: 13, fontFamily: F.regular, color: C.ink3, marginBottom: 10 },
+  // Data & Privacy
+  txCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, padding: 16 },
+  txCountNum: { fontSize: 22, fontFamily: F.extrabold, color: C.ink },
+  txCountLabel: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
+  privacyCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    overflow: 'hidden',
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
+  privacyText: { fontSize: 13, fontFamily: F.medium, color: C.ink },
   dataActions: { gap: 10 },
   exportBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 13, borderRadius: RADIUS,
     backgroundColor: C.surface, borderWidth: 1, borderColor: C.brand,
   },
-  exportText: { fontSize: 13.5, fontFamily: F.semibold, color: C.brand },
-  clearBtn: {
+  exportText: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
+  disabledBtn: { borderColor: C.line, opacity: 0.5 },
+  disabledBtnText: { fontSize: 14, fontFamily: F.semibold, color: C.ink3 },
+  comingSoonBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  comingSoonText: { fontSize: 10, fontFamily: F.bold, color: C.ink3 },
+
+  // Danger Zone
+  dangerBtn: {
     paddingVertical: 13, borderRadius: RADIUS,
-    alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
+    alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.neg,
   },
-  clearText: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink2 },
+  dangerText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
   logoutBtn: {
     paddingVertical: 13, borderRadius: RADIUS,
     alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
   },
-  logoutText: { fontSize: 13.5, fontFamily: F.semibold, color: C.neg },
+  logoutText: { fontSize: 14, fontFamily: F.semibold, color: C.ink2 },
+
+  // Categories
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, paddingHorizontal: 16 },
+  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  catNameGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  catName: { fontSize: 14, fontFamily: F.regular, color: C.ink, flexShrink: 1 },
+  catBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
+  predefined: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  predChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  predChipText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  predChipCount: { fontSize: 12, fontFamily: F.bold, color: C.ink },
+
+  // Category sheet
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
+  sheetTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
+  sheetDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
+  sheetContent: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },
+  sheetSection: { marginBottom: 20 },
+  sheetSectionLabel: { fontSize: 10.5, fontFamily: F.bold, letterSpacing: 0.07 * 10, color: C.ink3, textTransform: 'uppercase', marginBottom: 8 },
 })
