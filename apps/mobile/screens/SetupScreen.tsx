@@ -5,12 +5,15 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native'
 import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { C, F, RADIUS } from '../lib/tokens'
 import {
@@ -213,6 +216,46 @@ const it = StyleSheet.create({
   wrapActive: { backgroundColor: C.brand },
 })
 
+function SetupButton({
+  title,
+  onPress,
+  disabled = false,
+  loading = false,
+  variant = 'primary',
+  style,
+}: {
+  title: string
+  onPress: () => void
+  disabled?: boolean
+  loading?: boolean
+  variant?: 'primary' | 'ghost'
+  style?: StyleProp<ViewStyle>
+}) {
+  const scale = useSharedValue(1)
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  const isPrimary = variant === 'primary'
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+      disabled={disabled || loading}
+    >
+      <Animated.View style={[
+        isPrimary ? s.btn : s.skipBtn,
+        (disabled || loading) && s.btnOff,
+        style,
+        animStyle,
+      ]}>
+        {loading && isPrimary
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <Text style={isPrimary ? s.btnText : s.skipText}>{title}</Text>}
+      </Animated.View>
+    </Pressable>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SetupScreen() {
@@ -353,12 +396,7 @@ export function SetupScreen() {
             )
           })()}
 
-          <Pressable
-            style={({ pressed }) => [s.btn, pressed && s.btnPress]}
-            onPress={() => goTo(1)}
-          >
-            <Text style={s.btnText}>Let's Get Started</Text>
-          </Pressable>
+          <SetupButton title="Let's Get Started" onPress={() => goTo(1)} />
 
           <View style={s.welcomeFooter}>
             <ShieldCheckIcon size={13} />
@@ -420,9 +458,7 @@ export function SetupScreen() {
                 )
               })()}
 
-              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(2)}>
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              <SetupButton title="Continue" onPress={() => goTo(2)} style={{ marginTop: 28 }} />
             </View>
           )}
 
@@ -477,9 +513,7 @@ export function SetupScreen() {
                   : <Text style={s.hint}>Optional. Used for future AI features and exports.</Text>}
               </View>
 
-              <Pressable style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]} onPress={handleContinueProfile}>
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              <SetupButton title="Continue" onPress={handleContinueProfile} style={{ marginTop: 8 }} />
             </View>
           )}
 
@@ -515,13 +549,9 @@ export function SetupScreen() {
                 </View>
               </View>
 
-              <Pressable style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]} onPress={() => goTo(4)}>
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              <SetupButton title="Continue" onPress={() => goTo(4)} style={{ marginTop: 8 }} />
 
-              <Pressable style={s.skipBtn} onPress={() => goTo(4)}>
-                <Text style={s.skipText}>Skip — I'll add this later</Text>
-              </Pressable>
+              <SetupButton title="Skip — I'll add this later" onPress={() => goTo(4)} variant="ghost" />
 
               <Text style={[s.hint, { textAlign: 'center' }]}>
                 Skipping will make monthly spending insights less accurate.
@@ -556,9 +586,7 @@ export function SetupScreen() {
                 })}
               </View>
 
-              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(5)}>
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              <SetupButton title="Continue" onPress={() => goTo(5)} style={{ marginTop: 28 }} />
             </View>
           )}
 
@@ -641,16 +669,15 @@ export function SetupScreen() {
 
               {error && <Text style={s.err}>{error}</Text>}
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 8 }, !accountName.trim() && s.btnOff, pressed && s.btnPress]}
+              <SetupButton
+                title="Continue"
+                style={{ marginTop: 8 }}
                 onPress={() => {
                   if (!accountName.trim()) { setError('Account name is required.'); return }
                   goTo(6)
                 }}
                 disabled={!accountName.trim()}
-              >
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              />
             </View>
           )}
 
@@ -701,13 +728,9 @@ export function SetupScreen() {
                 </View>
               )}
 
-              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(7)}>
-                <Text style={s.btnText}>Continue</Text>
-              </Pressable>
+              <SetupButton title="Continue" onPress={() => goTo(7)} style={{ marginTop: 28 }} />
 
-              <Pressable style={s.skipBtn} onPress={() => goTo(7)}>
-                <Text style={s.skipText}>Skip — I'll add UPI IDs later</Text>
-              </Pressable>
+              <SetupButton title="Skip — I'll add UPI IDs later" onPress={() => goTo(7)} variant="ghost" />
             </View>
           )}
 
@@ -738,15 +761,12 @@ export function SetupScreen() {
                 })}
               </View>
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 28 }, saving && s.btnOff, pressed && s.btnPress]}
+              <SetupButton
+                title="Finish Setup"
+                style={{ marginTop: 28 }}
                 onPress={() => void handleFinish(startActionForTrackingPreference())}
-                disabled={saving}
-              >
-                {saving
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={s.btnText}>Finish Setup</Text>}
-              </Pressable>
+                loading={saving}
+              />
             </View>
           )}
         </ScrollView>
@@ -885,7 +905,6 @@ const s = StyleSheet.create({
   // Buttons
   btn: { backgroundColor: C.brand, borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', shadowColor: C.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnOff: { opacity: 0.45 },
-  btnPress: { opacity: 0.85 },
   btnText: { color: '#ffffff', fontSize: 16, fontFamily: F.bold },
   skipBtn: { alignItems: 'center', paddingVertical: 14 },
   skipText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
