@@ -12,12 +12,8 @@ import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  upsertBudget,
-  deleteBudget,
-  type StatsData,
-} from '../lib/api'
-import { getStatsData } from '../lib/data'
+import { upsertPlan, deletePlan } from '../repositories/planRepository'
+import { getStatsData, type StatsData } from '../lib/data'
 import { queryKeys } from '../lib/query'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
@@ -794,7 +790,7 @@ function BudgetSheet({
     if (!category || isNaN(amount) || amount <= 0) return
     setSaving(true)
     try {
-      const saved = await upsertBudget(category, amount)
+      const saved = await upsertPlan(category, amount)
       onSaved({ ...saved, spent: editing?.spent ?? 0 })
       onClose()
     } catch (e) {
@@ -1188,7 +1184,7 @@ export function StatsScreen() {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
           try {
-            await deleteBudget(id)
+            await deletePlan(id)
             queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
               prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== id) } : prev
             ))
