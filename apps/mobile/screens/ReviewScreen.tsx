@@ -19,11 +19,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
-import {
-  updateTransaction,
-  deleteTransaction,
-} from '../lib/api'
 import { getReviewData } from '../lib/data'
+import { updateTransaction, deleteTransaction } from '../repositories/transactionRepository'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {

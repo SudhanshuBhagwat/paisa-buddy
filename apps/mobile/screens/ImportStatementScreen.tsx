@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { C, F, RADIUS } from '../lib/tokens'
-import { createTransaction, fetchTransactionMonthData } from '../lib/api'
+import { createTransaction, getByMonth } from '../repositories/transactionRepository'
 import { getAccounts } from '../lib/data'
 import { buildExistingImportFingerprints, dedupeImportRows } from '../lib/importDedup'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
@@ -190,8 +190,8 @@ export function ImportStatementScreen({ navigation }: Props) {
 
     try {
       const months = [...new Set(parsed.rows.map((row) => row.date.slice(0, 7)))]
-      const monthData = await Promise.all(months.map((month) => fetchTransactionMonthData(month)))
-      const existingTransactions = monthData.flatMap((data) => data.transactions)
+      const monthData = await Promise.all(months.map((month) => getByMonth(month)))
+      const existingTransactions = monthData.flat()
       const existing = buildExistingImportFingerprints(existingTransactions, selectedAccountId)
       const deduped = dedupeImportRows(parsed.rows, existing)
 

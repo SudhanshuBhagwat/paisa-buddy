@@ -1,5 +1,4 @@
 export {
-  fetchReviewData as getReviewData,
   listInvestments as getInvestments,
 } from './api'
 
@@ -16,6 +15,7 @@ import {
   getMonthlySpends,
   getCategorySpendsByMonth,
   getTotalCount,
+  getUnreviewed,
   type MonthlySpend,
 } from '../repositories/transactionRepository'
 import { listPlans } from '../repositories/planRepository'
@@ -24,6 +24,23 @@ import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
+
+// ─── Review ───────────────────────────────────────────────────────────────────
+
+export type ReviewData = {
+  transactions: Transaction[]
+  accounts: Account[]
+  categoryColors: Record<string, string>
+}
+
+export async function getReviewData(): Promise<ReviewData> {
+  const [transactions, accounts, categoryColors] = await Promise.all([
+    getUnreviewed(),
+    listAccounts(),
+    getCategoryColors(),
+  ])
+  return { transactions, accounts, categoryColors }
+}
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
