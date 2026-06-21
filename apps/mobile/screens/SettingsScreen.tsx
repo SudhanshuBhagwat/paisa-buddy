@@ -320,7 +320,6 @@ export function SettingsScreen() {
               <SectionLabel>Recognition</SectionLabel>
 
               {/* UPI IDs */}
-              <Text style={s.subLabel}>UPI IDs</Text>
               <Card>
                 {(data?.upiIds ?? []).length === 0 ? (
                   <View style={s.emptyRow}><Text style={s.emptyRowText}>No UPI IDs added yet</Text></View>
