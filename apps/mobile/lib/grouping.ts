@@ -126,3 +126,40 @@ export function groupTransactions(txs: Transaction[]): GroupingResult {
   groups.sort((a, b) => b.transactions.length - a.transactions.length)
   return { groups, singles }
 }
+
+export type ImportGroupPreview = {
+  groupCount: number
+  groupedTxCount: number
+  singleCount: number
+}
+
+export function groupImportRows(rows: Array<{ description: string }>): ImportGroupPreview {
+  const buckets: Array<{ key: string; count: number }> = []
+  let singleCount = 0
+
+  for (const row of rows) {
+    const raw = row.description.trim()
+    if (!raw) { singleCount++; continue }
+    const key = keyFor(raw)
+    if (!key) { singleCount++; continue }
+    const bucket = buckets.find((c) => isSimilarMerchant(c.key, key))
+    if (bucket) {
+      bucket.count++
+    } else {
+      buckets.push({ key, count: 1 })
+    }
+  }
+
+  let groupCount = 0
+  let groupedTxCount = 0
+  for (const bucket of buckets) {
+    if (bucket.count >= 2) {
+      groupCount++
+      groupedTxCount += bucket.count
+    } else {
+      singleCount++
+    }
+  }
+
+  return { groupCount, groupedTxCount, singleCount }
+}

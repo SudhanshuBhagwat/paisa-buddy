@@ -24,6 +24,7 @@ import { buildExistingImportFingerprints, dedupeImportRows } from '../lib/import
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { decryptAgileExcel, isAgileEncryptedExcel, WrongExcelPasswordError } from '../lib/decryptExcel'
 import { parseSpreadsheetRows, parseStatementText, type ParsedImport } from '../lib/importParser'
+import { groupImportRows, type ImportGroupPreview } from '../lib/grouping'
 import type { RootStackParamList } from '../navigation'
 
 type Props = {
@@ -73,6 +74,7 @@ export function ImportStatementScreen({ navigation }: Props) {
   const [importedCount, setImportedCount] = useState(0)
   const [skippedDuplicateCount, setSkippedDuplicateCount] = useState(0)
   const [importing, setImporting] = useState(false)
+  const [importPreview, setImportPreview] = useState<ImportGroupPreview | null>(null)
   const [pendingExcel, setPendingExcel] = useState<{ name: string; uri: string } | null>(null)
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -137,6 +139,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       }
 
       setParsed(nextParsed)
+      setImportPreview(groupImportRows(nextParsed.rows))
       setPhase('summary')
     } catch (error) {
       setPhase('pick')
@@ -159,6 +162,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       }
 
       setParsed(nextParsed)
+      setImportPreview(groupImportRows(nextParsed.rows))
       setPendingExcel(null)
       setPassword('')
       setPhase('summary')
@@ -301,33 +305,52 @@ export function ImportStatementScreen({ navigation }: Props) {
             </>
           )}
 
-          {phase === 'summary' && parsed && (
+          {phase === 'summary' && parsed && importPreview && (
             <>
               <View style={s.summaryHero}>
                 <Text style={s.summaryCount}>{parsed.rows.length}</Text>
-                <Text style={s.summaryLabel}>Transactions Imported</Text>
+                <Text style={s.summaryLabel}>Transactions Found</Text>
                 <Text style={s.summarySub}>{fileName} · {selectedAccountName}</Text>
               </View>
 
-              <View style={s.summaryCards}>
-                <View style={s.summaryCard}>
-                  <Text style={s.summaryCardLabel}>Format</Text>
-                  <Text style={s.summaryCardValue}>{parsed.format.toUpperCase()}</Text>
-                </View>
-                <View style={s.summaryCard}>
-                  <Text style={s.summaryCardLabel}>Skipped rows</Text>
-                  <Text style={s.summaryCardValue}>{parsed.skipped}</Text>
-                </View>
+              <View style={s.summaryBreakdown}>
+                {importPreview.groupCount > 0 && (
+                  <View style={s.breakdownRow}>
+                    <View style={[s.breakdownDot, { backgroundColor: C.brand }]} />
+                    <View style={s.breakdownBody}>
+                      <Text style={s.breakdownNum}>{importPreview.groupedTxCount} transactions grouped</Text>
+                      <Text style={s.breakdownSub}>{importPreview.groupCount} group{importPreview.groupCount !== 1 ? 's' : ''} for batch review</Text>
+                    </View>
+                  </View>
+                )}
+                {importPreview.singleCount > 0 && (
+                  <View style={[s.breakdownRow, importPreview.groupCount > 0 && s.breakdownRowBorder]}>
+                    <View style={[s.breakdownDot, { backgroundColor: C.ink3 }]} />
+                    <View style={s.breakdownBody}>
+                      <Text style={s.breakdownNum}>{importPreview.singleCount} need individual review</Text>
+                      <Text style={s.breakdownSub}>reviewed one by one in a queue</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View style={s.summaryMeta}>
+                <Text style={s.summaryMetaText}>{parsed.format.toUpperCase()}</Text>
+                {parsed.skipped > 0 && (
+                  <Text style={s.summaryMetaText}>{parsed.skipped} row{parsed.skipped !== 1 ? 's' : ''} skipped</Text>
+                )}
               </View>
 
               <Text style={s.summaryHint}>
-                These transactions will be saved as unreviewed so you can group and categorize them next.
+                {importPreview.groupCount > 0
+                  ? `Review ${importPreview.groupCount} group${importPreview.groupCount !== 1 ? 's' : ''} first, then ${importPreview.singleCount} individual transaction${importPreview.singleCount !== 1 ? 's' : ''}.`
+                  : `${parsed.rows.length} transactions will be reviewed one by one.`}
               </Text>
 
               <Pressable style={[s.primaryBtn, importing && s.btnDisabled]} onPress={importRows} disabled={importing}>
-                {importing ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Prepare Review</Text>}
+                {importing ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Start Review</Text>}
               </Pressable>
-              <Pressable style={s.secondaryBtn} onPress={() => { setParsed(null); setFileName(''); setPhase('pick') }} disabled={importing}>
+              <Pressable style={s.secondaryBtn} onPress={() => { setParsed(null); setImportPreview(null); setFileName(''); setPhase('pick') }} disabled={importing}>
                 <Text style={s.secondaryBtnText}>Choose another file</Text>
               </Pressable>
             </>
@@ -517,18 +540,27 @@ const s = StyleSheet.create({
   summaryCount: { fontSize: 64, fontFamily: F.extrabold, color: C.ink, lineHeight: 72 },
   summaryLabel: { fontSize: 16, fontFamily: F.medium, color: C.ink2 },
   summarySub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, textAlign: 'center' },
-  summaryCards: { flexDirection: 'row', gap: 10 },
-  summaryCard: {
-    flex: 1,
+  summaryBreakdown: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
     borderWidth: 1,
     borderColor: C.line,
-    padding: 14,
-    gap: 4,
+    overflow: 'hidden',
   },
-  summaryCardLabel: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  summaryCardValue: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  breakdownRowBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  breakdownDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  breakdownBody: { flex: 1, gap: 2 },
+  breakdownNum: { fontSize: 15, fontFamily: F.semibold, color: C.ink },
+  breakdownSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  summaryMeta: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
+  summaryMetaText: { fontSize: 12, fontFamily: F.medium, color: C.ink3 },
   summaryHint: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3, lineHeight: 20, textAlign: 'center' },
   doneWrap: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 80 },
   doneCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
