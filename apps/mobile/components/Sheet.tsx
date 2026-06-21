@@ -26,12 +26,13 @@ type SheetProps = {
   visible: boolean
   onClose: () => void
   onOpen?: () => void
+  onClosed?: () => void
   header?: React.ReactNode
   children: React.ReactNode
   heightFraction?: number
 }
 
-export function Sheet({ visible, onClose, onOpen, header, children, heightFraction = 0.80 }: SheetProps) {
+export function Sheet({ visible, onClose, onOpen, onClosed, header, children, heightFraction = 0.80 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const screenHeight = Dimensions.get('window').height
   const sheetHeight = screenHeight * heightFraction
@@ -40,8 +41,10 @@ export function Sheet({ visible, onClose, onOpen, header, children, heightFracti
   const backdropOpacity = useSharedValue(0)
   const onCloseRef = useRef(onClose)
   const onOpenRef = useRef(onOpen)
+  const onClosedRef = useRef(onClosed)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
   useEffect(() => { onOpenRef.current = onOpen }, [onOpen])
+  useEffect(() => { onClosedRef.current = onClosed }, [onClosed])
 
   // Stays true until exit animation finishes so Modal doesn't unmount early
   const [localVisible, setLocalVisible] = useState(visible)
@@ -59,6 +62,10 @@ export function Sheet({ visible, onClose, onOpen, header, children, heightFracti
     onCloseRef.current()
   }, [])
 
+  const triggerOnClosed = useCallback(() => {
+    onClosedRef.current?.()
+  }, [])
+
   useEffect(() => {
     if (visible) {
       setLocalVisible(true)
@@ -70,7 +77,10 @@ export function Sheet({ visible, onClose, onOpen, header, children, heightFracti
       const startExit = () => {
         backdropOpacity.value = withTiming(0, { duration: 180 })
         translateY.value = withTiming(sheetHeight, { duration: 220, easing: Easing.out(Easing.cubic) }, (finished) => {
-          if (finished) runOnJS(setLocalVisible)(false)
+          if (finished) {
+            runOnJS(setLocalVisible)(false)
+            runOnJS(triggerOnClosed)()
+          }
         })
       }
       if (keyboardVisible.current) {

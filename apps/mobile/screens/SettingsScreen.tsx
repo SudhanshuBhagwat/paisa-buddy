@@ -191,7 +191,6 @@ export function SettingsScreen() {
   }
 
   function handleRemoveCategory(cat: CategoryWithCount) {
-    setCatSheetOpen(false)
     setCategoryToDelete(cat)
   }
 
@@ -210,6 +209,8 @@ export function SettingsScreen() {
         } : prev
       ))
       invalidateCategoryData(queryClient)
+      setCatSheetOpen(false)
+      setNewCat('')
       setCategoryToDelete(null)
     } catch {
       setCategoryToDelete(null)
@@ -490,31 +491,6 @@ export function SettingsScreen() {
         ]}
       />
 
-      <Dialog
-        visible={!!categoryToDelete}
-        onClose={() => {
-          if (!deletingCategory) setCategoryToDelete(null)
-        }}
-        title={categoryToDelete ? `Delete "${categoryToDelete.name}"?` : 'Delete category?'}
-        message={categoryToDelete && categoryToDelete.transactionCount > 0
-          ? `${categoryToDelete.transactionCount} transaction${categoryToDelete.transactionCount !== 1 ? 's' : ''} use this category. Their category will be cleared.`
-          : 'This cannot be undone.'}
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => setCategoryToDelete(null),
-            disabled: deletingCategory,
-          },
-          {
-            label: 'Delete',
-            variant: 'destructive',
-            onPress: confirmRemoveCategory,
-            loading: deletingCategory,
-          },
-        ]}
-      />
-
       <MessageDialog
         dialog={messageDialog}
         onClose={() => setMessageDialog(null)}
@@ -606,6 +582,19 @@ export function SettingsScreen() {
             </View>
           )}
         </ScrollView>
+
+        <Dialog
+          visible={!!categoryToDelete}
+          onClose={() => { if (!deletingCategory) setCategoryToDelete(null) }}
+          title={categoryToDelete ? `Delete "${categoryToDelete.name}"?` : 'Delete category?'}
+          message={categoryToDelete && categoryToDelete.transactionCount > 0
+            ? `${categoryToDelete.transactionCount} transaction${categoryToDelete.transactionCount !== 1 ? 's' : ''} use this category. Their category will be cleared.`
+            : 'This cannot be undone.'}
+          actions={[
+            { label: 'Cancel', variant: 'secondary', onPress: () => setCategoryToDelete(null), disabled: deletingCategory },
+            { label: 'Delete', variant: 'destructive', onPress: confirmRemoveCategory, loading: deletingCategory },
+          ]}
+        />
       </Sheet>
     </View>
   )

@@ -15,7 +15,7 @@ import Svg, { Polyline } from 'react-native-svg'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
-import { MessageDialog, type MessageDialogState } from './Dialog'
+import { Dialog, MessageDialog, type MessageDialogState } from './Dialog'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { updateTransaction } from '../repositories/transactionRepository'
@@ -38,7 +38,7 @@ type Props = {
   visible: boolean
   onClose: () => void
   onSaved: (tx: Transaction) => void
-  onDelete?: (tx: Transaction) => void
+  onDelete?: (tx: Transaction) => Promise<void>
   accounts: Account[]
   catColors: Record<string, string>
   recentCategories?: string[]
@@ -113,6 +113,8 @@ export function TransactionDetailSheet({
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [pendingTime, setPendingTime] = useState(new Date())
   const [saving, setSaving] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const [catPickerOpen, setCatPickerOpen] = useState(false)
@@ -145,6 +147,8 @@ export function TransactionDetailSheet({
       setIsRecurring(f.isRecurring)
       setShowDatePicker(false)
       setShowTimePicker(false)
+      setDeleteConfirmOpen(false)
+      setDeleting(false)
     }
   }, [visible, tx?.id])
 
@@ -158,6 +162,19 @@ export function TransactionDetailSheet({
     !!category &&
     !!accountId &&
     (type !== 'transfer' || !!toAccountId)
+
+  async function handleConfirmDelete() {
+    if (!tx || !onDelete) return
+    setDeleting(true)
+    try {
+      await onDelete(tx)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete transaction.' })
+    } finally {
+      setDeleting(false)
+      setDeleteConfirmOpen(false)
+    }
+  }
 
   async function handleSave() {
     if (!tx || !isValid) return
@@ -393,7 +410,7 @@ export function TransactionDetailSheet({
         {onDelete ? (
           <Pressable
             style={s.deleteBtn}
-            onPress={() => onDelete(tx)}
+            onPress={() => setDeleteConfirmOpen(true)}
           >
             <Text style={s.deleteBtnText}>Delete Transaction</Text>
           </Pressable>
@@ -563,6 +580,19 @@ export function TransactionDetailSheet({
             </View>
           </Pressable>
         </Modal>
+      )}
+
+      {onDelete && (
+        <Dialog
+          visible={deleteConfirmOpen}
+          onClose={() => { if (!deleting) setDeleteConfirmOpen(false) }}
+          title="Delete transaction?"
+          message="This cannot be undone."
+          actions={[
+            { label: 'Cancel', variant: 'secondary', onPress: () => setDeleteConfirmOpen(false), disabled: deleting },
+            { label: 'Delete', variant: 'destructive', onPress: handleConfirmDelete, loading: deleting },
+          ]}
+        />
       )}
     </Sheet>
     <MessageDialog

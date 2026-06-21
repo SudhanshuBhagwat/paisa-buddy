@@ -165,10 +165,12 @@ function AccountSheet({
   onClose: () => void
   editing: Account | null
   onSaved: (acc: Account) => void
-  onDelete: (acc: Account) => void
+  onDelete: (acc: Account) => Promise<void>
 }) {
   const [form, setForm] = useState<AccForm>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const nameRef = useRef<TextInput>(null)
 
@@ -178,6 +180,8 @@ function AccountSheet({
         ? { name: editing.name, type: editing.type, bank: editing.bank ?? '', opening_balance: String(Math.abs(editing.opening_balance) / 100) }
         : DEFAULT_FORM
       )
+      setAccountToDelete(null)
+      setDeleting(false)
     }
   }, [visible, editing])
 
@@ -204,6 +208,19 @@ function AccountSheet({
       setMessageDialog({ title: 'Error', message: 'Could not save account.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!accountToDelete) return
+    setDeleting(true)
+    try {
+      await onDelete(accountToDelete)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete account.' })
+    } finally {
+      setDeleting(false)
+      setAccountToDelete(null)
     }
   }
 
@@ -287,12 +304,23 @@ function AccountSheet({
         {editing ? (
           <Pressable
             style={af.delete}
-            onPress={() => onDelete(editing)}
+            onPress={() => setAccountToDelete(editing)}
           >
             <Text style={af.deleteText}>Delete Account</Text>
           </Pressable>
         ) : null}
       </ScrollView>
+
+      <Dialog
+        visible={!!accountToDelete}
+        onClose={() => { if (!deleting) setAccountToDelete(null) }}
+        title={accountToDelete ? `Delete "${accountToDelete.name}"?` : 'Delete account?'}
+        message="Transactions linked to this account will be unlinked but not deleted."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setAccountToDelete(null), disabled: deleting },
+          { label: 'Delete', variant: 'destructive', onPress: handleConfirmDelete, loading: deleting },
+        ]}
+      />
     </Sheet>
     <MessageDialog
       dialog={messageDialog}
@@ -338,8 +366,6 @@ export function AccountsScreen() {
   // Account sheet
   const [accSheetOpen, setAccSheetOpen] = useState(false)
   const [editingAcc, setEditingAcc] = useState<Account | null>(null)
-  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null)
-  const [deletingAccount, setDeletingAccount] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const loading = accountsQuery.isLoading
@@ -360,26 +386,12 @@ export function AccountsScreen() {
     invalidateAccountData(queryClient)
   }
 
-  function handleDeleteAcc(acc: Account) {
-    setAccountToDelete(acc)
-  }
-
-  async function confirmDeleteAcc() {
-    if (!accountToDelete) return
-    setDeletingAccount(true)
-    try {
-      await deleteAccount(accountToDelete.id)
-      queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== accountToDelete.id))
-      invalidateAccountData(queryClient)
-      setAccSheetOpen(false)
-      setEditingAcc(null)
-      setAccountToDelete(null)
-    } catch {
-      setAccountToDelete(null)
-      setMessageDialog({ title: 'Error', message: 'Could not delete account.' })
-    } finally {
-      setDeletingAccount(false)
-    }
+  async function handleDeleteAcc(acc: Account) {
+    await deleteAccount(acc.id)
+    queryClient.setQueryData<Account[]>(queryKeys.accounts, (prev = []) => prev.filter((a) => a.id !== acc.id))
+    invalidateAccountData(queryClient)
+    setAccSheetOpen(false)
+    setEditingAcc(null)
   }
 
   return (
@@ -467,28 +479,6 @@ export function AccountsScreen() {
         editing={editingAcc}
         onSaved={handleAccSaved}
         onDelete={handleDeleteAcc}
-      />
-      <Dialog
-        visible={!!accountToDelete}
-        onClose={() => {
-          if (!deletingAccount) setAccountToDelete(null)
-        }}
-        title={accountToDelete ? `Delete "${accountToDelete.name}"?` : 'Delete account?'}
-        message="Transactions linked to this account will be unlinked but not deleted."
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => setAccountToDelete(null),
-            disabled: deletingAccount,
-          },
-          {
-            label: 'Delete',
-            variant: 'destructive',
-            onPress: confirmDeleteAcc,
-            loading: deletingAccount,
-          },
-        ]}
       />
       <MessageDialog
         dialog={messageDialog}

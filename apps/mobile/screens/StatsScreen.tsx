@@ -771,12 +771,14 @@ function BudgetSheet({
   editing: BudgetWithSpent | null
   allCategories: string[]
   onSaved: (b: BudgetWithSpent) => void
-  onDelete: (b: BudgetWithSpent) => void
+  onDelete: (b: BudgetWithSpent) => Promise<void>
 }) {
   const [category, setCategory] = useState('')
   const [amountStr, setAmountStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [budgetToDelete, setBudgetToDelete] = useState<BudgetWithSpent | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   React.useEffect(() => {
@@ -784,8 +786,23 @@ function BudgetSheet({
       setCategory(editing?.category ?? '')
       setAmountStr(editing ? String(editing.amount / 100) : '')
       setCatPickerOpen(false)
+      setBudgetToDelete(null)
+      setDeleting(false)
     }
   }, [visible, editing])
+
+  async function handleConfirmDelete() {
+    if (!budgetToDelete) return
+    setDeleting(true)
+    try {
+      await onDelete(budgetToDelete)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete budget.' })
+    } finally {
+      setDeleting(false)
+      setBudgetToDelete(null)
+    }
+  }
 
   async function handleSave() {
     const amount = Math.round(parseFloat(amountStr) * 100)
@@ -860,7 +877,7 @@ function BudgetSheet({
           {editing ? (
             <Pressable
               style={bs.delete}
-              onPress={() => onDelete(editing)}
+              onPress={() => setBudgetToDelete(editing)}
             >
               <Text style={bs.deleteText}>Delete Budget</Text>
             </Pressable>
@@ -905,11 +922,22 @@ function BudgetSheet({
             })}
           </ScrollView>
         </Sheet>
-        </Sheet>
+
+        <Dialog
+          visible={!!budgetToDelete}
+          onClose={() => { if (!deleting) setBudgetToDelete(null) }}
+          title="Delete budget?"
+          message="This cannot be undone."
+          actions={[
+            { label: 'Cancel', variant: 'secondary', onPress: () => setBudgetToDelete(null), disabled: deleting },
+            { label: 'Delete', variant: 'destructive', onPress: handleConfirmDelete, loading: deleting },
+          ]}
+        />
         <MessageDialog
           dialog={messageDialog}
           onClose={() => setMessageDialog(null)}
         />
+      </Sheet>
       </>
   )
 }
@@ -1135,8 +1163,6 @@ export function StatsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
-  const [budgetToDelete, setBudgetToDelete] = useState<BudgetWithSpent | null>(null)
-  const [deletingBudget, setDeletingBudget] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const data = statsQuery.data ?? null
@@ -1196,28 +1222,14 @@ export function StatsScreen() {
     queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
   }
 
-  function handleDeleteBudget(budget: BudgetWithSpent) {
-    setBudgetToDelete(budget)
-  }
-
-  async function confirmDeleteBudget() {
-    if (!budgetToDelete) return
-    setDeletingBudget(true)
-    try {
-      await deletePlan(budgetToDelete.id)
-      queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
-        prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== budgetToDelete.id) } : prev
-      ))
-      queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
-      setBudgetSheetOpen(false)
-      setEditingBudget(null)
-      setBudgetToDelete(null)
-    } catch {
-      setBudgetToDelete(null)
-      setMessageDialog({ title: 'Error', message: 'Could not delete budget.' })
-    } finally {
-      setDeletingBudget(false)
-    }
+  async function handleDeleteBudget(budget: BudgetWithSpent) {
+    await deletePlan(budget.id)
+    queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => (
+      prev ? { ...prev, budgets: prev.budgets.filter((b) => b.id !== budget.id) } : prev
+    ))
+    queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
+    setBudgetSheetOpen(false)
+    setEditingBudget(null)
   }
 
   return (
@@ -1386,28 +1398,6 @@ export function StatsScreen() {
         allCategories={allCategories}
         onSaved={handleBudgetSaved}
         onDelete={handleDeleteBudget}
-      />
-      <Dialog
-        visible={!!budgetToDelete}
-        onClose={() => {
-          if (!deletingBudget) setBudgetToDelete(null)
-        }}
-        title="Delete budget?"
-        message="This cannot be undone."
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => setBudgetToDelete(null),
-            disabled: deletingBudget,
-          },
-          {
-            label: 'Delete',
-            variant: 'destructive',
-            onPress: confirmDeleteBudget,
-            loading: deletingBudget,
-          },
-        ]}
       />
       <MessageDialog
         dialog={messageDialog}

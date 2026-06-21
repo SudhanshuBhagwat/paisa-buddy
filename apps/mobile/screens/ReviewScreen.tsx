@@ -1042,31 +1042,19 @@ export function ReviewScreen({ navigation }: Props) {
               </Pressable>
             </Modal>
           )}
+        <Dialog
+          visible={rejectDialogOpen}
+          onClose={() => { if (!rejecting) setRejectDialogOpen(false) }}
+          title="Reject transaction?"
+          message="This will permanently delete the transaction."
+          actions={[
+            { label: 'Cancel', variant: 'secondary', onPress: () => setRejectDialogOpen(false), disabled: rejecting },
+            { label: 'Reject', variant: 'destructive', onPress: confirmReject, loading: rejecting },
+          ]}
+        />
         </Sheet>
       )}
 
-      <Dialog
-        visible={rejectDialogOpen}
-        onClose={() => {
-          if (!rejecting) setRejectDialogOpen(false)
-        }}
-        title="Reject transaction?"
-        message="This will permanently delete the transaction."
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => setRejectDialogOpen(false),
-            disabled: rejecting,
-          },
-          {
-            label: 'Reject',
-            variant: 'destructive',
-            onPress: confirmReject,
-            loading: rejecting,
-          },
-        ]}
-      />
       <MessageDialog
         dialog={messageDialog}
         onClose={() => setMessageDialog(null)}
