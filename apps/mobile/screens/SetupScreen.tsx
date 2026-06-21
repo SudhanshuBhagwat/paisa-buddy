@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline } from 'react-native-svg'
+import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { C, F, RADIUS } from '../lib/tokens'
 import {
@@ -21,18 +21,25 @@ import {
   markSetupComplete,
 } from '../repositories/settingsRepository'
 import { createAccount } from '../repositories/accountRepository'
-import { listCategories, deleteCategory } from '../repositories/categoryRepository'
+import { listCategories, deleteCategory, createCategory } from '../repositories/categoryRepository'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { useSetupComplete } from '../navigation'
 import type { AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-
 type CatEntry = { name: string; color: string; selected: boolean }
 
 const BANK_TYPES: AccountType[] = ['savings', 'current', 'credit']
 const TOTAL_STEPS = 7
+const INCOME_QUICK_PICKS = [
+  { label: '₹25k', value: '25000' },
+  { label: '₹50k', value: '50000' },
+  { label: '₹85k', value: '85000' },
+  { label: '₹1L', value: '100000' },
+]
+
+// ── Icons ────────────────────────────────────────────────────────────────────
 
 function BuddySVG({ size = 64 }: { size?: number }) {
   return (
@@ -51,18 +58,136 @@ function BuddySVG({ size = 64 }: { size?: number }) {
   )
 }
 
-function CheckIcon({ color = C.brand }: { color?: string }) {
+function SparkleIcon({ size = 16, color = '#E0A33C' }: { size?: number; color?: string }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill={color}>
+      <Path d="M8 0 L9.4 6.6 L16 8 L9.4 9.4 L8 16 L6.6 9.4 L0 8 L6.6 6.6 Z" />
+    </Svg>
+  )
+}
+
+function CheckIcon({ size = 16, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <Polyline points="20 6 9 17 4 12" />
     </Svg>
   )
 }
 
+function ChevronLeft() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M15 18l-6-6 6-6" />
+    </Svg>
+  )
+}
+
+function ShieldCheckIcon({ size = 14, color = C.ink3 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <Polyline points="9 12 11 14 15 10" />
+    </Svg>
+  )
+}
+
+function LockIcon({ size = 18, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </Svg>
+  )
+}
+
+function WifiOffIcon({ size = 18, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M1 1l22 22" />
+      <Path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+      <Path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+      <Path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
+      <Path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+      <Path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+      <Circle cx="12" cy="20" r="1" fill={color} stroke="none" />
+    </Svg>
+  )
+}
+
+function PhoneIcon({ size = 18, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <Circle cx="12" cy="17" r="1" fill={color} stroke="none" />
+    </Svg>
+  )
+}
+
+function SlidersIcon({ size = 18, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 6h16M4 12h16M4 18h16" />
+      <Circle cx="8" cy="6" r="2" fill={C.brandPale} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="12" r="2" fill={C.brandPale} stroke={color} strokeWidth="2" />
+      <Circle cx="10" cy="18" r="2" fill={C.brandPale} stroke={color} strokeWidth="2" />
+    </Svg>
+  )
+}
+
+function BankIcon({ size = 20, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 21h18M3 10h18M5 6l7-3 7 3M7 10v11M12 10v11M17 10v11" />
+    </Svg>
+  )
+}
+
+function WalletIcon({ size = 20, color = C.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <Path d="M3 7v14a2 2 0 0 0 2 2h16v-5" />
+      <Circle cx="18" cy="14" r="1" fill={color} stroke="none" />
+    </Svg>
+  )
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function SegmentedProgressBar({ step }: { step: number }) {
+  return (
+    <View style={pb.row}>
+      {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+        <View key={i} style={[pb.seg, i < step ? pb.segFilled : pb.segEmpty]} />
+      ))}
+    </View>
+  )
+}
+const pb = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 5, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 6 },
+  seg: { flex: 1, height: 5, borderRadius: 999 },
+  segFilled: { backgroundColor: C.brand },
+  segEmpty: { backgroundColor: '#E9ECE6' },
+})
+
+function IconTile({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <View style={[it.wrap, active && it.wrapActive]}>
+      {children}
+    </View>
+  )
+}
+const it = StyleSheet.create({
+  wrap: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.brandPale, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  wrapActive: { backgroundColor: C.brand },
+})
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function SetupScreen() {
   const insets = useSafeAreaInsets()
   const onSetupComplete = useSetupComplete()
-  const bottomPad = Math.max(insets.bottom, 16) + 20
+  const bottomPad = Math.max(insets.bottom, 16) + 24
 
   const [step, setStep] = useState<Step>(0)
 
@@ -89,6 +214,9 @@ export function SetupScreen() {
   // Categories
   const [categories, setCategories] = useState<CatEntry[]>([])
   const [catsLoaded, setCatsLoaded] = useState(false)
+  const [addingCustomCat, setAddingCustomCat] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [savingCat, setSavingCat] = useState(false)
 
   // General
   const [saving, setSaving] = useState(false)
@@ -110,15 +238,8 @@ export function SetupScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
-  function goTo(s: Step) {
-    setError(null)
-    setStep(s)
-  }
-
-  function goBack() {
-    if (step === 0 || step === 8) return
-    goTo((step - 1) as Step)
-  }
+  function goTo(s: Step) { setError(null); setStep(s) }
+  function goBack() { if (step === 0 || step === 8) return; goTo((step - 1) as Step) }
 
   function pickAccountCategory(cat: 'bank' | 'cash') {
     setAccountCategory(cat)
@@ -132,59 +253,50 @@ export function SetupScreen() {
     setUpiInput('')
   }
 
-  function removeUpiEntry(id: string) {
-    setUpiIds((prev) => prev.filter((u) => u !== id))
+  function toggleCategory(catName: string) {
+    setCategories((prev) => prev.map((c) => c.name === catName ? { ...c, selected: !c.selected } : c))
   }
 
-  function toggleCategory(name: string) {
-    setCategories((prev) =>
-      prev.map((c) => (c.name === name ? { ...c, selected: !c.selected } : c))
-    )
+  async function handleAddCustomCat() {
+    const trimmed = newCatName.trim()
+    if (!trimmed) return
+    setSavingCat(true)
+    try {
+      const { name: n, color } = await createCategory(trimmed)
+      setCategories((prev) => [...prev, { name: n, color, selected: true }])
+      setNewCatName('')
+      setAddingCustomCat(false)
+    } finally {
+      setSavingCat(false)
+    }
   }
 
   function handleContinueProfile() {
-    if (!name.trim()) {
-      setError('Name is required.')
-      return
-    }
+    if (!name.trim()) { setError('Name is required.'); return }
     const trimmedEmail = email.trim()
     if (trimmedEmail && !/.+@.+\..+/.test(trimmedEmail)) {
       setEmailError('Enter a valid email address.')
       return
     }
-    setEmailError(null)
-    setError(null)
-    goTo(3)
+    setEmailError(null); setError(null); goTo(3)
   }
 
   async function handleFinish() {
-    setSaving(true)
-    setError(null)
+    if (saving) return
+    setSaving(true); setError(null)
     try {
       const trimmedName = name.trim()
       if (trimmedName) await setDisplayName(trimmedName)
-
       const trimmedEmail = email.trim()
       if (trimmedEmail) await saveEmail(trimmedEmail)
-
       const rupees = parseInt(incomeInput.replace(/[^0-9]/g, ''), 10)
-      const incomePaise = isNaN(rupees) || rupees <= 0 ? 0 : rupees * 100
-      await setExpectedMonthlyIncome(incomePaise)
-
+      await setExpectedMonthlyIncome(isNaN(rupees) || rupees <= 0 ? 0 : rupees * 100)
       if (!skipAccount && accountName.trim()) {
-        const balRupees = parseInt(balanceInput.replace(/[^0-9]/g, ''), 10)
-        const balPaise = isNaN(balRupees) || balRupees < 0 ? 0 : balRupees * 100
-        await createAccount(accountName.trim(), accountType, bankName.trim() || null, balPaise)
+        const balR = parseInt(balanceInput.replace(/[^0-9]/g, ''), 10)
+        await createAccount(accountName.trim(), accountType, bankName.trim() || null, isNaN(balR) || balR < 0 ? 0 : balR * 100)
       }
-
-      for (const id of upiIds) {
-        await addUpiId(id)
-      }
-
-      for (const cat of categories.filter((c) => !c.selected)) {
-        await deleteCategory(cat.name, false)
-      }
-
+      for (const id of upiIds) await addUpiId(id)
+      for (const cat of categories.filter((c) => !c.selected)) await deleteCategory(cat.name, false)
       await markSetupComplete()
       onSetupComplete()
     } catch {
@@ -196,10 +308,20 @@ export function SetupScreen() {
   // ── Step 0: Welcome ──────────────────────────────────────────────────────────
   if (step === 0) {
     return (
-      <View style={[s.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 24) }]}>
-        <View style={s.welcomeWrap}>
-          <View style={s.hero}>
-            <BuddySVG size={88} />
+      <View style={[s.root, { paddingTop: insets.top }]}>
+        <ScrollView
+          contentContainerStyle={[s.welcomeScroll, { paddingBottom: Math.max(insets.bottom, 24) + 12 }]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Buddy + sparkle */}
+          <View style={s.welcomeHero}>
+            <View style={{ position: 'relative' }}>
+              <BuddySVG size={104} />
+              <View style={s.welcomeSparkle}>
+                <SparkleIcon size={20} />
+              </View>
+            </View>
             <View style={s.wordmarkRow}>
               <Text style={s.wordmarkPaisa}>Paisa </Text>
               <Text style={s.wordmarkBuddy}>Buddy</Text>
@@ -207,18 +329,27 @@ export function SetupScreen() {
             <Text style={s.tagline}>Your money. Your device. 100% private.</Text>
           </View>
 
-          <View style={s.bullets}>
-            {[
-              'No login required',
-              'Works fully offline',
-              'Data never leaves your device',
-            ].map((label) => (
-              <View key={label} style={s.bulletRow}>
-                <View style={s.bulletDot} />
-                <Text style={s.bulletText}>{label}</Text>
+          {/* Value cards */}
+          {(() => {
+            const items = [
+              { icon: <LockIcon />, title: 'No account required', sub: 'No sign-up, no password, no cloud.' },
+              { icon: <WifiOffIcon />, title: 'Works fully offline', sub: 'Runs entirely on your device.' },
+              { icon: <PhoneIcon />, title: 'Data never leaves your phone', sub: '100% local storage. Zero tracking.' },
+            ]
+            return (
+              <View style={[s.groupCard, { marginBottom: 36 }]}>
+                {items.map(({ icon, title, sub }, idx) => (
+                  <View key={title} style={[s.groupRow, idx < items.length - 1 && s.groupRowBorder]}>
+                    <IconTile>{icon}</IconTile>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.valueCardTitle}>{title}</Text>
+                      <Text style={s.valueCardSub}>{sub}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            )
+          })()}
 
           <Pressable
             style={({ pressed }) => [s.btn, pressed && s.btnPress]}
@@ -227,8 +358,11 @@ export function SetupScreen() {
             <Text style={s.btnText}>Let's Get Started</Text>
           </Pressable>
 
-          <Text style={s.welcomeFooter}>All data stays on your device.</Text>
-        </View>
+          <View style={s.welcomeFooter}>
+            <ShieldCheckIcon size={13} />
+            <Text style={s.welcomeFooterText}>All data stays on your device.</Text>
+          </View>
+        </ScrollView>
       </View>
     )
   }
@@ -237,32 +371,37 @@ export function SetupScreen() {
   if (step === 8) {
     return (
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 24) }]}>
-        <View style={s.welcomeWrap}>
-          <View style={s.hero}>
-            <BuddySVG size={88} />
-            <Text style={s.allSetTitle}>All done!</Text>
-            <Text style={s.allSetSub}>
-              Paisa Buddy is ready to help you{'\n'}manage your money better.
-            </Text>
+        <View style={s.allSetWrap}>
+          {/* Buddy in circle with sparkles */}
+          <View style={s.allSetCircleWrap}>
+            <View style={s.allSetCircle}>
+              <BuddySVG size={96} />
+            </View>
+            <View style={[s.sparklePos, { top: 2, right: 14 }]}><SparkleIcon size={20} /></View>
+            <View style={[s.sparklePos, { top: 32, left: 2 }]}><SparkleIcon size={12} /></View>
+            <View style={[s.sparklePos, { bottom: 6, right: 2 }]}><SparkleIcon size={14} /></View>
           </View>
 
-          {error && <Text style={[s.err, { textAlign: 'center', marginBottom: 16 }]}>{error}</Text>}
+          <Text style={s.allSetTitle}>All done!</Text>
+          <Text style={s.allSetSub}>
+            Paisa Buddy is ready to help you{'\n'}manage your money better.
+          </Text>
 
-          <ActivityIndicator color={C.brand} style={{ marginTop: 8 }} />
+          {error && <Text style={[s.err, { textAlign: 'center', marginBottom: 8 }]}>{error}</Text>}
+
+          <View style={s.settingUpRow}>
+            <ActivityIndicator size="small" color={C.brand} />
+            <Text style={s.settingUpText}>Setting up your dashboard…</Text>
+          </View>
         </View>
       </View>
     )
   }
 
-  // ── Steps 1–7: shared wrapper with progress bar ──────────────────────────────
-  const progressPct = `${Math.round((step / TOTAL_STEPS) * 100)}%`
-
+  // ── Steps 1–7: shared wrapper ────────────────────────────────────────────────
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      {/* Progress bar */}
-      <View style={s.progressTrack}>
-        <View style={[s.progressFill, { width: progressPct }]} />
-      </View>
+      <SegmentedProgressBar step={step} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
@@ -273,7 +412,8 @@ export function SetupScreen() {
         >
           {/* Back + step count */}
           <View style={s.navRow}>
-            <Pressable onPress={goBack} hitSlop={8}>
+            <Pressable style={s.backRow} onPress={goBack} hitSlop={8}>
+              <ChevronLeft />
               <Text style={s.backBtn}>Back</Text>
             </Pressable>
             <Text style={s.stepCount}>{step} of {TOTAL_STEPS}</Text>
@@ -282,34 +422,37 @@ export function SetupScreen() {
           {/* ── Step 1: Privacy First ─────────────────────────────────────── */}
           {step === 1 && (
             <View>
-              <View style={[s.hero, { marginBottom: 32 }]}>
-                <BuddySVG size={64} />
-                <Text style={s.stepTitle}>Privacy First</Text>
+              <View style={[s.privacyHero, { marginBottom: 28 }]}>
+                <BuddySVG size={66} />
+                <Text style={s.stepTitle}>Privacy first</Text>
                 <Text style={s.stepSub}>
                   Paisa Buddy is built around one idea:{'\n'}your financial data belongs to you.
                 </Text>
               </View>
 
-              <View style={s.trustCards}>
-                {[
-                  { label: 'Works Offline', sub: 'No internet connection needed after setup.' },
-                  { label: 'No Data Leaves Your Device', sub: 'Everything is stored locally on your phone.' },
-                  { label: "You're In Control", sub: 'Export or delete your data anytime.' },
-                ].map(({ label, sub }) => (
-                  <View key={label} style={s.trustCard}>
-                    <View style={s.trustCheck}><CheckIcon /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.trustLabel}>{label}</Text>
-                      <Text style={s.trustSub}>{sub}</Text>
-                    </View>
+              {(() => {
+                const items = [
+                  { icon: <WifiOffIcon />, label: 'Works Offline', sub: 'No internet needed after setup.' },
+                  { icon: <PhoneIcon />, label: 'No Data Leaves Your Device', sub: 'Everything is stored locally on your phone.' },
+                  { icon: <SlidersIcon />, label: "You're In Control", sub: 'Export or delete your data anytime.' },
+                ]
+                return (
+                  <View style={s.groupCard}>
+                    {items.map(({ icon, label, sub }, idx) => (
+                      <View key={label} style={[s.groupRow, idx < items.length - 1 && s.groupRowBorder]}>
+                        <IconTile>{icon}</IconTile>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.trustLabel}>{label}</Text>
+                          <Text style={s.trustSub}>{sub}</Text>
+                        </View>
+                        <View style={s.trustCheck}><CheckIcon /></View>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                )
+              })()}
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 32 }, pressed && s.btnPress]}
-                onPress={() => goTo(2)}
-              >
+              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(2)}>
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
             </View>
@@ -320,7 +463,7 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>What should we{'\n'}call you?</Text>
               <Text style={s.stepSub}>
-                Your name helps personalize Paisa Buddy and identify you in uploaded receipts.
+                Your name helps identify you as sender or receiver in uploaded receipts.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
@@ -340,6 +483,12 @@ export function SetupScreen() {
                 {error && <Text style={s.err}>{error}</Text>}
               </View>
 
+              {/* Tip card */}
+              <View style={s.tipCard}>
+                <BuddySVG size={28} />
+                <Text style={s.tipText}>Your name is stored only on this device. It never leaves your phone.</Text>
+              </View>
+
               <View style={s.field}>
                 <Text style={s.fieldLabel}>Email <Text style={s.optional}>(Optional)</Text></Text>
                 <View style={s.inputBox}>
@@ -357,13 +506,10 @@ export function SetupScreen() {
                 </View>
                 {emailError
                   ? <Text style={s.err}>{emailError}</Text>
-                  : <Text style={s.hint}>Optional and only stored on your device.</Text>}
+                  : <Text style={s.hint}>Optional. Stored only on your device.</Text>}
               </View>
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]}
-                onPress={handleContinueProfile}
-              >
+              <Pressable style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]} onPress={handleContinueProfile}>
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
             </View>
@@ -374,30 +520,40 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>Monthly Income</Text>
               <Text style={s.stepSub}>
-                Used to track spending progress and calculate how much is left each month.
+                Used to track spending progress and calculate what's left each month.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
                 <Text style={s.fieldLabel}>Expected Monthly Income</Text>
-                <View style={[s.inputBox, s.inputBoxRow]}>
-                  <Text style={s.rupeePrefix}>₹</Text>
+                <View style={s.incomeField}>
+                  <Text style={s.incomePrefix}>₹</Text>
                   <TextInput
-                    style={s.input}
-                    placeholder="e.g. 85000"
+                    style={s.incomeInput}
+                    placeholder="0"
                     placeholderTextColor={C.ink3}
-                    value={incomeInput}
+                    value={incomeInput ? Number(incomeInput).toLocaleString('en-IN') : ''}
                     onChangeText={(t) => setIncomeInput(t.replace(/[^0-9]/g, ''))}
                     keyboardType="numeric"
                     returnKeyType="done"
                     autoFocus
                   />
                 </View>
+
+                {/* Quick picks */}
+                <View style={s.quickPicks}>
+                  {INCOME_QUICK_PICKS.map(({ label, value }) => (
+                    <Pressable
+                      key={value}
+                      style={[s.quickChip, incomeInput === value && s.quickChipActive]}
+                      onPress={() => setIncomeInput(value)}
+                    >
+                      <Text style={[s.quickChipText, incomeInput === value && s.quickChipTextActive]}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]}
-                onPress={() => goTo(4)}
-              >
+              <Pressable style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]} onPress={() => goTo(4)}>
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
 
@@ -417,42 +573,28 @@ export function SetupScreen() {
               <Text style={s.stepTitle}>Add your first{'\n'}account</Text>
               <Text style={s.stepSub}>Choose the type of account you use most often.</Text>
 
-              <View style={[s.typeCards, { marginTop: 28 }]}>
-                <Pressable
-                  style={[s.typeCard, accountCategory === 'bank' && s.typeCardActive]}
-                  onPress={() => pickAccountCategory('bank')}
-                >
-                  <View style={s.typeCardBody}>
-                    <Text style={[s.typeCardTitle, accountCategory === 'bank' && s.typeCardTitleActive]}>
-                      Bank Account
-                    </Text>
-                    <Text style={s.typeCardSub}>Savings, Current, Credit Card</Text>
-                  </View>
-                  {accountCategory === 'bank' && (
-                    <View style={s.typeCardCheck}><CheckIcon /></View>
-                  )}
-                </Pressable>
-
-                <Pressable
-                  style={[s.typeCard, accountCategory === 'cash' && s.typeCardActive]}
-                  onPress={() => pickAccountCategory('cash')}
-                >
-                  <View style={s.typeCardBody}>
-                    <Text style={[s.typeCardTitle, accountCategory === 'cash' && s.typeCardTitleActive]}>
-                      Cash / Wallet
-                    </Text>
-                    <Text style={s.typeCardSub}>Physical cash, UPI wallet, Petty cash</Text>
-                  </View>
-                  {accountCategory === 'cash' && (
-                    <View style={s.typeCardCheck}><CheckIcon /></View>
-                  )}
-                </Pressable>
+              <View style={[s.optionCards, { marginTop: 28 }]}>
+                {([
+                  { cat: 'bank' as const, icon: <BankIcon size={20} color={accountCategory === 'bank' ? '#fff' : C.brand} />, title: 'Bank Account', sub: 'Savings, Current, Credit Card' },
+                  { cat: 'cash' as const, icon: <WalletIcon size={20} color={accountCategory === 'cash' ? '#fff' : C.brand} />, title: 'Cash / Wallet', sub: 'Physical cash, UPI wallet, Petty cash' },
+                ]).map(({ cat, icon, title, sub }) => {
+                  const active = accountCategory === cat
+                  return (
+                    <Pressable key={cat} style={[s.optionCard, active && s.optionCardActive]} onPress={() => pickAccountCategory(cat)}>
+                      <IconTile active={active}>{icon}</IconTile>
+                      <View style={s.optionCardBody}>
+                        <Text style={[s.optionCardTitle, active && s.optionCardTitleActive]}>{title}</Text>
+                        <Text style={s.optionCardSub}>{sub}</Text>
+                      </View>
+                      <View style={[s.radioCircle, active && s.radioCircleActive]}>
+                        {active && <CheckIcon size={13} color="#fff" />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
               </View>
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 32 }, pressed && s.btnPress]}
-                onPress={() => goTo(5)}
-              >
+              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(5)}>
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
             </View>
@@ -462,7 +604,7 @@ export function SetupScreen() {
           {step === 5 && (
             <View>
               <Text style={s.stepTitle}>Account details</Text>
-              <Text style={s.stepSub}>You can add more accounts anytime in the Accounts screen.</Text>
+              <Text style={s.stepSub}>You can add more accounts anytime from the Accounts screen.</Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
                 <Text style={s.fieldLabel}>Account Name</Text>
@@ -483,14 +625,18 @@ export function SetupScreen() {
                 <>
                   <View style={s.field}>
                     <Text style={s.fieldLabel}>Account Type</Text>
-                    <View style={s.chipRow}>
-                      {BANK_TYPES.map((t) => (
+                    <View style={s.segmented}>
+                      {BANK_TYPES.map((t, idx) => (
                         <Pressable
                           key={t}
-                          style={[s.chip, accountType === t && s.chipActive]}
+                          style={[
+                            s.segment,
+                            accountType === t && s.segmentActive,
+                            idx < BANK_TYPES.length - 1 && s.segmentBorder,
+                          ]}
                           onPress={() => setAccountType(t)}
                         >
-                          <Text style={[s.chipText, accountType === t && s.chipTextActive]}>
+                          <Text style={[s.segmentText, accountType === t && s.segmentTextActive]}>
                             {ACCOUNT_TYPE_LABELS[t]}
                           </Text>
                         </Pressable>
@@ -535,12 +681,8 @@ export function SetupScreen() {
               <Pressable
                 style={({ pressed }) => [s.btn, { marginTop: 8 }, !accountName.trim() && s.btnOff, pressed && s.btnPress]}
                 onPress={() => {
-                  if (!accountName.trim()) {
-                    setError('Account name is required.')
-                    return
-                  }
-                  setSkipAccount(false)
-                  goTo(6)
+                  if (!accountName.trim()) { setError('Account name is required.'); return }
+                  setSkipAccount(false); goTo(6)
                 }}
                 disabled={!accountName.trim()}
               >
@@ -558,7 +700,7 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>Your UPI IDs</Text>
               <Text style={s.stepSub}>
-                UPI IDs help Paisa Buddy identify debit and credit direction in uploaded statements.
+                Helps identify debit and credit direction in uploaded statements.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
@@ -575,33 +717,26 @@ export function SetupScreen() {
                     returnKeyType="done"
                     onSubmitEditing={addUpiEntry}
                   />
-                  <Pressable
-                    onPress={addUpiEntry}
-                    disabled={!upiInput.trim()}
-                    hitSlop={8}
-                  >
+                  <Pressable onPress={addUpiEntry} disabled={!upiInput.trim()} hitSlop={8}>
                     <Text style={[s.addAction, !upiInput.trim() && { opacity: 0.35 }]}>Add</Text>
                   </Pressable>
                 </View>
               </View>
 
               {upiIds.length > 0 && (
-                <View style={s.upiList}>
+                <View style={s.upiChips}>
                   {upiIds.map((id) => (
-                    <View key={id} style={s.upiRow}>
-                      <Text style={s.upiId} numberOfLines={1}>{id}</Text>
-                      <Pressable onPress={() => removeUpiEntry(id)} hitSlop={8}>
-                        <Text style={s.removeText}>Remove</Text>
+                    <View key={id} style={s.upiChip}>
+                      <Text style={s.upiChipText} numberOfLines={1}>{id}</Text>
+                      <Pressable onPress={() => setUpiIds((p) => p.filter((u) => u !== id))} hitSlop={8} style={s.upiChipX}>
+                        <Text style={s.upiChipXText}>×</Text>
                       </Pressable>
                     </View>
                   ))}
                 </View>
               )}
 
-              <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]}
-                onPress={() => goTo(7)}
-              >
+              <Pressable style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]} onPress={() => goTo(7)}>
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
 
@@ -615,37 +750,64 @@ export function SetupScreen() {
           {step === 7 && (
             <View>
               <Text style={s.stepTitle}>Your categories</Text>
-              <Text style={s.stepSub}>
-                These are your default spending categories. Deselect any you don't need.
-              </Text>
+              <Text style={s.stepSub}>Tap to turn any off. You can change these anytime in Settings.</Text>
 
               {!catsLoaded ? (
                 <View style={s.catsLoading}>
                   <ActivityIndicator color={C.brand} />
                 </View>
               ) : (
-                <View style={[s.catGrid, { marginTop: 28 }]}>
-                  {categories.map((cat) => (
-                    <Pressable
-                      key={cat.name}
-                      style={[s.catChip, cat.selected && s.catChipActive]}
-                      onPress={() => toggleCategory(cat.name)}
-                    >
-                      <View style={[s.catDot, { backgroundColor: cat.selected ? cat.color : C.ink3 }]} />
-                      <Text style={[s.catChipText, cat.selected && s.catChipTextActive]}>
-                        {cat.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <>
+                  <View style={[s.catGrid, { marginTop: 28 }]}>
+                    {categories.map((cat) => (
+                      <Pressable
+                        key={cat.name}
+                        style={[s.catChip, cat.selected ? s.catChipActive : s.catChipOff]}
+                        onPress={() => toggleCategory(cat.name)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: cat.selected }}
+                      >
+                        <View style={[s.catDot, { backgroundColor: cat.selected ? cat.color : C.ink3 }]} />
+                        <Text style={[s.catChipText, cat.selected && s.catChipTextActive]}>
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+
+                    {!addingCustomCat && (
+                      <Pressable style={s.catAddChip} onPress={() => setAddingCustomCat(true)}>
+                        <Text style={s.catAddText}>+ Add custom</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  {addingCustomCat && (
+                    <View style={[s.inputBox, s.inputBoxRow, { marginTop: 14 }]}>
+                      <TextInput
+                        style={s.input}
+                        placeholder="Category name"
+                        placeholderTextColor={C.ink3}
+                        value={newCatName}
+                        onChangeText={setNewCatName}
+                        autoFocus
+                        returnKeyType="done"
+                        onSubmitEditing={() => void handleAddCustomCat()}
+                      />
+                      <Pressable onPress={() => void handleAddCustomCat()} disabled={!newCatName.trim() || savingCat} hitSlop={8}>
+                        {savingCat
+                          ? <ActivityIndicator size="small" color={C.brand} />
+                          : <Text style={[s.addAction, !newCatName.trim() && { opacity: 0.35 }]}>Add</Text>}
+                      </Pressable>
+                      <Pressable onPress={() => { setAddingCustomCat(false); setNewCatName('') }} hitSlop={8}>
+                        <Text style={s.cancelText}>Cancel</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </>
               )}
 
-              <Text style={[s.hint, { marginTop: 16 }]}>
-                You can add or remove categories anytime in Settings.
-              </Text>
-
               <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 20 }, !catsLoaded && s.btnOff, pressed && s.btnPress]}
+                style={({ pressed }) => [s.btn, { marginTop: 24 }, !catsLoaded && s.btnOff, pressed && s.btnPress]}
                 onPress={() => goTo(8)}
                 disabled={!catsLoaded}
               >
@@ -661,167 +823,138 @@ export function SetupScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 24, paddingTop: 12 },
-
-  // Progress
-  progressTrack: { height: 3, backgroundColor: C.line },
-  progressFill: { height: 3, backgroundColor: C.brand },
+  scroll: { paddingHorizontal: 22, paddingTop: 8 },
 
   // Nav
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    marginBottom: 32,
-  },
-  backBtn: { fontSize: 14, fontFamily: F.semibold, color: C.ink3 },
-  stepCount: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginBottom: 28 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backBtn: { fontSize: 15, fontFamily: F.bold, color: C.ink2 },
+  stepCount: { fontSize: 13.5, fontFamily: F.bold, color: C.ink3 },
 
   // Welcome
-  welcomeWrap: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 20 },
-  hero: { alignItems: 'center', marginBottom: 40 },
-  wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 16 },
-  wordmarkPaisa: { fontSize: 26, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.ink },
-  wordmarkBuddy: { fontSize: 26, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.brand },
-  tagline: { fontSize: 14, fontFamily: F.regular, color: C.ink3, marginTop: 8, textAlign: 'center' },
-  bullets: { gap: 14, marginBottom: 44 },
-  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  bulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.brand, marginTop: 5, flexShrink: 0 },
-  bulletText: { fontSize: 14, fontFamily: F.regular, color: C.ink2, flex: 1 },
-  welcomeFooter: { fontSize: 12, fontFamily: F.regular, color: C.ink3, textAlign: 'center', marginTop: 16 },
-
-  // All Set
-  allSetTitle: { fontSize: 28, fontFamily: F.extrabold, color: C.ink, marginTop: 20, marginBottom: 8 },
-  allSetSub: { fontSize: 14, fontFamily: F.regular, color: C.ink3, textAlign: 'center', lineHeight: 22 },
-
-  // Step hero
-  stepTitle: { fontSize: 26, fontFamily: F.extrabold, color: C.ink, marginBottom: 8, lineHeight: 34 },
-  stepSub: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 20 },
-
-  // Trust cards (Privacy step)
-  trustCards: { gap: 10 },
-  trustCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
+  welcomeScroll: { paddingHorizontal: 22, flexGrow: 1, justifyContent: 'center' },
+  welcomeHero: { alignItems: 'center', marginBottom: 36 },
+  welcomeSparkle: { position: 'absolute', top: -4, right: -8 },
+  wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 18 },
+  wordmarkPaisa: { fontSize: 27, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.ink },
+  wordmarkBuddy: { fontSize: 27, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.brand },
+  tagline: { fontSize: 14, fontFamily: F.medium, color: C.ink3, marginTop: 8, textAlign: 'center' },
+  groupCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
     borderWidth: 1,
     borderColor: C.line,
-    padding: 16,
+    overflow: 'hidden',
+    shadowColor: '#142819', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
-  trustCheck: { marginTop: 1 },
+  groupRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
+  groupRowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },
+  valueCardTitle: { fontSize: 14, fontFamily: F.semibold, color: C.ink, marginBottom: 2 },
+  valueCardSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+  welcomeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 },
+  welcomeFooterText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+
+  // All Set
+  allSetWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+  allSetCircleWrap: { position: 'relative', width: 164, height: 164, marginBottom: 28 },
+  allSetCircle: { width: 164, height: 164, borderRadius: 82, backgroundColor: C.brandPale, alignItems: 'center', justifyContent: 'center' },
+  sparklePos: { position: 'absolute' },
+  allSetTitle: { fontSize: 34, fontFamily: F.extrabold, color: C.ink, marginBottom: 10, textAlign: 'center' },
+  allSetSub: { fontSize: 15, fontFamily: F.medium, color: C.ink3, textAlign: 'center', lineHeight: 23 },
+  settingUpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 32 },
+  settingUpText: { fontSize: 14, fontFamily: F.medium, color: C.ink3 },
+
+  // Step hero (privacy)
+  privacyHero: { alignItems: 'center' },
+  stepTitle: { fontSize: 28, fontFamily: F.extrabold, color: C.ink, marginBottom: 8, lineHeight: 34, letterSpacing: -0.5 },
+  stepSub: { fontSize: 14, fontFamily: F.medium, color: C.ink3, lineHeight: 21 },
+
+  // Trust cards (Privacy step)
+  trustCheck: { marginLeft: 4 },
   trustLabel: { fontSize: 14, fontFamily: F.semibold, color: C.ink, marginBottom: 2 },
-  trustSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 18 },
+  trustSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+
+  // Profile tip card
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: C.brandPale,
+    borderRadius: RADIUS,
+    padding: 14,
+    marginBottom: 18,
+  },
+  tipText: { flex: 1, fontSize: 12.5, fontFamily: F.regular, color: C.ink2, lineHeight: 18 },
 
   // Form
   field: { marginBottom: 18 },
   fieldLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   optional: { fontFamily: F.regular, textTransform: 'none', letterSpacing: 0, fontSize: 11 },
-  inputBox: {
-    backgroundColor: C.surface,
-    borderWidth: 1.5,
-    borderColor: C.line,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
+  inputBox: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13 },
   inputBoxRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: { flex: 1, fontSize: 15, fontFamily: F.regular, color: C.ink, padding: 0 },
   rupeePrefix: { fontSize: 15, fontFamily: F.regular, color: C.ink3, flexShrink: 0 },
   hint: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, marginTop: 6, lineHeight: 18 },
 
-  // Account type chips (step 5)
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 99,
-    borderWidth: 1.5,
-    borderColor: C.line,
-    backgroundColor: C.surface,
-  },
-  chipActive: { borderColor: C.brand, backgroundColor: C.brandPale },
-  chipText: { fontSize: 13, fontFamily: F.medium, color: C.ink3 },
-  chipTextActive: { color: C.brand, fontFamily: F.semibold },
+  // Income big field
+  incomeField: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16 },
+  incomePrefix: { fontSize: 28, fontFamily: F.extrabold, color: C.ink3, marginRight: 6 },
+  incomeInput: { flex: 1, fontSize: 28, fontFamily: F.monoBold, color: C.ink, padding: 0 },
 
-  // Account category cards (step 4)
-  typeCards: { gap: 12 },
-  typeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.surface,
-    borderRadius: RADIUS,
-    borderWidth: 1.5,
-    borderColor: C.line,
-    padding: 18,
-  },
-  typeCardActive: { borderColor: C.brand, backgroundColor: C.brandPale },
-  typeCardBody: { flex: 1 },
-  typeCardTitle: { fontSize: 15, fontFamily: F.semibold, color: C.ink, marginBottom: 2 },
-  typeCardTitleActive: { color: C.brand },
-  typeCardSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  typeCardCheck: { marginLeft: 12 },
+  // Quick picks (income)
+  quickPicks: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  quickChip: { flex: 1, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.surface, alignItems: 'center' },
+  quickChipActive: { borderColor: C.brand, backgroundColor: C.brandPale },
+  quickChipText: { fontSize: 13, fontFamily: F.semibold, color: C.ink3 },
+  quickChipTextActive: { color: C.brand },
 
-  // UPI IDs (step 6)
-  upiList: {
-    backgroundColor: C.surface,
-    borderRadius: RADIUS,
-    borderWidth: 1,
-    borderColor: C.line,
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  upiRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.line,
-  },
-  upiId: { flex: 1, fontSize: 13, fontFamily: F.mono, color: C.ink },
-  removeText: { fontSize: 12, fontFamily: F.semibold, color: C.neg },
+  // Option cards (account type step 4)
+  optionCards: { gap: 12 },
+  optionCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.surface, borderRadius: RADIUS, borderWidth: 1.5, borderColor: C.line, padding: 18 },
+  optionCardActive: { borderColor: C.brand, backgroundColor: C.brandPale },
+  optionCardBody: { flex: 1 },
+  optionCardTitle: { fontSize: 15, fontFamily: F.semibold, color: C.ink, marginBottom: 2 },
+  optionCardTitleActive: { color: C.brand },
+  optionCardSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  radioCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  radioCircleActive: { backgroundColor: C.brand, borderColor: C.brand },
+
+  // Segmented control (account details step 5)
+  segmented: { flexDirection: 'row', backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line, borderRadius: RADIUS, overflow: 'hidden' },
+  segment: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  segmentBorder: { borderRightWidth: 1, borderRightColor: C.line },
+  segmentActive: { backgroundColor: C.brandPale },
+  segmentText: { fontSize: 13, fontFamily: F.medium, color: C.ink3 },
+  segmentTextActive: { color: C.brand, fontFamily: F.semibold },
+
+  // UPI chips (step 6)
+  upiChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  upiChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12, paddingRight: 4, paddingVertical: 7, borderRadius: 99, borderWidth: 1.5, borderColor: C.brand, backgroundColor: C.brandPale },
+  upiChipText: { fontSize: 13, fontFamily: F.mono, color: C.brand, maxWidth: 180 },
+  upiChipX: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  upiChipXText: { fontSize: 18, fontFamily: F.regular, color: C.brand, lineHeight: 22 },
   addAction: { fontSize: 13, fontFamily: F.bold, color: C.brand },
 
   // Categories (step 7)
   catsLoading: { paddingVertical: 48, alignItems: 'center' },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  catChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 99,
-    borderWidth: 1.5,
-    borderColor: C.line,
-    backgroundColor: C.surface,
-  },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5 },
   catChipActive: { borderColor: C.brand, backgroundColor: C.brandPale },
+  catChipOff: { borderColor: C.line, backgroundColor: C.surface, opacity: 0.6 },
   catDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   catChipText: { fontSize: 13, fontFamily: F.medium, color: C.ink3 },
   catChipTextActive: { color: C.ink, fontFamily: F.semibold },
+  catAddChip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5, borderColor: C.brand, borderStyle: 'dashed' },
+  catAddText: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
+  cancelText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, marginLeft: 4 },
 
   // Buttons
-  btn: {
-    backgroundColor: C.brand,
-    borderRadius: RADIUS,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: C.brand,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  btnOff: { opacity: 0.5 },
+  btn: { backgroundColor: C.brand, borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', shadowColor: C.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  btnOff: { opacity: 0.45 },
   btnPress: { opacity: 0.85 },
-  btnText: { color: '#ffffff', fontSize: 15.5, fontFamily: F.bold },
+  btnText: { color: '#ffffff', fontSize: 16, fontFamily: F.bold },
   skipBtn: { alignItems: 'center', paddingVertical: 14 },
-  skipText: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3 },
+  skipText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
 
   err: { fontSize: 12, fontFamily: F.regular, color: C.neg, marginTop: 6 },
 })
