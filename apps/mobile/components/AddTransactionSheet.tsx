@@ -21,7 +21,7 @@ import {
   createTransaction,
   updateTransaction,
   type TxInput,
-} from '../lib/api'
+} from '../repositories/transactionRepository'
 import { invalidateTransactionData } from '../lib/query'
 import {
   PREDEFINED_CATEGORIES,

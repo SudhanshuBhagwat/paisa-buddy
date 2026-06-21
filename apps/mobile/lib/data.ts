@@ -1,6 +1,5 @@
 export {
   fetchHomeData as getHomeData,
-  fetchTransactionMonthData as getTransactionMonthData,
   fetchReviewData as getReviewData,
   fetchStatsData as getStatsData,
   listInvestments as getInvestments,
@@ -11,8 +10,33 @@ export { getCategoryColors } from '../repositories/categoryRepository'
 
 import { getAllSettings } from '../repositories/settingsRepository'
 import { listCategories } from '../repositories/categoryRepository'
-import { getTotalCount } from '../repositories/transactionRepository'
+import { listAccounts } from '../repositories/accountRepository'
+import { getCategoryColors } from '../repositories/categoryRepository'
+import { getByMonth, getMonthlySpends, getTotalCount, type MonthlySpend } from '../repositories/transactionRepository'
 import { supabase } from './supabase'
+import type { Transaction } from '@paisa-buddy/shared/types/transaction'
+import type { Account } from '@paisa-buddy/shared/types/account'
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+export type TransactionMonthData = {
+  transactions: Transaction[]
+  monthlySpends: MonthlySpend[]
+  accounts: Account[]
+  categoryColors: Record<string, string>
+}
+
+export async function getTransactionMonthData(month: string): Promise<TransactionMonthData> {
+  const [transactions, monthlySpends, accounts, categoryColors] = await Promise.all([
+    getByMonth(month),
+    getMonthlySpends(),
+    listAccounts(),
+    getCategoryColors(),
+  ])
+  return { transactions, monthlySpends, accounts, categoryColors }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
 
 export type CategoryWithCount = { name: string; color: string; transactionCount: number }
 

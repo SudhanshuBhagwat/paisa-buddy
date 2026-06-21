@@ -18,7 +18,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
-import { updateTransaction } from '../lib/api'
+import { updateTransaction } from '../repositories/transactionRepository'
 import { invalidateTransactionData } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {
