@@ -23,6 +23,11 @@ import {
 import { createAccount } from '../repositories/accountRepository'
 import { listCategories, deleteCategory, createCategory } from '../repositories/categoryRepository'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
+import {
+  formatDisplayAmount,
+  parseAmountToPaise,
+  sanitizeAmountInput,
+} from '@paisa-buddy/shared/logic/amount'
 import { useSetupComplete } from '../navigation'
 import type { AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
@@ -32,12 +37,7 @@ type CatEntry = { name: string; color: string; selected: boolean }
 
 const BANK_TYPES: AccountType[] = ['savings', 'current', 'credit']
 const TOTAL_STEPS = 7
-const INCOME_QUICK_PICKS = [
-  { label: '₹25k', value: '25000' },
-  { label: '₹50k', value: '50000' },
-  { label: '₹85k', value: '85000' },
-  { label: '₹1L', value: '100000' },
-]
+const INCOME_KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del']
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +78,16 @@ function ChevronLeft() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <Path d="M15 18l-6-6 6-6" />
+    </Svg>
+  )
+}
+
+function BackspaceIcon({ size = 22, color = C.ink3 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" />
+      <Path d="M18 9l-6 6" />
+      <Path d="M12 9l6 6" />
     </Svg>
   )
 }
@@ -253,6 +263,15 @@ export function SetupScreen() {
     setUpiInput('')
   }
 
+  function pressIncomeKey(key: string) {
+    setIncomeInput((prev) => {
+      if (key === 'Del') return prev.slice(0, -1)
+      if (key === '.' && prev.includes('.')) return prev
+      const next = key === '.' && !prev ? '0.' : prev === '0' && key !== '.' ? key : prev + key
+      return sanitizeAmountInput(next)
+    })
+  }
+
   function toggleCategory(catName: string) {
     setCategories((prev) => prev.map((c) => c.name === catName ? { ...c, selected: !c.selected } : c))
   }
@@ -289,8 +308,8 @@ export function SetupScreen() {
       if (trimmedName) await setDisplayName(trimmedName)
       const trimmedEmail = email.trim()
       if (trimmedEmail) await saveEmail(trimmedEmail)
-      const rupees = parseInt(incomeInput.replace(/[^0-9]/g, ''), 10)
-      await setExpectedMonthlyIncome(isNaN(rupees) || rupees <= 0 ? 0 : rupees * 100)
+      const incomePaise = parseAmountToPaise(incomeInput)
+      await setExpectedMonthlyIncome(incomePaise > 0 ? incomePaise : 0)
       if (!skipAccount && accountName.trim()) {
         const balR = parseInt(balanceInput.replace(/[^0-9]/g, ''), 10)
         await createAccount(accountName.trim(), accountType, bankName.trim() || null, isNaN(balR) || balR < 0 ? 0 : balR * 100)
@@ -527,27 +546,21 @@ export function SetupScreen() {
                 <Text style={s.fieldLabel}>Expected Monthly Income</Text>
                 <View style={s.incomeField}>
                   <Text style={s.incomePrefix}>₹</Text>
-                  <TextInput
-                    style={s.incomeInput}
-                    placeholder="0"
-                    placeholderTextColor={C.ink3}
-                    value={incomeInput ? Number(incomeInput).toLocaleString('en-IN') : ''}
-                    onChangeText={(t) => setIncomeInput(t.replace(/[^0-9]/g, ''))}
-                    keyboardType="numeric"
-                    returnKeyType="done"
-                    autoFocus
-                  />
+                  <Text style={[s.incomeInput, !incomeInput && s.incomePlaceholder]}>
+                    {incomeInput ? formatDisplayAmount(incomeInput) : '0'}
+                  </Text>
+                  <Text style={[s.incomePrefix, { color: 'transparent', marginRight: 0, marginLeft: 6 }]} aria-hidden>₹</Text>
                 </View>
-
-                {/* Quick picks */}
-                <View style={s.quickPicks}>
-                  {INCOME_QUICK_PICKS.map(({ label, value }) => (
+                <View style={s.incomeKeypad}>
+                  {INCOME_KEYPAD.map((key) => (
                     <Pressable
-                      key={value}
-                      style={[s.quickChip, incomeInput === value && s.quickChipActive]}
-                      onPress={() => setIncomeInput(value)}
+                      key={key}
+                      style={({ pressed }) => [s.incomeKey, pressed && s.incomeKeyPressed]}
+                      onPress={() => pressIncomeKey(key)}
                     >
-                      <Text style={[s.quickChipText, incomeInput === value && s.quickChipTextActive]}>{label}</Text>
+                      {key === 'Del'
+                        ? <BackspaceIcon />
+                        : <Text style={s.incomeKeyText}>{key}</Text>}
                     </Pressable>
                   ))}
                 </View>
@@ -897,16 +910,39 @@ const s = StyleSheet.create({
   hint: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, marginTop: 6, lineHeight: 18 },
 
   // Income big field
-  incomeField: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16 },
-  incomePrefix: { fontSize: 28, fontFamily: F.extrabold, color: C.ink3, marginRight: 6 },
-  incomeInput: { flex: 1, fontSize: 28, fontFamily: F.monoBold, color: C.ink, padding: 0 },
+  incomeField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  incomePrefix: { fontSize: 58, fontFamily: F.regular, color: C.brand, lineHeight: 68 },
+  incomeInput: {
+    fontSize: 58,
+    fontFamily: F.semibold,
+    color: C.brand,
+    textAlign: 'center',
+    minWidth: 120,
+    padding: 0,
+  },
+  incomePlaceholder: { color: C.brand + '60' },
 
-  // Quick picks (income)
-  quickPicks: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  quickChip: { flex: 1, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.surface, alignItems: 'center' },
-  quickChipActive: { borderColor: C.brand, backgroundColor: C.brandPale },
-  quickChipText: { fontSize: 13, fontFamily: F.semibold, color: C.ink3 },
-  quickChipTextActive: { color: C.brand },
+  // Income keypad
+  incomeKeypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  incomeKey: {
+    width: '30.5%',
+    height: 54,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.line,
+    backgroundColor: C.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomeKeyPressed: { backgroundColor: C.brandPale, borderColor: C.brand },
+  incomeKeyText: { fontSize: 22, fontFamily: F.semibold, color: C.ink },
 
   // Option cards (account type step 4)
   optionCards: { gap: 12 },
