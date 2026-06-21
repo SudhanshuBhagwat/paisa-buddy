@@ -3,9 +3,11 @@ export {
   fetchTransactionMonthData as getTransactionMonthData,
   fetchReviewData as getReviewData,
   fetchStatsData as getStatsData,
-  listAccounts as getAccounts,
   listInvestments as getInvestments,
 } from './api'
+
+export { listAccounts as getAccounts } from '../repositories/accountRepository'
+export { getCategoryColors } from '../repositories/categoryRepository'
 
 import { getAllSettings } from '../repositories/settingsRepository'
 import { listCategories } from '../repositories/categoryRepository'

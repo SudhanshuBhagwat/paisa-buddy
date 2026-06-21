@@ -17,7 +17,7 @@ import {
   createAccount,
   updateAccount,
   deleteAccount,
-} from '../lib/api'
+} from '../repositories/accountRepository'
 import { getAccounts } from '../lib/data'
 import { invalidateAccountData, queryKeys } from '../lib/query'
 import type { Account, AccountType } from '@paisa-buddy/shared/types/account'

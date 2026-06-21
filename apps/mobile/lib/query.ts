@@ -5,6 +5,7 @@ export const queryKeys = {
   transactions: (month?: string) => (month ? ['transactionsData', month] : ['transactionsData']) as readonly string[],
   review: ['reviewData'] as const,
   accounts: ['accounts'] as const,
+  categories: ['categories'] as const,
   investments: ['investments'] as const,
   settings: ['settings'] as const,
   stats: (month?: string) => (month ? ['statsData', month] : ['statsData']) as readonly string[],
@@ -32,6 +33,7 @@ export function invalidateCategoryData(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.home })
   queryClient.invalidateQueries({ queryKey: queryKeys.review })
   queryClient.invalidateQueries({ queryKey: queryKeys.settings })
+  queryClient.invalidateQueries({ queryKey: queryKeys.categories })
   queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
 }
 
