@@ -88,7 +88,6 @@ const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [
   { name: 'Returns', color: '#7B5EA7' },
   { name: 'Investment', color: '#C99A2E' },
   { name: 'Transfer', color: '#3B82C4' },
-  { name: 'Settlement', color: '#9B6B9E' },
   { name: 'Other', color: '#7E8A82' },
 ]
 

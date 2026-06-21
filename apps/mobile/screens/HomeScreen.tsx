@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -17,9 +17,10 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CommonActions, useNavigation } from '@react-navigation/native'
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native'
+import type { RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import type { RootStackParamList } from '../navigation'
+import type { MainTabParamList, RootStackParamList } from '../navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
@@ -200,7 +201,9 @@ function getDayGreeting(date: Date): string {
 export function HomeScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const route = useRoute<RouteProp<MainTabParamList, 'Home'>>()
   const queryClient = useQueryClient()
+  const handledInitialAction = useRef(false)
   const month = toYearMonth(new Date())
   const homeQuery = useQuery({
     queryKey: queryKeys.home,
@@ -210,6 +213,19 @@ export function HomeScreen() {
   // Sheets
   const [addSheetOpen, setAddSheetOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
+
+  useEffect(() => {
+    if (handledInitialAction.current) return
+    const action = route.params?.initialAction
+    if (!action || action === 'dashboard') return
+    handledInitialAction.current = true
+    if (action === 'import') {
+      navigation.navigate('ImportStatement')
+      return
+    }
+    setEditTx(null)
+    setAddSheetOpen(true)
+  }, [navigation, route.params?.initialAction])
 
   const allTxs = homeQuery.data?.transactions ?? []
   const accounts = homeQuery.data?.accounts ?? []

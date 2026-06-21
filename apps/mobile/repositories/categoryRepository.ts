@@ -1,5 +1,5 @@
 import { getDb } from '../db/database'
-import { generateUniqueColor } from '@paisa-buddy/shared/categories'
+import { CATEGORY_COLORS, PREDEFINED_CATEGORIES, generateUniqueColor } from '@paisa-buddy/shared/categories'
 
 export type CategoryRow = {
   name: string
@@ -57,6 +57,16 @@ export async function createCategory(name: string): Promise<{ name: string; colo
     [name],
   )
   return { name, color: existing?.color ?? color }
+}
+
+export async function ensureDefaultCategories(): Promise<void> {
+  const db = getDb()
+  for (const name of PREDEFINED_CATEGORIES) {
+    await db.runAsync(
+      'INSERT OR IGNORE INTO categories (name, color, is_custom) VALUES (?, ?, 0)',
+      [name, CATEGORY_COLORS[name]],
+    )
+  }
 }
 
 export async function deleteCategory(name: string, unlink: boolean): Promise<void> {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -21,23 +21,24 @@ import {
   markSetupComplete,
 } from '../repositories/settingsRepository'
 import { createAccount } from '../repositories/accountRepository'
-import { listCategories, deleteCategory, createCategory } from '../repositories/categoryRepository'
+import { ensureDefaultCategories } from '../repositories/categoryRepository'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import {
   formatDisplayAmount,
   parseAmountToPaise,
   sanitizeAmountInput,
 } from '@paisa-buddy/shared/logic/amount'
-import { useSetupComplete } from '../navigation'
+import { useSetupComplete, type SetupStartAction } from '../navigation'
 import type { AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-type CatEntry = { name: string; color: string; selected: boolean }
+type TrackingPreference = 'import' | 'manual' | 'both'
 
 const BANK_TYPES: AccountType[] = ['savings', 'current', 'credit']
-const TOTAL_STEPS = 7
+const TOTAL_STEPS = 8
 const INCOME_KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del']
+const UPI_EXAMPLES = ['yourname@oksbi', 'yourname@ybl', 'yourname@paytm']
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -221,32 +222,12 @@ export function SetupScreen() {
   const [upiInput, setUpiInput] = useState('')
   const [upiIds, setUpiIds] = useState<string[]>([])
 
-  // Categories
-  const [categories, setCategories] = useState<CatEntry[]>([])
-  const [catsLoaded, setCatsLoaded] = useState(false)
-  const [addingCustomCat, setAddingCustomCat] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [savingCat, setSavingCat] = useState(false)
+  // Tracking
+  const [trackingPreference, setTrackingPreference] = useState<TrackingPreference>('both')
 
   // General
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (step === 7 && !catsLoaded) {
-      void listCategories().then((cats) => {
-        setCategories(cats.map((c) => ({ name: c.name, color: c.color, selected: true })))
-        setCatsLoaded(true)
-      })
-    }
-  }, [step, catsLoaded])
-
-  useEffect(() => {
-    if (step !== 8) return
-    const timer = setTimeout(() => { void handleFinish() }, 3000)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step])
 
   function goTo(s: Step) { setError(null); setStep(s) }
   function goBack() { if (step === 0 || step === 8) return; goTo((step - 1) as Step) }
@@ -272,24 +253,6 @@ export function SetupScreen() {
     })
   }
 
-  function toggleCategory(catName: string) {
-    setCategories((prev) => prev.map((c) => c.name === catName ? { ...c, selected: !c.selected } : c))
-  }
-
-  async function handleAddCustomCat() {
-    const trimmed = newCatName.trim()
-    if (!trimmed) return
-    setSavingCat(true)
-    try {
-      const { name: n, color } = await createCategory(trimmed)
-      setCategories((prev) => [...prev, { name: n, color, selected: true }])
-      setNewCatName('')
-      setAddingCustomCat(false)
-    } finally {
-      setSavingCat(false)
-    }
-  }
-
   function handleContinueProfile() {
     if (!name.trim()) { setError('Name is required.'); return }
     const trimmedEmail = email.trim()
@@ -300,7 +263,7 @@ export function SetupScreen() {
     setEmailError(null); setError(null); goTo(3)
   }
 
-  async function handleFinish() {
+  async function handleFinish(action: SetupStartAction = 'dashboard') {
     if (saving) return
     setSaving(true); setError(null)
     try {
@@ -315,9 +278,9 @@ export function SetupScreen() {
         await createAccount(accountName.trim(), accountType, bankName.trim() || null, isNaN(balR) || balR < 0 ? 0 : balR * 100)
       }
       for (const id of upiIds) await addUpiId(id)
-      for (const cat of categories.filter((c) => !c.selected)) await deleteCategory(cat.name, false)
+      await ensureDefaultCategories()
       await markSetupComplete()
-      onSetupComplete()
+      onSetupComplete(action)
     } catch {
       setError('Something went wrong. Please try again.')
       setSaving(false)
@@ -351,9 +314,9 @@ export function SetupScreen() {
           {/* Value cards */}
           {(() => {
             const items = [
-              { icon: <LockIcon />, title: 'No account required', sub: 'No sign-up, no password, no cloud.' },
-              { icon: <WifiOffIcon />, title: 'Works fully offline', sub: 'Runs entirely on your device.' },
-              { icon: <PhoneIcon />, title: 'Data never leaves your phone', sub: '100% local storage. Zero tracking.' },
+              { icon: <LockIcon />, title: 'No account required', sub: 'No account. No passwords. No cloud sync.' },
+              { icon: <WifiOffIcon />, title: 'Works fully offline', sub: 'Works even without internet.' },
+              { icon: <PhoneIcon />, title: 'Data never leaves your phone', sub: 'Your financial data stays on your device.' },
             ]
             return (
               <View style={[s.groupCard, { marginBottom: 36 }]}>
@@ -388,6 +351,23 @@ export function SetupScreen() {
 
   // ── Step 8: All Set ──────────────────────────────────────────────────────────
   if (step === 8) {
+    const startOptions =
+      trackingPreference === 'both'
+        ? [
+            { key: 'import', label: 'Import Statement', action: 'import' as const, primary: true },
+            { key: 'add', label: 'Add Transaction', action: 'addTransaction' as const, primary: false },
+            { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: false },
+          ]
+        : trackingPreference === 'import'
+          ? [
+              { key: 'import', label: 'Import Statement', action: 'import' as const, primary: true },
+              { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: false },
+            ]
+          : [
+              { key: 'dashboard', label: 'Open Dashboard', action: 'dashboard' as const, primary: true },
+              { key: 'import', label: 'Import Statement', action: 'import' as const, primary: false },
+            ]
+
     return (
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 24) }]}>
         <View style={s.allSetWrap}>
@@ -401,16 +381,30 @@ export function SetupScreen() {
             <View style={[s.sparklePos, { bottom: 6, right: 2 }]}><SparkleIcon size={14} /></View>
           </View>
 
-          <Text style={s.allSetTitle}>All done!</Text>
+          <Text style={s.allSetTitle}>You're ready</Text>
           <Text style={s.allSetSub}>
-            Paisa Buddy is ready to help you{'\n'}manage your money better.
+            How would you like to start?
           </Text>
 
           {error && <Text style={[s.err, { textAlign: 'center', marginBottom: 8 }]}>{error}</Text>}
 
-          <View style={s.settingUpRow}>
-            <ActivityIndicator size="small" color={C.brand} />
-            <Text style={s.settingUpText}>Setting up your dashboard…</Text>
+          <View style={s.startActions}>
+            {startOptions.map((option) => (
+              <Pressable
+                key={option.key}
+                style={({ pressed }) => [
+                  option.primary ? s.btn : s.secondaryBtn,
+                  saving && s.btnOff,
+                  pressed && s.btnPress,
+                ]}
+                onPress={() => void handleFinish(option.action)}
+                disabled={saving}
+              >
+                {saving && option.primary
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={option.primary ? s.btnText : s.secondaryBtnText}>{option.label}</Text>}
+              </Pressable>
+            ))}
           </View>
         </View>
       </View>
@@ -443,17 +437,17 @@ export function SetupScreen() {
             <View>
               <View style={[s.privacyHero, { marginBottom: 28 }]}>
                 <BuddySVG size={66} />
-                <Text style={s.stepTitle}>Privacy first</Text>
+                <Text style={s.stepTitle}>Your data,{'\n'}your rules</Text>
                 <Text style={s.stepSub}>
-                  Paisa Buddy is built around one idea:{'\n'}your financial data belongs to you.
+                  Paisa Buddy gives you complete control over your financial data.
                 </Text>
               </View>
 
               {(() => {
                 const items = [
                   { icon: <WifiOffIcon />, label: 'Works Offline', sub: 'No internet needed after setup.' },
-                  { icon: <PhoneIcon />, label: 'No Data Leaves Your Device', sub: 'Everything is stored locally on your phone.' },
-                  { icon: <SlidersIcon />, label: "You're In Control", sub: 'Export or delete your data anytime.' },
+                  { icon: <SlidersIcon />, label: 'Export Anytime', sub: 'Download your data whenever you want.' },
+                  { icon: <PhoneIcon />, label: 'Delete Anytime', sub: 'Remove all your data with a single tap.' },
                 ]
                 return (
                   <View style={s.groupCard}>
@@ -482,7 +476,7 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>What should we{'\n'}call you?</Text>
               <Text style={s.stepSub}>
-                Your name helps identify you as sender or receiver in uploaded receipts.
+                Helps Paisa Buddy recognize transfers and imported transactions.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
@@ -525,7 +519,7 @@ export function SetupScreen() {
                 </View>
                 {emailError
                   ? <Text style={s.err}>{emailError}</Text>
-                  : <Text style={s.hint}>Optional. Stored only on your device.</Text>}
+                  : <Text style={s.hint}>Optional. Used for future AI features and exports.</Text>}
               </View>
 
               <Pressable style={({ pressed }) => [s.btn, { marginTop: 8 }, pressed && s.btnPress]} onPress={handleContinueProfile}>
@@ -539,7 +533,7 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>Monthly Income</Text>
               <Text style={s.stepSub}>
-                Used to track spending progress and calculate what's left each month.
+                Helps calculate your monthly progress and spending insights.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
@@ -687,6 +681,7 @@ export function SetupScreen() {
                     returnKeyType="done"
                   />
                 </View>
+                <Text style={s.hint}>Used to calculate account balances accurately.</Text>
               </View>
 
               {error && <Text style={s.err}>{error}</Text>}
@@ -713,7 +708,7 @@ export function SetupScreen() {
             <View>
               <Text style={s.stepTitle}>Your UPI IDs</Text>
               <Text style={s.stepSub}>
-                Helps identify debit and credit direction in uploaded statements.
+                Helps Paisa Buddy recognize transfers between your own accounts.
               </Text>
 
               <View style={[s.field, { marginTop: 28 }]}>
@@ -733,6 +728,12 @@ export function SetupScreen() {
                   <Pressable onPress={addUpiEntry} disabled={!upiInput.trim()} hitSlop={8}>
                     <Text style={[s.addAction, !upiInput.trim() && { opacity: 0.35 }]}>Add</Text>
                   </Pressable>
+                </View>
+                <View style={s.examplesWrap}>
+                  <Text style={s.examplesLabel}>Examples</Text>
+                  {UPI_EXAMPLES.map((example) => (
+                    <Text key={example} style={s.exampleText}>{example}</Text>
+                  ))}
                 </View>
               </View>
 
@@ -759,70 +760,36 @@ export function SetupScreen() {
             </View>
           )}
 
-          {/* ── Step 7: Categories ────────────────────────────────────────── */}
+          {/* ── Step 7: Tracking Preference ───────────────────────────────── */}
           {step === 7 && (
             <View>
-              <Text style={s.stepTitle}>Your categories</Text>
-              <Text style={s.stepSub}>Tap to turn any off. You can change these anytime in Settings.</Text>
+              <Text style={s.stepTitle}>How would you like{'\n'}to track expenses?</Text>
+              <Text style={s.stepSub}>Choose how you'd like to get started.</Text>
 
-              {!catsLoaded ? (
-                <View style={s.catsLoading}>
-                  <ActivityIndicator color={C.brand} />
-                </View>
-              ) : (
-                <>
-                  <View style={[s.catGrid, { marginTop: 28 }]}>
-                    {categories.map((cat) => (
-                      <Pressable
-                        key={cat.name}
-                        style={[s.catChip, cat.selected ? s.catChipActive : s.catChipOff]}
-                        onPress={() => toggleCategory(cat.name)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: cat.selected }}
-                      >
-                        <View style={[s.catDot, { backgroundColor: cat.selected ? cat.color : C.ink3 }]} />
-                        <Text style={[s.catChipText, cat.selected && s.catChipTextActive]}>
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-
-                    {!addingCustomCat && (
-                      <Pressable style={s.catAddChip} onPress={() => setAddingCustomCat(true)}>
-                        <Text style={s.catAddText}>+ Add custom</Text>
-                      </Pressable>
-                    )}
-                  </View>
-
-                  {addingCustomCat && (
-                    <View style={[s.inputBox, s.inputBoxRow, { marginTop: 14 }]}>
-                      <TextInput
-                        style={s.input}
-                        placeholder="Category name"
-                        placeholderTextColor={C.ink3}
-                        value={newCatName}
-                        onChangeText={setNewCatName}
-                        autoFocus
-                        returnKeyType="done"
-                        onSubmitEditing={() => void handleAddCustomCat()}
-                      />
-                      <Pressable onPress={() => void handleAddCustomCat()} disabled={!newCatName.trim() || savingCat} hitSlop={8}>
-                        {savingCat
-                          ? <ActivityIndicator size="small" color={C.brand} />
-                          : <Text style={[s.addAction, !newCatName.trim() && { opacity: 0.35 }]}>Add</Text>}
-                      </Pressable>
-                      <Pressable onPress={() => { setAddingCustomCat(false); setNewCatName('') }} hitSlop={8}>
-                        <Text style={s.cancelText}>Cancel</Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </>
-              )}
+              <View style={[s.optionCards, { marginTop: 28 }]}>
+                {([
+                  { value: 'import' as const, title: 'Import Statements', sub: 'Import bank statements and review transactions.' },
+                  { value: 'manual' as const, title: 'Add Transactions Manually', sub: 'Track expenses one transaction at a time.' },
+                  { value: 'both' as const, title: 'Both', sub: 'Import statements and manually add transactions when needed.' },
+                ]).map(({ value, title, sub }) => {
+                  const active = trackingPreference === value
+                  return (
+                    <Pressable key={value} style={[s.optionCard, active && s.optionCardActive]} onPress={() => setTrackingPreference(value)}>
+                      <View style={s.optionCardBody}>
+                        <Text style={[s.optionCardTitle, active && s.optionCardTitleActive]}>{title}</Text>
+                        <Text style={s.optionCardSub}>{sub}</Text>
+                      </View>
+                      <View style={[s.radioCircle, active && s.radioCircleActive]}>
+                        {active && <CheckIcon size={13} color="#fff" />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
+              </View>
 
               <Pressable
-                style={({ pressed }) => [s.btn, { marginTop: 24 }, !catsLoaded && s.btnOff, pressed && s.btnPress]}
+                style={({ pressed }) => [s.btn, { marginTop: 28 }, pressed && s.btnPress]}
                 onPress={() => goTo(8)}
-                disabled={!catsLoaded}
               >
                 <Text style={s.btnText}>Continue</Text>
               </Pressable>
@@ -874,9 +841,7 @@ const s = StyleSheet.create({
   sparklePos: { position: 'absolute' },
   allSetTitle: { fontSize: 34, fontFamily: F.extrabold, color: C.ink, marginBottom: 10, textAlign: 'center' },
   allSetSub: { fontSize: 15, fontFamily: F.medium, color: C.ink3, textAlign: 'center', lineHeight: 23 },
-  settingUpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 32 },
-  settingUpText: { fontSize: 14, fontFamily: F.medium, color: C.ink3 },
-
+  startActions: { alignSelf: 'stretch', gap: 12, marginTop: 32 },
   // Step hero (privacy)
   privacyHero: { alignItems: 'center' },
   stepTitle: { fontSize: 28, fontFamily: F.extrabold, color: C.ink, marginBottom: 8, lineHeight: 34, letterSpacing: -0.5 },
@@ -970,25 +935,17 @@ const s = StyleSheet.create({
   upiChipX: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   upiChipXText: { fontSize: 18, fontFamily: F.regular, color: C.brand, lineHeight: 22 },
   addAction: { fontSize: 13, fontFamily: F.bold, color: C.brand },
-
-  // Categories (step 7)
-  catsLoading: { paddingVertical: 48, alignItems: 'center' },
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5 },
-  catChipActive: { borderColor: C.brand, backgroundColor: C.brandPale },
-  catChipOff: { borderColor: C.line, backgroundColor: C.surface, opacity: 0.6 },
-  catDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  catChipText: { fontSize: 13, fontFamily: F.medium, color: C.ink3 },
-  catChipTextActive: { color: C.ink, fontFamily: F.semibold },
-  catAddChip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 99, borderWidth: 1.5, borderColor: C.brand, borderStyle: 'dashed' },
-  catAddText: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
-  cancelText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, marginLeft: 4 },
+  examplesWrap: { marginTop: 10, gap: 4 },
+  examplesLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  exampleText: { fontSize: 12, fontFamily: F.mono, color: C.ink3 },
 
   // Buttons
   btn: { backgroundColor: C.brand, borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', shadowColor: C.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnOff: { opacity: 0.45 },
   btnPress: { opacity: 0.85 },
   btnText: { color: '#ffffff', fontSize: 16, fontFamily: F.bold },
+  secondaryBtn: { borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', borderWidth: 1.5, borderColor: C.line, backgroundColor: C.surface },
+  secondaryBtnText: { color: C.ink, fontSize: 16, fontFamily: F.bold },
   skipBtn: { alignItems: 'center', paddingVertical: 14 },
   skipText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
 

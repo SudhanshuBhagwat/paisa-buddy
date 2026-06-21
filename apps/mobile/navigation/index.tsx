@@ -19,6 +19,8 @@ import { ReviewScreen } from '../screens/ReviewScreen'
 import { ImportStatementScreen } from '../screens/ImportStatementScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 
+export type SetupStartAction = 'dashboard' | 'import' | 'addTransaction'
+
 export type RootStackParamList = {
   Setup: undefined
   Main: undefined
@@ -27,7 +29,7 @@ export type RootStackParamList = {
 }
 
 export type MainTabParamList = {
-  Home: undefined
+  Home: { initialAction?: SetupStartAction } | undefined
   Transactions: undefined
   Month: undefined
   Accounts: undefined
@@ -37,18 +39,18 @@ export type MainTabParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator<MainTabParamList>()
 
-const SetupCompleteCtx = createContext<() => void>(() => {})
+const SetupCompleteCtx = createContext<(action?: SetupStartAction) => void>(() => {})
 const SetupResetCtx = createContext<() => void>(() => {})
 export const useSetupComplete = () => useContext(SetupCompleteCtx)
 export const useSetupReset = () => useContext(SetupResetCtx)
 
-function MainTabs() {
+function MainTabs({ initialAction }: { initialAction?: SetupStartAction }) {
   return (
     <Tab.Navigator
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <CustomBottomNav {...props} />}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} initialParams={initialAction ? { initialAction } : undefined} />
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
       <Tab.Screen name="Month" component={StatsScreen} />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
@@ -78,6 +80,7 @@ function MainDataPrefetcher() {
 export function RootNavigator() {
   const [setupCompleted, setSetupCompleted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [setupStartAction, setSetupStartAction] = useState<SetupStartAction | undefined>()
 
   useEffect(() => {
     isSetupComplete().then((done) => {
@@ -86,8 +89,14 @@ export function RootNavigator() {
     })
   }, [])
 
-  const onSetupComplete = useCallback(() => setSetupCompleted(true), [])
-  const onSetupReset = useCallback(() => setSetupCompleted(false), [])
+  const onSetupComplete = useCallback((action?: SetupStartAction) => {
+    setSetupStartAction(action)
+    setSetupCompleted(true)
+  }, [])
+  const onSetupReset = useCallback(() => {
+    setSetupStartAction(undefined)
+    setSetupCompleted(false)
+  }, [])
 
   if (loading) {
     return (
@@ -107,7 +116,9 @@ export function RootNavigator() {
             <Stack.Screen name="Setup" component={SetupScreen} />
           ) : (
             <>
-              <Stack.Screen name="Main" component={MainTabs} />
+              <Stack.Screen name="Main">
+                {() => <MainTabs initialAction={setupStartAction} />}
+              </Stack.Screen>
               <Stack.Screen name="ImportStatement" component={ImportStatementScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
             </>
