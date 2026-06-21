@@ -35,9 +35,6 @@ importers:
       '@react-navigation/native-stack':
         specifier: ^7.0.0
         version: 7.0.0(@react-navigation/native@7.3.3)(react-native-safe-area-context@5.0.0)(react-native-screens@4.0.0)(react-native@0.81.5)(react@19.1.0)
-      '@supabase/supabase-js':
-        specifier: ^2.106.1
-        version: 2.108.1
       '@tanstack/react-query':
         specifier: ^5.101.0
         version: 5.101.0(react@19.1.0)

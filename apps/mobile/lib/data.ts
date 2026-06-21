@@ -1,7 +1,3 @@
-export {
-  listInvestments as getInvestments,
-} from './api'
-
 export { listAccounts as getAccounts } from '../repositories/accountRepository'
 export { getCategoryColors } from '../repositories/categoryRepository'
 
