@@ -537,7 +537,7 @@ export function SettingsScreen() {
                         <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
                         {cat.transactionCount > 0 && (
                           <View style={s.catBadge}>
-                            <Text style={s.catBadgeText}>{cat.transactionCount} txn{cat.transactionCount !== 1 ? 's' : ''}</Text>
+                            <Text style={s.catBadgeText}>{cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}</Text>
                           </View>
                         )}
                       </View>
