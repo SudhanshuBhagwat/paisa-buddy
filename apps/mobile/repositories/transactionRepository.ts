@@ -16,6 +16,7 @@ type TxRow = {
   reviewed: number
   source: string
   upi_ref: string | null
+  bank: string | null
   created_at: string
 }
 
@@ -37,7 +38,7 @@ function rowToTransaction(row: TxRow): Transaction {
     reviewed: row.reviewed === 1,
     source: row.source as Transaction['source'],
     upi_ref: row.upi_ref,
-    bank: null,
+    bank: row.bank,
     raw_ai_response: null,
     confidence: null,
     recurrence_group: null,
@@ -60,6 +61,7 @@ export type TxInput = {
   reviewed?: boolean
   source?: Transaction['source']
   upi_ref?: string | null
+  bank?: string | null
 }
 
 export type TxPatch = Partial<TxInput>
@@ -71,8 +73,8 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
   await db.runAsync(
     `INSERT INTO transactions
       (id, type, amount, date, time, merchant, description, category,
-       account_id, to_account_id, is_recurring, reviewed, source, upi_ref, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       account_id, to_account_id, is_recurring, reviewed, source, upi_ref, bank, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.type,
@@ -88,6 +90,7 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
       input.reviewed !== false ? 1 : 0,
       input.source ?? 'manual',
       input.upi_ref ?? null,
+      input.bank ?? null,
       now,
     ],
   )
@@ -99,13 +102,14 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
     is_recurring: input.is_recurring ? 1 : 0,
     reviewed: input.reviewed !== false ? 1 : 0,
     source: input.source ?? 'manual', upi_ref: input.upi_ref ?? null,
+    bank: input.bank ?? null,
     created_at: now,
   })
 }
 
 const UPDATABLE_COLS = [
   'type', 'amount', 'date', 'time', 'merchant', 'description',
-  'category', 'account_id', 'to_account_id', 'source', 'upi_ref',
+  'category', 'account_id', 'to_account_id', 'source', 'upi_ref', 'bank',
 ] as const
 
 export async function updateTransaction(id: string, patch: TxPatch & { reviewed?: boolean }): Promise<Transaction> {

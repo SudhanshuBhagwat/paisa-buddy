@@ -102,10 +102,29 @@ async function migration003FixPlansTable(db: SQLiteDatabase): Promise<void> {
   `)
 }
 
+async function migration004IndexesAndBankColumn(db: SQLiteDatabase): Promise<void> {
+  // Indexes present in web schema but missing from initial SQLite migration
+  await db.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_transactions_type       ON transactions(type);
+    CREATE INDEX IF NOT EXISTS idx_transactions_to_account ON transactions(to_account_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_upi_ref_dedup
+      ON transactions (account_id, upi_ref)
+      WHERE upi_ref IS NOT NULL AND upi_ref <> '';
+  `)
+
+  // bank column exists in web transactions table — needed for review form payload
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)')
+  if (!cols.some((c) => c.name === 'bank')) {
+    await db.execAsync('ALTER TABLE transactions ADD COLUMN bank TEXT')
+  }
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
   { version: 3, up: migration003FixPlansTable },
+  { version: 4, up: migration004IndexesAndBankColumn },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {
