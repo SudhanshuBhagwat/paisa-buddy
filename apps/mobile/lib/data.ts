@@ -2,14 +2,26 @@ export {
   fetchHomeData as getHomeData,
   fetchTransactionMonthData as getTransactionMonthData,
   fetchReviewData as getReviewData,
-  fetchSettings as getSettings,
   fetchStatsData as getStatsData,
   listAccounts as getAccounts,
   listInvestments as getInvestments,
 } from './api'
 
-import { fetchSettings, type SettingsData } from './api'
+import { getAllSettings } from '../repositories/settingsRepository'
+import { listCategories } from '../repositories/categoryRepository'
+import { getTotalCount } from '../repositories/transactionRepository'
 import { supabase } from './supabase'
+
+export type CategoryWithCount = { name: string; color: string; transactionCount: number }
+
+export type SettingsData = {
+  displayName: string | null
+  expectedMonthlyIncome: number
+  upiIds: string[]
+  customCategories: CategoryWithCount[]
+  predefinedCategories: { name: string; transactionCount: number }[]
+  txCount: number
+}
 
 export type SettingsQueryData = {
   settings: SettingsData
@@ -17,9 +29,23 @@ export type SettingsQueryData = {
 }
 
 export async function getSettingsData(): Promise<SettingsQueryData> {
-  const [settings, { data: { session } }] = await Promise.all([
-    fetchSettings(),
+  const [raw, cats, txCount, { data: { session } }] = await Promise.all([
+    getAllSettings(),
+    listCategories(),
+    getTotalCount(),
     supabase.auth.getSession(),
   ])
+  const settings: SettingsData = {
+    displayName: raw.displayName,
+    expectedMonthlyIncome: raw.expectedMonthlyIncome,
+    upiIds: raw.upiIds,
+    customCategories: cats
+      .filter((c) => c.is_custom)
+      .map(({ name, color, transactionCount }) => ({ name, color, transactionCount })),
+    predefinedCategories: cats
+      .filter((c) => !c.is_custom)
+      .map(({ name, transactionCount }) => ({ name, transactionCount })),
+    txCount,
+  }
   return { settings, email: session?.user?.email ?? null }
 }

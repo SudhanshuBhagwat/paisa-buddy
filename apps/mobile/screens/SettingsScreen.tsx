@@ -13,18 +13,21 @@ import {
 import Svg, { Circle, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchExportCsv } from '../lib/api'
 import {
-  updateProfile,
+  setDisplayName,
+  setExpectedMonthlyIncome,
   addUpiId,
   removeUpiId,
-  addCustomCategory,
-  removeCustomCategory,
   clearAllData,
-  fetchExportCsv,
+} from '../repositories/settingsRepository'
+import { createCategory, deleteCategory } from '../repositories/categoryRepository'
+import {
+  getSettingsData,
   type SettingsData,
   type CategoryWithCount,
-} from '../lib/api'
-import { getSettingsData, type SettingsQueryData } from '../lib/data'
+  type SettingsQueryData,
+} from '../lib/data'
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { supabase } from '../lib/supabase'
@@ -93,7 +96,7 @@ export function SettingsScreen() {
   async function handleSaveName() {
     const name = nameInput.trim()
     try {
-      await updateProfile({ displayName: name || null })
+      await setDisplayName(name || null)
       queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
         prev ? { ...prev, settings: { ...prev.settings, displayName: name || null } } : prev
       ))
@@ -109,7 +112,7 @@ export function SettingsScreen() {
     const rupees = parseInt(incomeInput.replace(/,/g, ''), 10)
     const paise = isNaN(rupees) || rupees < 0 ? 0 : rupees * 100
     try {
-      await updateProfile({ expectedMonthlyIncome: paise })
+      await setExpectedMonthlyIncome(paise)
       queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
         prev ? { ...prev, settings: { ...prev.settings, expectedMonthlyIncome: paise } } : prev
       ))
@@ -163,7 +166,7 @@ export function SettingsScreen() {
     if (!name) return
     setAddingCat(true)
     try {
-      const { name: n, color } = await addCustomCategory(name)
+      const { name: n, color } = await createCategory(name)
       queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
         prev ? {
           ...prev,
@@ -192,7 +195,7 @@ export function SettingsScreen() {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
           try {
-            await removeCustomCategory(cat.name, cat.transactionCount > 0)
+            await deleteCategory(cat.name, cat.transactionCount > 0)
             queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
               prev ? {
                 ...prev,
