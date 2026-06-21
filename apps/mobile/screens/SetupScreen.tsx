@@ -103,6 +103,13 @@ export function SetupScreen() {
     }
   }, [step, catsLoaded])
 
+  useEffect(() => {
+    if (step !== 8) return
+    const timer = setTimeout(() => { void handleFinish() }, 3000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   function goTo(s: Step) {
     setError(null)
     setStep(s)
@@ -241,15 +248,7 @@ export function SetupScreen() {
 
           {error && <Text style={[s.err, { textAlign: 'center', marginBottom: 16 }]}>{error}</Text>}
 
-          <Pressable
-            style={({ pressed }) => [s.btn, saving && s.btnOff, pressed && s.btnPress]}
-            onPress={handleFinish}
-            disabled={saving}
-          >
-            {saving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.btnText}>Go to Dashboard</Text>}
-          </Pressable>
+          <ActivityIndicator color={C.brand} style={{ marginTop: 8 }} />
         </View>
       </View>
     )
