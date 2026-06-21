@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -17,6 +17,7 @@ import {
   SpaceMono_700Bold,
 } from '@expo-google-fonts/space-mono'
 import { RootNavigator } from './navigation'
+import { openDatabase } from './db/database'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,8 +39,18 @@ export default function App() {
     SpaceMono_400Regular,
     SpaceMono_700Bold,
   })
+  const [dbReady, setDbReady] = useState(false)
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    openDatabase()
+      .then(() => setDbReady(true))
+      .catch((err) => {
+        console.error('[DB] init failed:', err)
+        setDbReady(true)
+      })
+  }, [])
+
+  if (!fontsLoaded || !dbReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F2' }}>
         <ActivityIndicator color="#1A936F" />

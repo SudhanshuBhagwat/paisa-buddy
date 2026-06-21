@@ -44,4 +44,6 @@ backup.sql
 
 # local planning and AI context
 PLAN.md
+MIGRATION_PLAN.md
+**/MIGRATION_PLAN.md
 .claude/
