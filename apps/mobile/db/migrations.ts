@@ -86,9 +86,26 @@ async function migration002SeedCategories(db: SQLiteDatabase): Promise<void> {
   }
 }
 
+async function migration003FixPlansTable(db: SQLiteDatabase): Promise<void> {
+  // Remove month column — plans are per-category (not per-month).
+  // Month is used only when calculating spent amounts at query time.
+  await db.execAsync(`
+    CREATE TABLE plans_new (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL UNIQUE,
+      amount INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT OR IGNORE INTO plans_new SELECT id, category, amount, created_at FROM plans;
+    DROP TABLE plans;
+    ALTER TABLE plans_new RENAME TO plans;
+  `)
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
+  { version: 3, up: migration003FixPlansTable },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {
