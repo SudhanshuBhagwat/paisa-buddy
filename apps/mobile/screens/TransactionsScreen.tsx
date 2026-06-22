@@ -185,7 +185,7 @@ export function TransactionsScreen() {
   const accounts = transactionsQuery.data?.accounts ?? []
   const catColors = transactionsQuery.data?.categoryColors ?? {}
   const totalSpent = monthTxs
-    .filter((tx) => tx.reviewed && tx.type === 'debit')
+    .filter((tx) => tx.type === 'debit')
     .reduce((total, tx) => total + tx.amount, 0)
   const selectedType = transactionTypeForFilter(typeFilter)
   const filteredTxs = filterTransactions(monthTxs, {

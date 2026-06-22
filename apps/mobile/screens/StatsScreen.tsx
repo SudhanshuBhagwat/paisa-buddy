@@ -73,7 +73,7 @@ function buildSlices(cats: { category: string; total: number }[], total: number,
 function groupByCategory(txs: Transaction[], type: 'debit' | 'credit'): { category: string; total: number }[] {
   const map = new Map<string, number>()
   for (const tx of txs) {
-    if (tx.reviewed && tx.type === type) {
+    if (tx.type === type) {
       const cat = tx.category ?? 'Uncategorized'
       map.set(cat, (map.get(cat) ?? 0) + tx.amount)
     }

@@ -50,7 +50,6 @@ export function calcSummary(txs: Transaction[]): { income: number; expense: numb
   let expense = 0
   let transfer = 0
   for (const tx of txs) {
-    if (!tx.reviewed) continue
     if (tx.type === 'credit') income += tx.amount
     else if (tx.type === 'debit') expense += tx.amount
     else if (tx.type === 'transfer') transfer += tx.amount
