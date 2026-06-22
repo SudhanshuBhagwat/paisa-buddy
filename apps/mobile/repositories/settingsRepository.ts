@@ -95,6 +95,8 @@ export async function clearAllData(): Promise<void> {
   const db = getDb()
   await db.withTransactionAsync(async () => {
     await db.execAsync(`
+      DELETE FROM review_sessions;
+      DELETE FROM learned_mappings;
       DELETE FROM transactions;
       DELETE FROM accounts;
       DELETE FROM plans;

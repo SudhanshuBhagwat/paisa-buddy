@@ -1,90 +1,56 @@
-import type { Transaction } from '@paisa-buddy/shared/types/transaction'
-import type { ImportRow } from './importParser'
+import type { DuplicateStatus, Transaction } from '@paisa-buddy/shared/types/transaction'
+import type { TxInput } from '../repositories/transactionRepository'
 
-type FingerprintInput = {
-  date: string
-  amount: number
-  type: string
-  upi_ref: string | null
-  description: string
+export type DuplicateCandidate = {
+  status: DuplicateStatus
+  duplicateOfTransactionId: string | null
 }
 
-export function importFingerprint(row: FingerprintInput): string {
-  const ref = normalizeRef(row.upi_ref) || extractRef(row.description)
-  if (ref) return `ref:${ref}`
+export function detectDuplicate(row: TxInput, existingTransactions: Transaction[]): DuplicateCandidate {
+  let best: DuplicateCandidate = { status: 'none', duplicateOfTransactionId: null }
 
-  return [
-    'tx',
-    row.date,
-    row.amount,
-    row.type,
-    normalizeDescription(row.description),
-  ].join('|')
-}
+  for (const tx of existingTransactions) {
+    if (tx.account_id !== row.account_id) continue
+    if (tx.amount !== row.amount) continue
+    if (tx.type !== row.type) continue
 
-export function buildExistingImportFingerprints(
-  transactions: Transaction[],
-  accountId: string,
-): Set<string> {
-  const set = new Set<string>()
+    const sameDate = tx.date === row.date
+    const nearbyDate = Math.abs(daysBetween(tx.date, row.date)) <= 1
+    const sameRef = hasSameRef(tx, row)
+    const sameLookup = !!tx.normalized_lookup_key &&
+      !!row.normalized_lookup_key &&
+      tx.normalized_lookup_key === row.normalized_lookup_key
+    const sameDedupeKey = !!tx.dedupe_key && !!row.dedupe_key && tx.dedupe_key === row.dedupe_key
 
-  for (const tx of transactions) {
-    if (tx.account_id !== accountId) continue
-    set.add(importFingerprint({
-      date: tx.date,
-      amount: tx.amount,
-      type: tx.type,
-      upi_ref: tx.upi_ref,
-      description: tx.description,
-    }))
-  }
-
-  return set
-}
-
-export function dedupeImportRows(
-  rows: ImportRow[],
-  existing: Set<string>,
-): { rows: ImportRow[]; skipped: number } {
-  const seen = new Set(existing)
-  const unique: ImportRow[] = []
-  let skipped = 0
-
-  for (const row of rows) {
-    const fp = importFingerprint(row)
-    if (seen.has(fp)) {
-      skipped++
-      continue
+    if (sameDate && sameRef) {
+      return { status: 'confirmed_duplicate', duplicateOfTransactionId: tx.id }
     }
-    seen.add(fp)
-    unique.push(row)
+
+    if (sameDate && sameDedupeKey) {
+      return { status: 'confirmed_duplicate', duplicateOfTransactionId: tx.id }
+    }
+
+    if ((sameDate || nearbyDate) && sameLookup) {
+      best = { status: 'possible_duplicate', duplicateOfTransactionId: tx.id }
+    }
   }
 
-  return { rows: unique, skipped }
+  return best
+}
+
+function hasSameRef(tx: Transaction, row: TxInput): boolean {
+  const existingRef = normalizeRef(tx.upi_ref)
+  const importedRef = normalizeRef(row.upi_ref)
+  return !!existingRef && existingRef === importedRef
 }
 
 function normalizeRef(raw: string | null | undefined): string {
   return (raw ?? '').toLowerCase().replace(/[^a-z0-9]/g, '').trim()
 }
 
-function extractRef(description: string): string {
-  const normalized = description.toLowerCase()
-  const labelled = normalized.match(/\b(?:upi|utr|rrn|ref|reference|txn|transaction)[\s:/#-]*([a-z0-9]{8,})\b/i)
-  if (labelled?.[1]) return normalizeRef(labelled[1])
-
-  const longNumeric = normalized.match(/\b\d{10,18}\b/)
-  if (longNumeric?.[0]) return longNumeric[0]
-
-  return ''
-}
-
-function normalizeDescription(description: string): string {
-  return description
-    .toLowerCase()
-    .replace(/\b(?:upi|utr|rrn|ref|reference|txn|transaction|id|no|number)\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\b\d{6,}\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80)
+function daysBetween(a: string, b: string): number {
+  const aTime = new Date(`${a}T00:00:00`).getTime()
+  const bTime = new Date(`${b}T00:00:00`).getTime()
+  if (!Number.isFinite(aTime) || !Number.isFinite(bTime)) return Number.MAX_SAFE_INTEGER
+  return Math.round((aTime - bTime) / 86400000)
 }

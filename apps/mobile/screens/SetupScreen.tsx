@@ -31,7 +31,8 @@ import {
   parseAmountToPaise,
   sanitizeAmountInput,
 } from '@paisa-buddy/shared/logic/amount'
-import { useSetupComplete, type SetupStartAction } from '../navigation'
+import { useSetupComplete } from '../navigation/setupContext'
+import type { SetupStartAction } from '../navigation/types'
 import type { AccountType } from '@paisa-buddy/shared/types/account'
 import { ACCOUNT_TYPE_LABELS } from '@paisa-buddy/shared/types/account'
 

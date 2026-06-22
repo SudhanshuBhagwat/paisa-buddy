@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -18,31 +18,11 @@ import { SettingsScreen } from '../screens/SettingsScreen'
 import { ReviewScreen } from '../screens/ReviewScreen'
 import { ImportStatementScreen } from '../screens/ImportStatementScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
-
-export type SetupStartAction = 'dashboard' | 'import' | 'addTransaction'
-
-export type RootStackParamList = {
-  Setup: undefined
-  Main: undefined
-  ImportStatement: undefined
-  Review: undefined
-}
-
-export type MainTabParamList = {
-  Home: { initialAction?: SetupStartAction } | undefined
-  Transactions: undefined
-  Month: undefined
-  Accounts: undefined
-  Settings: undefined
-}
+import { SetupCompleteCtx, SetupResetCtx } from './setupContext'
+import type { MainTabParamList, RootStackParamList, SetupStartAction } from './types'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator<MainTabParamList>()
-
-const SetupCompleteCtx = createContext<(action?: SetupStartAction) => void>(() => {})
-const SetupResetCtx = createContext<() => void>(() => {})
-export const useSetupComplete = () => useContext(SetupCompleteCtx)
-export const useSetupReset = () => useContext(SetupResetCtx)
 
 function MainTabs({ initialAction }: { initialAction?: SetupStartAction }) {
   return (

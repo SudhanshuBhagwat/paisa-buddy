@@ -12,20 +12,25 @@ import {
 import * as DocumentPicker from 'expo-document-picker'
 import { File } from 'expo-file-system'
 import * as XLSX from 'xlsx'
+import * as CryptoJS from 'crypto-js'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageDialog, type MessageDialogState } from '../components/Dialog'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { C, F, RADIUS } from '../lib/tokens'
 import { createTransaction, getByMonth } from '../repositories/transactionRepository'
+import { completeImportSession, createImportSession, findImportSessionByHash, type ImportSession } from '../repositories/importRepository'
 import { getAccounts } from '../lib/data'
-import { buildExistingImportFingerprints, dedupeImportRows } from '../lib/importDedup'
+import { detectDuplicate } from '../lib/importDedup'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { decryptAgileExcel, isAgileEncryptedExcel, WrongExcelPasswordError } from '../lib/decryptExcel'
-import { parseSpreadsheetRows, parseStatementText, type ParsedImport } from '../lib/importParser'
+import { parseSpreadsheetRows, parseStatementText, type ImportRow, type ParsedImport } from '../lib/importParser'
+import { buildTransactionDedupeKey, parseTransactionDescription } from '../lib/descriptionParser'
 import { groupImportRows, type ImportGroupPreview } from '../lib/grouping'
-import type { RootStackParamList } from '../navigation'
+import { suggestForImportRows } from '../lib/suggestions'
+import type { RootStackParamList } from '../navigation/types'
+import type { TxInput } from '../repositories/transactionRepository'
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ImportStatement'>
@@ -35,14 +40,17 @@ type Phase = 'pick' | 'processing' | 'password' | 'summary' | 'done'
 
 const ACCEPTED_TYPES = [
   'text/csv',
-  'text/plain',
-  'application/pdf',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/x-ofx',
-  'application/qif',
-  '*/*',
 ]
+
+type ImportSummaryCounts = {
+  total: number
+  newCount: number
+  alreadyImportedCount: number
+  possibleDuplicateCount: number
+  needReviewCount: number
+}
 
 function CheckIcon({ color = '#fff', size = 16 }: { color?: string; size?: number }) {
   return (
@@ -73,8 +81,18 @@ export function ImportStatementScreen({ navigation }: Props) {
   const [parsed, setParsed] = useState<ParsedImport | null>(null)
   const [importedCount, setImportedCount] = useState(0)
   const [skippedDuplicateCount, setSkippedDuplicateCount] = useState(0)
+  const [possibleDuplicateCount, setPossibleDuplicateCount] = useState(0)
+  const [confirmedDuplicateCount, setConfirmedDuplicateCount] = useState(0)
   const [importing, setImporting] = useState(false)
   const [importPreview, setImportPreview] = useState<ImportGroupPreview | null>(null)
+  const [summaryCounts, setSummaryCounts] = useState<ImportSummaryCounts | null>(null)
+  const [fileHash, setFileHash] = useState<string | null>(null)
+  const [duplicateImport, setDuplicateImport] = useState<{
+    name: string
+    uri: string
+    fileHash: string
+    session: ImportSession
+  } | null>(null)
   const [pendingExcel, setPendingExcel] = useState<{ name: string; uri: string } | null>(null)
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -104,13 +122,36 @@ export function ImportStatementScreen({ navigation }: Props) {
       }
 
       const asset = result.assets[0]
-      setFileName(asset.name)
-      if (isPdf(asset.name)) {
-        parseStatementText(asset.name, '')
+      await processPickedFile(asset.name, asset.uri)
+    } catch (error) {
+      setPhase('pick')
+      setMessageDialog({ title: 'Import failed', message: error instanceof Error ? error.message : 'Could not read this statement.' })
+    }
+  }
+
+  async function processPickedFile(name: string, uri: string, skipHashWarning = false) {
+    setFileName(name)
+    if (!isSupportedSpreadsheet(name)) {
+      setPhase('pick')
+      setMessageDialog(unsupportedFileDialog(name))
+      return
+    }
+
+    const file = new File(uri)
+    const nextHash = hashFile(file)
+    setFileHash(nextHash)
+    if (!skipHashWarning) {
+      const existingImport = await findImportSessionByHash(nextHash)
+      if (existingImport) {
+        setDuplicateImport({ name, uri, fileHash: nextHash, session: existingImport })
+        setPhase('pick')
+        return
       }
-      const file = new File(asset.uri)
-      if (isExcel(asset.name) && isEncryptedExcel(file)) {
-        setPendingExcel({ name: asset.name, uri: asset.uri })
+    }
+
+    try {
+      if (isExcel(name) && isEncryptedExcel(file)) {
+        setPendingExcel({ name, uri })
         setPassword('')
         setPasswordError('')
         setPhase('password')
@@ -118,12 +159,12 @@ export function ImportStatementScreen({ navigation }: Props) {
       }
 
       let nextParsed: ParsedImport
-      if (isExcel(asset.name)) {
+      if (isExcel(name)) {
         try {
           nextParsed = await parseExcelFile(file)
         } catch (error) {
           if (isExcelPasswordError(error)) {
-            setPendingExcel({ name: asset.name, uri: asset.uri })
+            setPendingExcel({ name, uri })
             setPassword('')
             setPasswordError('')
             setPhase('password')
@@ -132,15 +173,16 @@ export function ImportStatementScreen({ navigation }: Props) {
           throw error
         }
       } else {
-        nextParsed = parseStatementText(asset.name, file.textSync())
+        nextParsed = parseStatementText(name, file.textSync())
       }
 
       if (nextParsed.rows.length === 0) {
-        throw new Error('No transactions could be read from this statement.')
+        throw new Error("We couldn't understand this spreadsheet format.")
       }
 
       setParsed(nextParsed)
-      setImportPreview(groupImportRows(nextParsed.rows))
+      setImportPreview(groupImportRows(nextParsed.rows.map((row) => normalizeImportRowForPreview(row))))
+      setSummaryCounts(await buildImportSummary(nextParsed.rows, selectedAccountId!))
       setPhase('summary')
     } catch (error) {
       setPhase('pick')
@@ -159,11 +201,14 @@ export function ImportStatementScreen({ navigation }: Props) {
       await waitForUiFrame()
       const nextParsed = await parseExcelFile(new File(pendingExcel.uri), password)
       if (nextParsed.rows.length === 0) {
-        throw new Error('No transactions could be read from this statement.')
+        throw new Error("We couldn't understand this spreadsheet format.")
       }
 
       setParsed(nextParsed)
-      setImportPreview(groupImportRows(nextParsed.rows))
+      setImportPreview(groupImportRows(nextParsed.rows.map((row) => normalizeImportRowForPreview(row))))
+      if (selectedAccountId) {
+        setSummaryCounts(await buildImportSummary(nextParsed.rows, selectedAccountId))
+      }
       setPendingExcel(null)
       setPassword('')
       setPhase('summary')
@@ -184,38 +229,56 @@ export function ImportStatementScreen({ navigation }: Props) {
     setPhase('pick')
   }
 
+  function reviewDuplicateImportAnyway() {
+    if (!duplicateImport) return
+    const pending = duplicateImport
+    setDuplicateImport(null)
+    setPhase('processing')
+    void processPickedFile(pending.name, pending.uri, true)
+  }
+
   async function importRows() {
     if (!parsed || !selectedAccountId) return
     setImporting(true)
     let count = 0
 
     try {
-      const months = [...new Set(parsed.rows.map((row) => row.date.slice(0, 7)))]
+      const dates = parsed.rows.map((row) => row.date).sort()
+      const importSessionId = await createImportSession({
+        fileName: fileName || null,
+        fileHash,
+        transactionCount: parsed.rows.length,
+        statementStartDate: dates[0] ?? null,
+        statementEndDate: dates[dates.length - 1] ?? null,
+      })
+      const prepared = await prepareRowsForImport(parsed.rows, selectedAccountId, importSessionId)
+      const months = [...new Set(prepared.map((row) => row.date.slice(0, 7)))]
       const monthData = await Promise.all(months.map((month) => getByMonth(month)))
       const existingTransactions = monthData.flat()
-      const existing = buildExistingImportFingerprints(existingTransactions, selectedAccountId)
-      const deduped = dedupeImportRows(parsed.rows, existing)
+      let possibleDuplicates = 0
+      let confirmedDuplicates = 0
 
-      for (const row of deduped.rows) {
-        await createTransaction({
-          type: row.type,
-          amount: row.amount,
-          date: row.date,
-          description: row.description,
-          account_id: selectedAccountId,
-          category: null,
-          reviewed: false,
-          source: 'bank_import',
-          upi_ref: row.upi_ref,
+      for (const row of prepared) {
+        const duplicate = detectDuplicate(row, existingTransactions)
+        if (duplicate.status === 'possible_duplicate') possibleDuplicates++
+        if (duplicate.status === 'confirmed_duplicate') confirmedDuplicates++
+        const created = await createTransaction({
+          ...row,
+          duplicate_status: duplicate.status,
+          duplicate_of_transaction_id: duplicate.duplicateOfTransactionId,
         })
+        existingTransactions.push(created)
         count++
       }
+      await completeImportSession(importSessionId)
 
       setImportedCount(count)
-      setSkippedDuplicateCount(deduped.skipped)
+      setSkippedDuplicateCount(0)
+      setPossibleDuplicateCount(possibleDuplicates)
+      setConfirmedDuplicateCount(confirmedDuplicates)
       invalidateTransactionData(queryClient)
       void queryClient.invalidateQueries({ queryKey: queryKeys.review })
-      setPhase('done')
+      navigation.replace('Review')
     } catch (error) {
       setMessageDialog({ title: 'Import failed', message: error instanceof Error ? error.message : 'Could not save imported transactions.' })
     } finally {
@@ -269,8 +332,18 @@ export function ImportStatementScreen({ navigation }: Props) {
                   <UploadIcon />
                 </View>
                 <Text style={s.uploadTitle}>Import your statement</Text>
-                <Text style={s.uploadSub}>CSV, XLSX, OFX, and QIF are parsed on-device. PDF is not uploaded.</Text>
+                <Text style={s.uploadSub}>Excel and CSV statements are parsed on-device.</Text>
                 <Text style={s.privacyText}>Your statement stays on your device.</Text>
+              </View>
+
+              <View style={s.formatCard}>
+                <Text style={s.sectionLabel}>SUPPORTED FORMATS</Text>
+                <Text style={s.formatLine}>✓ Excel (.xlsx)</Text>
+                <Text style={s.formatLine}>✓ Excel (.xls)</Text>
+                <Text style={s.formatLine}>✓ CSV</Text>
+                <Text style={[s.sectionLabel, s.comingSoonLabel]}>COMING SOON</Text>
+                <Text style={s.comingSoonLine}>• PDF Statements</Text>
+                <Text style={s.comingSoonLine}>• OCR Imports</Text>
               </View>
 
               <View style={s.section}>
@@ -315,8 +388,40 @@ export function ImportStatementScreen({ navigation }: Props) {
               </View>
 
               <View style={s.summaryBreakdown}>
+                {summaryCounts && (
+                  <>
+                    <View style={s.breakdownRow}>
+                      <View style={[s.breakdownDot, { backgroundColor: C.brand }]} />
+                      <View style={s.breakdownBody}>
+                        <Text style={s.breakdownNum}>{summaryCounts.newCount} New</Text>
+                        <Text style={s.breakdownSub}>not seen in saved transactions</Text>
+                      </View>
+                    </View>
+                    <View style={[s.breakdownRow, s.breakdownRowBorder]}>
+                      <View style={[s.breakdownDot, { backgroundColor: C.ink3 }]} />
+                      <View style={s.breakdownBody}>
+                        <Text style={s.breakdownNum}>{summaryCounts.alreadyImportedCount} Already Imported</Text>
+                        <Text style={s.breakdownSub}>matched by exact duplicate rules</Text>
+                      </View>
+                    </View>
+                    <View style={[s.breakdownRow, s.breakdownRowBorder]}>
+                      <View style={[s.breakdownDot, { backgroundColor: C.gold }]} />
+                      <View style={s.breakdownBody}>
+                        <Text style={s.breakdownNum}>{summaryCounts.possibleDuplicateCount} Possible Duplicate</Text>
+                        <Text style={s.breakdownSub}>will be shown in review</Text>
+                      </View>
+                    </View>
+                    <View style={[s.breakdownRow, s.breakdownRowBorder]}>
+                      <View style={[s.breakdownDot, { backgroundColor: C.neg }]} />
+                      <View style={s.breakdownBody}>
+                        <Text style={s.breakdownNum}>{summaryCounts.needReviewCount} Need Review</Text>
+                        <Text style={s.breakdownSub}>missing category or duplicate warning</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
                 {importPreview.groupCount > 0 && (
-                  <View style={s.breakdownRow}>
+                  <View style={[s.breakdownRow, summaryCounts && s.breakdownRowBorder]}>
                     <View style={[s.breakdownDot, { backgroundColor: C.brand }]} />
                     <View style={s.breakdownBody}>
                       <Text style={s.breakdownNum}>{importPreview.groupedTxCount} transactions grouped</Text>
@@ -348,9 +453,18 @@ export function ImportStatementScreen({ navigation }: Props) {
                   : `${parsed.rows.length} transactions will be reviewed one by one.`}
               </Text>
 
-              <Pressable style={[s.primaryBtn, importing && s.btnDisabled]} onPress={importRows} disabled={importing}>
-                {importing ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Start Review</Text>}
-              </Pressable>
+              {summaryCounts?.newCount === 0 ? (
+                <>
+                  <Text style={s.fullyImportedText}>This statement appears to be fully imported already.{'\n'}No new transactions found.</Text>
+                  <Pressable style={s.primaryBtn} onPress={() => navigation.goBack()}>
+                    <Text style={s.primaryBtnText}>Done</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable style={[s.primaryBtn, importing && s.btnDisabled]} onPress={importRows} disabled={importing}>
+                  {importing ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Review</Text>}
+                </Pressable>
+              )}
               <Pressable style={s.secondaryBtn} onPress={() => { setParsed(null); setImportPreview(null); setFileName(''); setPhase('pick') }} disabled={importing}>
                 <Text style={s.secondaryBtnText}>Choose another file</Text>
               </Pressable>
@@ -366,6 +480,9 @@ export function ImportStatementScreen({ navigation }: Props) {
               <Text style={s.doneSub}>
                 {importedCount} transaction{importedCount !== 1 ? 's' : ''} imported for {selectedAccountName}.
                 {skippedDuplicateCount > 0 ? ` ${skippedDuplicateCount} duplicate${skippedDuplicateCount !== 1 ? 's' : ''} skipped.` : ''}
+                {possibleDuplicateCount + confirmedDuplicateCount > 0
+                  ? ` ${possibleDuplicateCount + confirmedDuplicateCount} duplicate warning${possibleDuplicateCount + confirmedDuplicateCount !== 1 ? 's' : ''} will be shown in review.`
+                  : ''}
               </Text>
               <Pressable style={s.primaryBtn} onPress={() => navigation.replace('Review')}>
                 <Text style={s.primaryBtnText}>Start Review</Text>
@@ -420,8 +537,83 @@ export function ImportStatementScreen({ navigation }: Props) {
         dialog={messageDialog}
         onClose={() => setMessageDialog(null)}
       />
+      <Dialog
+        visible={!!duplicateImport}
+        onClose={() => setDuplicateImport(null)}
+        title="This statement appears to have been imported already."
+        message={duplicateImport
+          ? `Imported On:\n${formatImportDate(duplicateImport.session.created_at)}\n\nTransactions:\n${duplicateImport.session.transaction_count}`
+          : undefined}
+        actions={[
+          { label: 'Review Anyway', onPress: reviewDuplicateImportAnyway },
+          { label: 'Cancel', variant: 'secondary', onPress: () => setDuplicateImport(null) },
+        ]}
+      />
     </View>
   )
+}
+
+function normalizeImportRowForPreview(row: ImportRow): ImportRow & { normalized_lookup_key: string } {
+  const parsed = parseTransactionDescription(row.description)
+  return {
+    ...row,
+    normalized_lookup_key: parsed.normalizedLookupKey,
+  }
+}
+
+async function prepareRowsForImport(
+  rows: ImportRow[],
+  accountId: string,
+  importSessionId: string,
+): Promise<TxInput[]> {
+  const parsedRows = rows.map((row) => {
+    const parsed = parseTransactionDescription(row.description)
+    const upiRef = row.upi_ref || parsed.referenceNumber || null
+    return {
+      row,
+      parsed,
+      tx: {
+        type: row.type,
+        amount: row.amount,
+        date: row.date,
+        description: parsed.cleanedDescription,
+        merchant: parsed.parsedDisplayName ?? null,
+        account_id: accountId,
+        category: null,
+        reviewed: false,
+        source: 'bank_import' as const,
+        upi_ref: upiRef,
+        bank: parsed.bankCode ?? null,
+        raw_description: parsed.rawDescription,
+        parsed_display_name: parsed.parsedDisplayName ?? null,
+        normalized_lookup_key: parsed.normalizedLookupKey,
+        parser_version: parsed.parserVersion,
+        dedupe_key: buildTransactionDedupeKey({
+          accountId,
+          date: row.date,
+          amount: row.amount,
+          direction: row.type,
+          normalizedLookupKey: parsed.normalizedLookupKey,
+          referenceNumber: upiRef,
+        }),
+        import_session_id: importSessionId,
+        duplicate_status: 'none' as const,
+      } satisfies TxInput,
+    }
+  })
+
+  const withSuggestions = await suggestForImportRows(parsedRows.map(({ tx }) => tx))
+  return parsedRows.map(({ tx }, idx) => {
+    const suggestion = withSuggestions[idx].suggestion
+    return {
+      ...tx,
+      merchant: suggestion.displayName || tx.merchant,
+      user_display_name: suggestion.source === 'learned' ? suggestion.displayName : null,
+      category: suggestion.category,
+      type: suggestion.transactionType || tx.type,
+      category_source: suggestion.source,
+    }
+  })
 }
 
 function isPdf(fileName: string): boolean {
@@ -429,9 +621,68 @@ function isPdf(fileName: string): boolean {
   return lower.endsWith('.pdf')
 }
 
+function isSupportedSpreadsheet(fileName: string): boolean {
+  const lower = fileName.toLowerCase()
+  return lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv')
+}
+
 function isExcel(fileName: string): boolean {
   const lower = fileName.toLowerCase()
   return lower.endsWith('.xlsx') || lower.endsWith('.xls')
+}
+
+function hashFile(file: File): string {
+  return CryptoJS.SHA256(file.base64Sync()).toString(CryptoJS.enc.Hex)
+}
+
+function unsupportedFileDialog(fileName: string): MessageDialogState {
+  if (isPdf(fileName)) {
+    return {
+      title: 'PDF import coming soon',
+      message: 'PDF statement import is coming soon.\n\nFor now, export transactions as Excel or CSV and import those files.',
+    }
+  }
+  if (/\.(jpg|jpeg|png|heic|webp|tiff?)$/i.test(fileName)) {
+    return {
+      title: 'Scanned document not supported',
+      message: 'Scanned document imports are not supported yet.',
+    }
+  }
+  return {
+    title: 'Unsupported file',
+    message: 'We couldn\'t understand this spreadsheet format.',
+  }
+}
+
+async function buildImportSummary(rows: ImportRow[], accountId: string): Promise<ImportSummaryCounts> {
+  const prepared = await prepareRowsForImport(rows, accountId, 'preview')
+  const months = [...new Set(prepared.map((row) => row.date.slice(0, 7)))]
+  const monthData = await Promise.all(months.map((month) => getByMonth(month)))
+  const existingTransactions = monthData.flat()
+  let alreadyImportedCount = 0
+  let possibleDuplicateCount = 0
+  let needReviewCount = 0
+
+  for (const row of prepared) {
+    const duplicate = detectDuplicate(row, existingTransactions)
+    if (duplicate.status === 'confirmed_duplicate') alreadyImportedCount++
+    if (duplicate.status === 'possible_duplicate') possibleDuplicateCount++
+    if (!row.category || row.category_source === 'unknown' || duplicate.status !== 'none') needReviewCount++
+  }
+
+  return {
+    total: rows.length,
+    alreadyImportedCount,
+    possibleDuplicateCount,
+    needReviewCount,
+    newCount: Math.max(rows.length - alreadyImportedCount - possibleDuplicateCount, 0),
+  }
+}
+
+function formatImportDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function waitForUiFrame(): Promise<void> {
@@ -501,6 +752,17 @@ const s = StyleSheet.create({
   uploadTitle: { fontSize: 18, fontFamily: F.extrabold, color: C.ink, textAlign: 'center' },
   uploadSub: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 19, textAlign: 'center' },
   privacyText: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
+  formatCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 14,
+    gap: 7,
+  },
+  formatLine: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
+  comingSoonLabel: { marginTop: 8 },
+  comingSoonLine: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   section: { gap: 9 },
   sectionLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, letterSpacing: 0.5 },
   accountPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -567,6 +829,7 @@ const s = StyleSheet.create({
   summaryMeta: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
   summaryMetaText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
   summaryHint: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3, lineHeight: 20, textAlign: 'center' },
+  fullyImportedText: { fontSize: 14, fontFamily: F.semibold, color: C.ink2, lineHeight: 21, textAlign: 'center' },
   doneWrap: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 80 },
   doneCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   doneTitle: { fontSize: 18, fontFamily: F.extrabold, color: C.ink },

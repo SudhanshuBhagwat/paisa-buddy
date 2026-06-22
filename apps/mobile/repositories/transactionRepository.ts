@@ -1,6 +1,6 @@
 import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
-import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
+import type { CategorySource, DuplicateStatus, Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 
 type TxRow = {
   id: string
@@ -18,6 +18,16 @@ type TxRow = {
   source: string
   upi_ref: string | null
   bank: string | null
+  raw_description: string | null
+  parsed_display_name: string | null
+  user_display_name: string | null
+  normalized_lookup_key: string | null
+  parser_version: string | null
+  category_source: string | null
+  dedupe_key: string | null
+  import_session_id: string | null
+  duplicate_status: string | null
+  duplicate_of_transaction_id: string | null
   created_at: string
 }
 
@@ -40,6 +50,16 @@ function rowToTransaction(row: TxRow): Transaction {
     source: row.source as Transaction['source'],
     upi_ref: row.upi_ref,
     bank: row.bank,
+    raw_description: row.raw_description,
+    parsed_display_name: row.parsed_display_name,
+    user_display_name: row.user_display_name,
+    normalized_lookup_key: row.normalized_lookup_key,
+    parser_version: row.parser_version,
+    category_source: row.category_source as CategorySource | null,
+    dedupe_key: row.dedupe_key,
+    import_session_id: row.import_session_id,
+    duplicate_status: row.duplicate_status as DuplicateStatus | null,
+    duplicate_of_transaction_id: row.duplicate_of_transaction_id,
     raw_ai_response: null,
     confidence: null,
     recurrence_group: null,
@@ -63,6 +83,16 @@ export type TxInput = {
   source?: Transaction['source']
   upi_ref?: string | null
   bank?: string | null
+  raw_description?: string | null
+  parsed_display_name?: string | null
+  user_display_name?: string | null
+  normalized_lookup_key?: string | null
+  parser_version?: string | null
+  category_source?: CategorySource | null
+  dedupe_key?: string | null
+  import_session_id?: string | null
+  duplicate_status?: DuplicateStatus | null
+  duplicate_of_transaction_id?: string | null
 }
 
 export type TxPatch = Partial<TxInput>
@@ -74,8 +104,11 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
   await db.runAsync(
     `INSERT INTO transactions
       (id, type, amount, date, time, merchant, description, category,
-       account_id, to_account_id, is_recurring, reviewed, source, upi_ref, bank, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       account_id, to_account_id, is_recurring, reviewed, source, upi_ref, bank,
+       raw_description, parsed_display_name, user_display_name, normalized_lookup_key,
+       parser_version, category_source, dedupe_key, import_session_id,
+       duplicate_status, duplicate_of_transaction_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.type,
@@ -92,6 +125,16 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
       input.source ?? 'manual',
       input.upi_ref ?? null,
       input.bank ?? null,
+      input.raw_description ?? null,
+      input.parsed_display_name ?? null,
+      input.user_display_name ?? null,
+      input.normalized_lookup_key ?? null,
+      input.parser_version ?? null,
+      input.category_source ?? null,
+      input.dedupe_key ?? null,
+      input.import_session_id ?? null,
+      input.duplicate_status ?? 'none',
+      input.duplicate_of_transaction_id ?? null,
       now,
     ],
   )
@@ -104,6 +147,16 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
     reviewed: input.reviewed !== false ? 1 : 0,
     source: input.source ?? 'manual', upi_ref: input.upi_ref ?? null,
     bank: input.bank ?? null,
+    raw_description: input.raw_description ?? null,
+    parsed_display_name: input.parsed_display_name ?? null,
+    user_display_name: input.user_display_name ?? null,
+    normalized_lookup_key: input.normalized_lookup_key ?? null,
+    parser_version: input.parser_version ?? null,
+    category_source: input.category_source ?? null,
+    dedupe_key: input.dedupe_key ?? null,
+    import_session_id: input.import_session_id ?? null,
+    duplicate_status: input.duplicate_status ?? 'none',
+    duplicate_of_transaction_id: input.duplicate_of_transaction_id ?? null,
     created_at: now,
   })
 }
@@ -111,6 +164,9 @@ export async function createTransaction(input: TxInput): Promise<Transaction> {
 const UPDATABLE_COLS = [
   'type', 'amount', 'date', 'time', 'merchant', 'description',
   'category', 'account_id', 'to_account_id', 'source', 'upi_ref', 'bank',
+  'raw_description', 'parsed_display_name', 'user_display_name', 'normalized_lookup_key',
+  'parser_version', 'category_source', 'dedupe_key', 'import_session_id',
+  'duplicate_status', 'duplicate_of_transaction_id',
 ] as const
 
 export async function updateTransaction(id: string, patch: TxPatch & { reviewed?: boolean }): Promise<Transaction> {

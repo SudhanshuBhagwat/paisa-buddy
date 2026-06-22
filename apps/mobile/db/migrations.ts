@@ -119,11 +119,99 @@ async function migration004IndexesAndBankColumn(db: SQLiteDatabase): Promise<voi
   }
 }
 
+async function migration005ImportIntelligence(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync('DROP INDEX IF EXISTS idx_transactions_upi_ref_dedup')
+
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)')
+  const existing = new Set(cols.map((c) => c.name))
+  const addColumn = async (name: string, sql: string) => {
+    if (!existing.has(name)) {
+      await db.execAsync(`ALTER TABLE transactions ADD COLUMN ${name} ${sql}`)
+    }
+  }
+
+  await addColumn('raw_description', 'TEXT')
+  await addColumn('parsed_display_name', 'TEXT')
+  await addColumn('user_display_name', 'TEXT')
+  await addColumn('normalized_lookup_key', 'TEXT')
+  await addColumn('parser_version', 'TEXT')
+  await addColumn('category_source', 'TEXT')
+  await addColumn('dedupe_key', 'TEXT')
+  await addColumn('import_session_id', 'TEXT')
+  await addColumn('duplicate_status', "TEXT DEFAULT 'none'")
+  await addColumn('duplicate_of_transaction_id', 'TEXT')
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS learned_mappings (
+      id TEXT PRIMARY KEY,
+      normalized_lookup_key TEXT NOT NULL UNIQUE,
+      display_name TEXT,
+      category_id TEXT,
+      transaction_type TEXT,
+      usage_count INTEGER DEFAULT 1,
+      confidence TEXT DEFAULT 'user_confirmed',
+      last_used_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (category_id) REFERENCES categories(name)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_lookup_key ON transactions(normalized_lookup_key);
+    CREATE INDEX IF NOT EXISTS idx_transactions_dedupe_key ON transactions(dedupe_key);
+    CREATE INDEX IF NOT EXISTS idx_transactions_import_session ON transactions(import_session_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_duplicate_status ON transactions(duplicate_status);
+    CREATE INDEX IF NOT EXISTS idx_learned_mappings_lookup_key ON learned_mappings(normalized_lookup_key);
+  `)
+}
+
+async function migration006ImportReviewSessions(db: SQLiteDatabase): Promise<void> {
+  const importCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(import_sessions)')
+  const existingImportCols = new Set(importCols.map((c) => c.name))
+  const addImportColumn = async (name: string, sql: string) => {
+    if (!existingImportCols.has(name)) {
+      await db.execAsync(`ALTER TABLE import_sessions ADD COLUMN ${name} ${sql}`)
+    }
+  }
+
+  await addImportColumn('file_name', 'TEXT')
+  await addImportColumn('file_hash', 'TEXT')
+  await addImportColumn('transaction_count', 'INTEGER NOT NULL DEFAULT 0')
+  await addImportColumn('statement_start_date', 'TEXT')
+  await addImportColumn('statement_end_date', 'TEXT')
+  await addImportColumn('updated_at', 'TEXT')
+
+  await db.execAsync(`
+    UPDATE import_sessions
+    SET file_name = COALESCE(file_name, filename),
+        updated_at = COALESCE(updated_at, created_at)
+    WHERE file_name IS NULL OR updated_at IS NULL;
+
+    CREATE TABLE IF NOT EXISTS review_sessions (
+      id TEXT PRIMARY KEY,
+      import_session_id TEXT,
+      current_group_id TEXT,
+      current_item_id TEXT,
+      review_progress INTEGER NOT NULL DEFAULT 0,
+      total_count INTEGER NOT NULL DEFAULT 0,
+      review_status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (import_session_id) REFERENCES import_sessions(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_import_sessions_file_hash ON import_sessions(file_hash);
+    CREATE INDEX IF NOT EXISTS idx_review_sessions_status ON review_sessions(review_status);
+    CREATE INDEX IF NOT EXISTS idx_review_sessions_import_session ON review_sessions(import_session_id);
+  `)
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
   { version: 3, up: migration003FixPlansTable },
   { version: 4, up: migration004IndexesAndBankColumn },
+  { version: 5, up: migration005ImportIntelligence },
+  { version: 6, up: migration006ImportReviewSessions },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

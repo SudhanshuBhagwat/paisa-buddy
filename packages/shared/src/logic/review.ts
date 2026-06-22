@@ -37,7 +37,7 @@ export function txToFormState(tx: Transaction): ReviewFormState {
   return {
     type: tx.type,
     amountStr: String(tx.amount / 100),
-    merchant: tx.merchant ?? '',
+    merchant: tx.user_display_name ?? tx.merchant ?? tx.parsed_display_name ?? '',
     description: tx.description,
     category: tx.category ?? '',
     accountId: tx.account_id ?? '',

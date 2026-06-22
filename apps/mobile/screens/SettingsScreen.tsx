@@ -20,6 +20,7 @@ import {
   clearAllData,
 } from '../repositories/settingsRepository'
 import { createCategory, deleteCategory } from '../repositories/categoryRepository'
+import { undoLatestImport } from '../repositories/importRepository'
 import {
   generateExportCsv,
   getSettingsData,
@@ -32,7 +33,7 @@ import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
-import { useSetupReset } from '../navigation'
+import { useSetupReset } from '../navigation/setupContext'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -87,6 +88,7 @@ export function SettingsScreen() {
 
   // Misc
   const [exporting, setExporting] = useState(false)
+  const [undoingImport, setUndoingImport] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
@@ -229,6 +231,24 @@ export function SettingsScreen() {
       setMessageDialog({ title: 'Error', message: 'Could not export data.' })
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function handleUndoLastImport() {
+    setUndoingImport(true)
+    try {
+      const deleted = await undoLatestImport()
+      invalidateTransactionData(queryClient)
+      setMessageDialog({
+        title: deleted > 0 ? 'Last import undone' : 'No import to undo',
+        message: deleted > 0
+          ? `${deleted} imported transaction${deleted !== 1 ? 's' : ''} removed.`
+          : 'There is no imported statement available to undo.',
+      })
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not undo the last import.' })
+    } finally {
+      setUndoingImport(false)
     }
   }
 
@@ -441,6 +461,9 @@ export function SettingsScreen() {
                     <Path d="M12 15V3" />
                   </Svg>
                   <Text style={s.exportText}>{exporting ? 'Exporting…' : 'Export to CSV'}</Text>
+                </Pressable>
+                <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
+                  <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
                 </Pressable>
                 <Pressable style={[s.exportBtn, s.disabledBtn]} disabled>
                   <Text style={s.disabledBtnText}>Backup Data</Text>

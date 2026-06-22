@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Modal,
@@ -21,6 +21,12 @@ import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { getReviewData } from '../lib/data'
 import { updateTransaction, deleteTransaction } from '../repositories/transactionRepository'
+import {
+  completeReviewSession,
+  ensureActiveReviewSession,
+  updateReviewSessionProgress,
+  type ReviewSession,
+} from '../repositories/reviewSessionRepository'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
 import {
@@ -37,7 +43,7 @@ import {
 import { groupTransactionsByMonth } from '@paisa-buddy/shared/logic/transaction'
 import { formatMonthLabel, formatDateLabel } from '@paisa-buddy/shared/logic/date'
 import type { Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
-import type { RootStackParamList } from '../navigation'
+import type { RootStackParamList } from '../navigation/types'
 import { groupTransactions, type TxGroup } from '../lib/grouping'
 import { loadSuggestionsForGroups, saveSuggestion } from '../lib/suggestions'
 
@@ -46,6 +52,7 @@ type Props = {
 }
 
 type Phase = 'loading' | 'empty' | 'summary' | 'group-review' | 'individual-review' | 'done'
+type ActiveTxContext = 'group' | 'individual'
 
 const TYPE_COLOR: Record<TransactionType, string> = {
   credit: C.pos,
@@ -117,6 +124,15 @@ function isReviewConfirmable(form: ReviewFormState): boolean {
   return true
 }
 
+function displayNameForTx(tx: Transaction): string {
+  return tx.user_display_name ||
+    tx.merchant ||
+    tx.parsed_display_name ||
+    tx.description ||
+    tx.raw_description ||
+    '—'
+}
+
 const pb = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingBottom: 10, gap: 6 },
   track: { height: 5, borderRadius: 99, backgroundColor: C.line, overflow: 'hidden' },
@@ -129,6 +145,7 @@ const pb = StyleSheet.create({
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
+  const initializedReviewRef = useRef(false)
   const reviewQuery = useQuery({ queryKey: queryKeys.review, queryFn: getReviewData })
 
   const accounts = reviewQuery.data?.accounts ?? []
@@ -143,13 +160,17 @@ export function ReviewScreen({ navigation }: Props) {
   const [reviewedCount, setReviewedCount] = useState(0)
   const [pendingCategory, setPendingCategory] = useState<string | null>(null)
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null)
+  const [pendingGroupDisplayName, setPendingGroupDisplayName] = useState('')
   const [applyingGroup, setApplyingGroup] = useState(false)
   const [groupJustDone, setGroupJustDone] = useState<{ count: number; category: string } | null>(null)
   const [completionStats, setCompletionStats] = useState({ groupCount: 0, groupTxCount: 0, individualCount: 0 })
+  const [reviewSession, setReviewSession] = useState<ReviewSession | null>(null)
+  const [groupExpanded, setGroupExpanded] = useState(false)
 
   // ── Individual review sheet ───────────────────────────────────────────────────
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activeTx, setActiveTx] = useState<Transaction | null>(null)
+  const [activeTxContext, setActiveTxContext] = useState<ActiveTxContext>('individual')
   const [form, setForm] = useState<ReviewFormState | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [rejecting, setRejecting] = useState(false)
@@ -187,15 +208,18 @@ export function ReviewScreen({ navigation }: Props) {
   const groupedIndividuals = groupTransactionsByMonth(individuals)
   const groupedTxCount = groups.reduce((n, g) => n + g.transactions.length, 0)
   const remainingCount = Math.max(totalCount - reviewedCount, 0)
-  const completedGroupCount = groupJustDone ? currentGroupIdx + 1 : currentGroupIdx
+  const completedGroupCount = currentGroupIdx
   const selectedGroupAccountName = pendingAccountId
     ? accounts.find((account) => account.id === pendingAccountId)?.name
     : null
+  const groupHasDuplicate = currentGroup?.transactions.some((tx) => tx.duplicate_status && tx.duplicate_status !== 'none') ?? false
 
   // ── Init from query ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (reviewQuery.isLoading) return
+    if (initializedReviewRef.current) return
     const txs = reviewQuery.data?.transactions ?? []
+    initializedReviewRef.current = true
     if (txs.length === 0) { setPhase('empty'); return }
 
     const { groups: g, singles } = groupTransactions(txs)
@@ -207,7 +231,9 @@ export function ReviewScreen({ navigation }: Props) {
 
     loadSuggestionsForGroups(g).then((gWithSug) => {
       setGroups(gWithSug)
-      setPhase('summary')
+      setPhase(gWithSug.length > 0 ? 'group-review' : 'individual-review')
+      const importSessionId = txs.find((tx) => tx.import_session_id)?.import_session_id ?? null
+      void ensureActiveReviewSession(txs.length, importSessionId).then(setReviewSession)
     })
   }, [reviewQuery.isLoading, reviewQuery.data?.transactions.length])
 
@@ -222,30 +248,71 @@ export function ReviewScreen({ navigation }: Props) {
     if (!currentGroup || groupJustDone) return
     const accountIds = [...new Set(currentGroup.transactions.map((tx) => tx.account_id).filter((id): id is string => !!id))]
     setPendingAccountId(accountIds.length === 1 ? accountIds[0] : null)
+    setPendingGroupDisplayName(currentGroup.displayName)
+    setPendingCategory(currentGroup.suggestion ?? null)
+    setGroupExpanded(false)
   }, [currentGroupIdx, currentGroup, groupJustDone])
+
+  useEffect(() => {
+    if (!reviewSession || phase === 'loading' || phase === 'empty') return
+    const currentGroupId = phase === 'group-review' ? currentGroup?.key ?? null : null
+    const currentItemId = phase === 'individual-review' ? individuals[0]?.id ?? null : activeTx?.id ?? null
+    void updateReviewSessionProgress({
+      id: reviewSession.id,
+      currentGroupId,
+      currentItemId,
+      reviewProgress: reviewedCount,
+      totalCount,
+    })
+  }, [reviewSession, phase, currentGroup?.key, individuals, activeTx?.id, reviewedCount, totalCount])
+
+  useEffect(() => {
+    if (phase === 'done' && reviewSession) {
+      void completeReviewSession(reviewSession.id)
+    }
+  }, [phase, reviewSession])
 
   // ── Group actions ─────────────────────────────────────────────────────────────
   async function applyToGroup() {
     if (!currentGroup || !pendingCategory || !pendingAccountId) return
+    if (groupHasDuplicate) {
+      skipGroup()
+      return
+    }
     setApplyingGroup(true)
     try {
       await Promise.all(
         currentGroup.transactions.map((tx) =>
-          updateTransaction(tx.id, { account_id: pendingAccountId, category: pendingCategory, reviewed: true }),
+          updateTransaction(tx.id, {
+            account_id: tx.category_source === 'manual' && tx.account_id ? tx.account_id : pendingAccountId,
+            merchant: tx.category_source === 'manual' && tx.user_display_name
+              ? tx.user_display_name
+              : pendingGroupDisplayName || currentGroup.displayName,
+            user_display_name: tx.category_source === 'manual' && tx.user_display_name
+              ? tx.user_display_name
+              : pendingGroupDisplayName || currentGroup.displayName,
+            category: tx.category_source === 'manual' && tx.category ? tx.category : pendingCategory,
+            category_source: 'manual',
+            reviewed: true,
+          }),
         ),
       )
-      await saveSuggestion(currentGroup.key, pendingCategory)
+      await saveSuggestion(
+        currentGroup.key,
+        pendingCategory,
+        pendingGroupDisplayName || currentGroup.displayName,
+        currentGroup.transactions[0]?.type ?? null,
+      )
       invalidateTransactionData(queryClient)
 
       const count = currentGroup.transactions.length
-      const cat = pendingCategory
       setReviewedCount((prev) => prev + count)
       setCompletionStats((prev) => ({
         ...prev,
         groupCount: prev.groupCount + 1,
         groupTxCount: prev.groupTxCount + count,
       }))
-      setGroupJustDone({ count, category: cat })
+      moveToNextGroup()
     } catch {
       setMessageDialog({ title: 'Error', message: 'Could not apply category. Please try again.' })
     } finally {
@@ -270,6 +337,7 @@ export function ReviewScreen({ navigation }: Props) {
     setIndividuals((prev) => [...prev, ...currentGroup.transactions])
     setPendingCategory(null)
     setPendingAccountId(null)
+    setPendingGroupDisplayName('')
     const nextIdx = currentGroupIdx + 1
     if (nextIdx < groups.length) {
       setCurrentGroupIdx(nextIdx)
@@ -279,8 +347,9 @@ export function ReviewScreen({ navigation }: Props) {
   }
 
   // ── Individual actions ────────────────────────────────────────────────────────
-  function openSheet(tx: Transaction) {
+  function openSheet(tx: Transaction, context: ActiveTxContext = 'individual') {
     setActiveTx(tx)
+    setActiveTxContext(context)
     setForm(txToFormState(tx))
     setShowDatePicker(false)
     setShowTimePicker(false)
@@ -302,8 +371,29 @@ export function ReviewScreen({ navigation }: Props) {
     }
     setConfirming(true)
     try {
-      await updateTransaction(activeTx.id, { ...formStateToPayload(form), reviewed: true })
-      removeIndividual(activeTx.id)
+      const payload = formStateToPayload(form)
+      const updated = await updateTransaction(activeTx.id, {
+        ...payload,
+        user_display_name: payload.merchant ?? null,
+        category_source: 'manual',
+        duplicate_status: activeTx.duplicate_status && activeTx.duplicate_status !== 'none'
+          ? 'not_duplicate'
+          : activeTx.duplicate_status,
+        reviewed: activeTxContext === 'individual',
+      })
+      await saveSuggestion(
+        activeTx.normalized_lookup_key ?? '',
+        payload.category ?? '',
+        payload.merchant || activeTx.parsed_display_name || activeTx.merchant,
+        payload.type,
+      )
+      if (activeTxContext === 'group') {
+        setGroups((prev) => prev.map((group, idx) => idx === currentGroupIdx
+          ? { ...group, transactions: group.transactions.map((tx) => tx.id === updated.id ? updated : tx) }
+          : group))
+      } else {
+        removeIndividual(activeTx.id)
+      }
       setSheetOpen(false)
     } catch (e) {
       setMessageDialog({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to confirm.' })
@@ -476,16 +566,30 @@ export function ReviewScreen({ navigation }: Props) {
             <View style={s.groupCard}>
               <View style={s.groupCardTop}>
                 <View style={s.groupCardInfo}>
-                  <Text style={s.groupName} numberOfLines={2}>{currentGroup.displayName}</Text>
+                  <TextInput
+                    style={s.groupNameInput}
+                    value={pendingGroupDisplayName}
+                    onChangeText={setPendingGroupDisplayName}
+                    placeholder="Display name"
+                    placeholderTextColor={C.ink3}
+                  />
                   {currentGroup.suggestion && !groupJustDone && (
                     <View style={s.suggestionRow}>
                       <View style={s.suggestionChip}>
-                        <Text style={s.suggestionText}>Suggested: {currentGroup.suggestion}</Text>
+                        <Text style={s.suggestionText}>
+                          {currentGroup.suggestionSource === 'learned' ? 'Seen before' : 'New payee'}: {currentGroup.suggestion}
+                        </Text>
                       </View>
                       <Pressable style={s.suggestionConfirm} onPress={() => setPendingCategory(currentGroup.suggestion)}>
                         <Text style={s.suggestionConfirmText}>Confirm</Text>
                       </Pressable>
                     </View>
+                  )}
+                  {!currentGroup.suggestion && !groupJustDone && (
+                    <Text style={s.groupStateText}>New payee. Please review once.</Text>
+                  )}
+                  {groupHasDuplicate && !groupJustDone && (
+                    <Text style={s.duplicateText}>Possible duplicate in this group. Review items individually.</Text>
                   )}
                 </View>
                 <View style={s.groupCountBadge}>
@@ -494,24 +598,28 @@ export function ReviewScreen({ navigation }: Props) {
                 </View>
               </View>
 
-              {groupJustDone ? (
-                <View style={s.groupDonePanel}>
-                  <View style={s.groupDoneRow}>
-                    <View style={s.groupDoneCircle}>
-                      <CheckIcon color="#fff" size={16} />
-                    </View>
-                    <View style={s.groupDoneCopy}>
-                      <Text style={s.groupDoneText}>
-                        {groupJustDone.count} transaction{groupJustDone.count !== 1 ? 's' : ''} categorized
+              <Pressable style={s.reviewItemsBtn} onPress={() => setGroupExpanded((prev) => !prev)}>
+                <Text style={s.reviewItemsBtnText}>{groupExpanded ? 'Hide Items' : 'Review Items'}</Text>
+                <ChevronDown />
+              </Pressable>
+
+              {groupExpanded ? (
+                <View style={s.groupItemsList}>
+                  {currentGroup.transactions.map((tx, idx) => (
+                    <Pressable
+                      key={tx.id}
+                      style={[s.groupItemRow, idx > 0 && s.groupItemBorder]}
+                      onPress={() => openSheet(tx, 'group')}
+                    >
+                      <View style={s.groupItemInfo}>
+                        <Text style={s.groupItemName} numberOfLines={1}>{displayNameForTx(tx)}</Text>
+                        <Text style={s.groupItemDate}>{formatDateLabel(tx.date)}</Text>
+                      </View>
+                      <Text style={[s.groupItemAmount, { color: TYPE_COLOR[tx.type] }]}>
+                        {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
                       </Text>
-                      <Text style={s.groupDoneSub}>{remainingCount} remaining</Text>
-                    </View>
-                  </View>
-                  <Pressable style={s.nextGroupBtn} onPress={moveToNextGroup}>
-                    <Text style={s.nextGroupBtnText}>
-                      {currentGroupIdx + 1 < groups.length ? 'Next Group' : individuals.length > 0 ? 'Review Individuals' : 'Finish Review'}
-                    </Text>
-                  </Pressable>
+                    </Pressable>
+                  ))}
                 </View>
               ) : (
                 <View style={s.amountPills}>
@@ -582,7 +690,9 @@ export function ReviewScreen({ navigation }: Props) {
                 {pendingCategory && pendingAccountId && (
                   <View style={s.applyBar}>
                     <Text style={s.applyBarText}>
-                      Apply "{pendingCategory}" from {selectedGroupAccountName} to {currentGroup.transactions.length} transaction{currentGroup.transactions.length !== 1 ? 's' : ''}?
+                      {groupHasDuplicate
+                        ? 'This group has duplicate warnings and needs individual review.'
+                        : `Apply "${pendingCategory}" from ${selectedGroupAccountName} to ${currentGroup.transactions.length} transaction${currentGroup.transactions.length !== 1 ? 's' : ''}?`}
                     </Text>
                     <View style={s.applyBarBtns}>
                       <Pressable style={s.changeBtn} onPress={() => { setPendingCategory(null); setPendingAccountId(null) }}>
@@ -602,7 +712,7 @@ export function ReviewScreen({ navigation }: Props) {
                 )}
 
                 <Pressable style={s.skipBtn} onPress={skipGroup}>
-                  <Text style={s.skipBtnText}>Skip group</Text>
+                  <Text style={s.skipBtnText}>Review individually</Text>
                 </Pressable>
               </>
             )}
@@ -636,10 +746,17 @@ export function ReviewScreen({ navigation }: Props) {
                     const tColor = TYPE_COLOR[tx.type]
                     const accountName = accounts.find((a) => a.id === tx.account_id)?.name
                     return (
-                      <Pressable key={tx.id} style={[s.row, i > 0 && s.rowBorder]} onPress={() => openSheet(tx)}>
+                      <Pressable key={tx.id} style={[s.row, i > 0 && s.rowBorder]} onPress={() => openSheet(tx, 'individual')}>
                         <View style={s.rowBody}>
-                          <Text style={s.rowMerchant} numberOfLines={1}>{tx.merchant || tx.description || '—'}</Text>
+                          <Text style={s.rowMerchant} numberOfLines={1}>{displayNameForTx(tx)}</Text>
                           <View style={s.rowChips}>
+                            {tx.duplicate_status && tx.duplicate_status !== 'none' && (
+                              <View style={[s.rowInfoChip, s.duplicateChip]}>
+                                <Text style={[s.rowInfoText, s.duplicateChipText]} numberOfLines={1}>
+                                  {tx.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
+                                </Text>
+                              </View>
+                            )}
                             <View style={[s.rowInfoChip, !tx.category && s.rowInfoChipMissing]}>
                               {!!tx.category && <View style={[s.rowInfoDot, { backgroundColor: categoryColor(tx.category, catColors) }]} />}
                               <Text style={[s.rowInfoText, !tx.category && s.rowInfoTextMissing]} numberOfLines={1}>
@@ -730,6 +847,17 @@ export function ReviewScreen({ navigation }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {activeTx && activeTx.duplicate_status && activeTx.duplicate_status !== 'none' && (
+              <View style={s.duplicatePanel}>
+                <Text style={s.duplicatePanelTitle}>
+                  {activeTx.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
+                </Text>
+                <Text style={s.duplicatePanelText}>
+                  This looks similar to a transaction already saved. Reject to skip this import, or confirm to save anyway.
+                </Text>
+              </View>
+            )}
+
             <TypePicker types={TYPES} active={form.type} onChange={(v) => setForm({ ...form, type: v })} />
 
             <View style={s.amountRow}>
@@ -770,6 +898,13 @@ export function ReviewScreen({ navigation }: Props) {
                 returnKeyType="next"
               />
             </View>
+
+            {!!activeTx?.raw_description && activeTx.raw_description !== form.description && (
+              <View style={s.field}>
+                <Text style={s.label}>RAW IMPORTED DESCRIPTION</Text>
+                <Text style={s.rawDescriptionText}>{activeTx.raw_description}</Text>
+              </View>
+            )}
 
             <View style={s.field}>
               <Text style={s.label}>CATEGORY <Text style={{ color: C.neg }}>*</Text></Text>
@@ -1185,6 +1320,19 @@ const s = StyleSheet.create({
   groupCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   groupCardInfo: { flex: 1, gap: 6 },
   groupName: { fontSize: 18, fontFamily: F.extrabold, color: C.ink, lineHeight: 24 },
+  groupNameInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.bg,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 17,
+    fontFamily: F.extrabold,
+    color: C.ink,
+  },
+  groupStateText: { fontSize: 12, fontFamily: F.semibold, color: C.ink3 },
+  duplicateText: { fontSize: 12, fontFamily: F.semibold, color: C.neg, lineHeight: 17 },
   suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   suggestionChip: {
     alignSelf: 'flex-start',
@@ -1213,6 +1361,31 @@ const s = StyleSheet.create({
   amountPillText: { fontSize: 13, fontFamily: F.monoBold },
   amountPillMore: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
   amountPillMoreText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  reviewItemsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.bg,
+    paddingVertical: 11,
+  },
+  reviewItemsBtnText: { fontSize: 13, fontFamily: F.semibold, color: C.ink2 },
+  groupItemsList: {
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.bg,
+    overflow: 'hidden',
+  },
+  groupItemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  groupItemBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  groupItemInfo: { flex: 1, minWidth: 0, gap: 2 },
+  groupItemName: { fontSize: 13, fontFamily: F.semibold, color: C.ink },
+  groupItemDate: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
+  groupItemAmount: { fontSize: 13, fontFamily: F.monoBold, flexShrink: 0 },
   groupDonePanel: { gap: 14 },
   groupDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   groupDoneCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -1314,6 +1487,8 @@ const s = StyleSheet.create({
   rowInfoDot: { width: 7, height: 7, borderRadius: 3.5, flexShrink: 0 },
   rowInfoText: { flexShrink: 1, fontSize: 10.5, fontFamily: F.semibold, color: C.ink2 },
   rowInfoTextMissing: { color: C.neg },
+  duplicateChip: { borderColor: C.neg + '55', backgroundColor: C.neg + '10', maxWidth: '100%' },
+  duplicateChipText: { color: C.neg },
   rowDate: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
   typeBadge: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   typeBadgeText: { fontSize: 9, fontFamily: F.extrabold, letterSpacing: 0.4, textTransform: 'uppercase' },
@@ -1354,6 +1529,17 @@ const s = StyleSheet.create({
   sheetCancelText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
   sheetScroll: { flex: 1 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 20 },
+  duplicatePanel: {
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.neg + '55',
+    backgroundColor: C.neg + '10',
+    padding: 12,
+    gap: 4,
+  },
+  duplicatePanelTitle: { fontSize: 14, fontFamily: F.extrabold, color: C.neg },
+  duplicatePanelText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink2, lineHeight: 18 },
+  rawDescriptionText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink3, lineHeight: 18 },
   amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   rupeeSign: { fontSize: 40, fontFamily: F.regular, lineHeight: 56 },
   amountInput: { fontSize: 52, fontFamily: F.semibold, textAlign: 'center', minWidth: 120, padding: 0 },

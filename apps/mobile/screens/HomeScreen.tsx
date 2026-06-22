@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import type { MainTabParamList, RootStackParamList } from '../navigation'
+import type { MainTabParamList, RootStackParamList } from '../navigation/types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
@@ -428,9 +428,10 @@ export function HomeScreen() {
               <Text style={s.pendingBadgeText}>{pendingCount}</Text>
             </View>
             <View style={s.pendingInfo}>
-              <Text style={s.pendingTitle}>Transactions need your attention</Text>
-              <Text style={s.pendingSub}>Review them to keep your records accurate</Text>
+              <Text style={s.pendingTitle}>Transactions Need Review</Text>
+              <Text style={s.pendingSub}>{pendingCount} Remaining</Text>
             </View>
+            <Text style={s.resumeText}>Resume Review</Text>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
             </Svg>
@@ -642,6 +643,7 @@ const s = StyleSheet.create({
   pendingInfo: { flex: 1 },
   pendingTitle: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
   pendingSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  resumeText: { fontSize: 12, fontFamily: F.bold, color: C.neg },
 
   quickActionsWrap: { paddingTop: 14, paddingHorizontal: 16 },
   quickActionsTitle: {

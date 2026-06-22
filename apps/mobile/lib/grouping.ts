@@ -5,6 +5,7 @@ export type TxGroup = {
   displayName: string
   transactions: Transaction[]
   suggestion: string | null
+  suggestionSource?: 'learned' | 'keyword' | 'unknown'
 }
 
 export type GroupingResult = {
@@ -83,25 +84,34 @@ export function groupTransactions(txs: Transaction[]): GroupingResult {
   const noKey: Transaction[] = []
 
   for (const tx of txs) {
-    const raw = (tx.merchant || tx.description || '').trim()
+    const stableKey = tx.normalized_lookup_key?.trim()
+    const raw = (
+      tx.user_display_name ||
+      tx.merchant ||
+      tx.parsed_display_name ||
+      tx.description ||
+      ''
+    ).trim()
     if (!raw) {
       noKey.push(tx)
       continue
     }
 
-    const key = keyFor(raw)
+    const key = stableKey || keyFor(raw)
     if (!key) {
       noKey.push(tx)
       continue
     }
 
-    const bucket = buckets.find((candidate) => isSimilarMerchant(candidate.key, key))
+    const bucket = buckets.find((candidate) => (
+      stableKey ? candidate.key === stableKey : isSimilarMerchant(candidate.key, key)
+    ))
     if (bucket) {
       bucket.transactions.push(tx)
     } else {
       buckets.push({
         key,
-        displayName: tx.merchant || tx.description || key,
+        displayName: tx.user_display_name || tx.merchant || tx.parsed_display_name || tx.description || key,
         transactions: [tx],
       })
     }
@@ -133,14 +143,14 @@ export type ImportGroupPreview = {
   singleCount: number
 }
 
-export function groupImportRows(rows: Array<{ description: string }>): ImportGroupPreview {
+export function groupImportRows(rows: Array<{ description: string; normalized_lookup_key?: string | null }>): ImportGroupPreview {
   const buckets: Array<{ key: string; count: number }> = []
   let singleCount = 0
 
   for (const row of rows) {
     const raw = row.description.trim()
     if (!raw) { singleCount++; continue }
-    const key = keyFor(raw)
+    const key = row.normalized_lookup_key?.trim() || keyFor(raw)
     if (!key) { singleCount++; continue }
     const bucket = buckets.find((c) => isSimilarMerchant(c.key, key))
     if (bucket) {
