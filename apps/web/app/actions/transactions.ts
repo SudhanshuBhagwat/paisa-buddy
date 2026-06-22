@@ -3,6 +3,7 @@
 import { after } from 'next/server'
 import { updateTag, refresh } from 'next/cache'
 import { db, categoriesDb } from '@/lib/db'
+import type { TransactionInsert } from '@/lib/db/types'
 import { getRequiredUserId } from '@/lib/auth/require-user'
 import { generateUniqueColor } from '@paisa-buddy/shared/categories'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
@@ -14,7 +15,7 @@ async function ensureCategoryColor(userId: string, category: string): Promise<vo
 }
 
 export async function insertTransaction(
-  tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
+  tx: TransactionInsert,
 ): Promise<void> {
   const userId = await getRequiredUserId()
   if (tx.category) {

@@ -46,6 +46,16 @@ export async function getLearnedMappings(keys: string[]): Promise<Map<string, Le
   return map
 }
 
+export async function listLearnedMappings(limit = 20): Promise<LearnedMapping[]> {
+  const db = getDb()
+  return db.getAllAsync<LearnedMapping>(
+    `SELECT * FROM learned_mappings
+     ORDER BY COALESCE(last_used_at, updated_at, created_at) DESC
+     LIMIT ?`,
+    [limit],
+  )
+}
+
 export async function saveLearnedMapping(input: LearnedMappingInput): Promise<void> {
   const key = input.normalizedLookupKey?.trim()
   if (!key) return

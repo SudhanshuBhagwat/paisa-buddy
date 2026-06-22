@@ -10,6 +10,23 @@ export type MonthlySpend = {
   spent: number
 }
 
+export type TransactionInsert = Omit<
+  Transaction,
+  | 'id'
+  | 'created_at'
+  | 'user_id'
+  | 'raw_description'
+  | 'parsed_display_name'
+  | 'user_display_name'
+  | 'normalized_lookup_key'
+  | 'parser_version'
+  | 'category_source'
+  | 'dedupe_key'
+  | 'import_session_id'
+  | 'duplicate_status'
+  | 'duplicate_of_transaction_id'
+>
+
 // ---------------------------------------------------------------------------
 // Domain types
 // ---------------------------------------------------------------------------
@@ -34,7 +51,7 @@ export interface TransactionRepository {
   /** Insert a new transaction scoped to userId. */
   insert(
     userId: string,
-    tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
+    tx: TransactionInsert,
   ): Promise<Transaction>
 
   /** All unreviewed transactions for the user, newest first. */

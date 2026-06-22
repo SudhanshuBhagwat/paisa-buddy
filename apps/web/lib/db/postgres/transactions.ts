@@ -1,6 +1,6 @@
 import 'server-only'
 import type postgres from 'postgres'
-import type { MonthlySpend, TransactionRepository } from '../types'
+import type { MonthlySpend, TransactionInsert, TransactionRepository } from '../types'
 import type { Transaction, TransactionFilters } from '@paisa-buddy/shared/types/transaction'
 import { withUserContext } from './client'
 import { detectRecurringGroups } from '../../recurring'
@@ -24,6 +24,16 @@ function rowToTransaction(row: Record<string, unknown>): Transaction {
     description: (row.description as string | null) ?? '',
     upi_ref: (row.upi_ref as string | null) ?? null,
     bank: (row.bank as string | null) ?? null,
+    raw_description: (row.raw_description as string | null) ?? null,
+    parsed_display_name: (row.parsed_display_name as string | null) ?? null,
+    user_display_name: (row.user_display_name as string | null) ?? null,
+    normalized_lookup_key: (row.normalized_lookup_key as string | null) ?? null,
+    parser_version: (row.parser_version as string | null) ?? null,
+    category_source: (row.category_source as Transaction['category_source'] | null) ?? null,
+    dedupe_key: (row.dedupe_key as string | null) ?? null,
+    import_session_id: (row.import_session_id as string | null) ?? null,
+    duplicate_status: (row.duplicate_status as Transaction['duplicate_status'] | null) ?? null,
+    duplicate_of_transaction_id: (row.duplicate_of_transaction_id as string | null) ?? null,
     category: (row.category as string | null) ?? null,
     source: row.source as Transaction['source'],
     raw_ai_response: (row.raw_ai_response as string | null) ?? null,
@@ -39,7 +49,7 @@ function rowToTransaction(row: Record<string, unknown>): Transaction {
 export class PostgresTransactionRepository implements TransactionRepository {
   async insert(
     userId: string,
-    data: Omit<Transaction, 'id' | 'created_at' | 'user_id'>,
+    data: TransactionInsert,
   ): Promise<Transaction> {
     return withUserContext(userId, async (db) => {
       const [row] = await db`

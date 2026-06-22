@@ -281,6 +281,7 @@ export function SettingsScreen() {
   const totalCatCount = (data?.predefinedCategories ?? []).length + (data?.customCategories ?? []).length
   const customCats = data?.customCategories ?? []
   const predefinedCats = data?.predefinedCategories ?? []
+  const learnedMappings = data?.learnedMappings ?? []
 
   return (
     <View style={s.root}>
@@ -372,10 +373,32 @@ export function SettingsScreen() {
               {/* Learned Mappings */}
               <Text style={[s.subLabel, { marginTop: 14 }]}>Learned Mappings</Text>
               <Card>
-                <View style={s.emptyRow}>
-                  <Text style={s.emptyRowText}>No learned mappings yet</Text>
-                  <Text style={s.emptyRowSub}>Mappings are saved as you review imports — e.g. Rahul Patil → Family</Text>
-                </View>
+                {learnedMappings.length === 0 ? (
+                  <View style={s.emptyRow}>
+                    <Text style={s.emptyRowText}>No learned mappings yet</Text>
+                    <Text style={s.emptyRowSub}>Mappings are saved as you review imports, for example Rahul Patil to Family</Text>
+                  </View>
+                ) : (
+                  learnedMappings.map((mapping, idx) => (
+                    <View key={mapping.id}>
+                      {idx > 0 && <RowDivider />}
+                      <View style={s.mappingRow}>
+                        <View style={s.mappingBody}>
+                          <Text style={s.mappingName} numberOfLines={1}>
+                            {mapping.display_name || mapping.normalized_lookup_key}
+                          </Text>
+                          <Text style={s.mappingMeta} numberOfLines={1}>
+                            {mapping.normalized_lookup_key}
+                          </Text>
+                        </View>
+                        <View style={s.mappingRight}>
+                          <Text style={s.mappingCategory} numberOfLines={1}>{mapping.category_id || 'Uncategorized'}</Text>
+                          <Text style={s.mappingCount}>{mapping.usage_count} use{mapping.usage_count !== 1 ? 's' : ''}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))
+                )}
               </Card>
             </View>
 
@@ -650,6 +673,13 @@ const s = StyleSheet.create({
   emptyRow: { padding: 14, gap: 3 },
   emptyRowText: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   emptyRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+  mappingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
+  mappingBody: { flex: 1, minWidth: 0, gap: 2 },
+  mappingName: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
+  mappingMeta: { fontSize: 11, fontFamily: F.mono, color: C.ink3 },
+  mappingRight: { alignItems: 'flex-end', gap: 2, maxWidth: '42%' },
+  mappingCategory: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
+  mappingCount: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
 
   // UPI / shared row patterns
   upiRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13, paddingHorizontal: 16 },

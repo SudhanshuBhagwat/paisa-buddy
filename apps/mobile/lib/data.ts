@@ -16,6 +16,7 @@ import {
   type MonthlySpend,
 } from '../repositories/transactionRepository'
 import { listPlans } from '../repositories/planRepository'
+import { listLearnedMappings, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -167,6 +168,7 @@ export type SettingsData = {
   displayName: string | null
   expectedMonthlyIncome: number
   upiIds: string[]
+  learnedMappings: LearnedMapping[]
   customCategories: CategoryWithCount[]
   predefinedCategories: { name: string; transactionCount: number }[]
   txCount: number
@@ -178,15 +180,17 @@ export type SettingsQueryData = {
 }
 
 export async function getSettingsData(): Promise<SettingsQueryData> {
-  const [raw, cats, txCount] = await Promise.all([
+  const [raw, cats, txCount, learnedMappings] = await Promise.all([
     getAllSettings(),
     listCategories(),
     getTotalCount(),
+    listLearnedMappings(10),
   ])
   const settings: SettingsData = {
     displayName: raw.displayName,
     expectedMonthlyIncome: raw.expectedMonthlyIncome,
     upiIds: raw.upiIds,
+    learnedMappings,
     customCategories: cats
       .filter((c) => c.is_custom)
       .map(({ name, color, transactionCount }) => ({ name, color, transactionCount })),
