@@ -8,6 +8,7 @@ import { getCategoryColors } from '../repositories/categoryRepository'
 import {
   getAll,
   getByMonth,
+  getByMonths,
   getMonthlySpends,
   getCategorySpendsByMonth,
   getTotalCount,
@@ -74,6 +75,16 @@ export type TransactionMonthData = {
 export async function getTransactionMonthData(month: string): Promise<TransactionMonthData> {
   const [transactions, monthlySpends, accounts, categoryColors] = await Promise.all([
     getByMonth(month),
+    getMonthlySpends(),
+    listAccounts(),
+    getCategoryColors(),
+  ])
+  return { transactions, monthlySpends, accounts, categoryColors }
+}
+
+export async function getTransactionMonthsData(months: string[]): Promise<TransactionMonthData> {
+  const [transactions, monthlySpends, accounts, categoryColors] = await Promise.all([
+    getByMonths(months),
     getMonthlySpends(),
     listAccounts(),
     getCategoryColors(),

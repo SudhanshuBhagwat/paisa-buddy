@@ -214,6 +214,19 @@ export async function getByMonth(month: string): Promise<Transaction[]> {
   return rows.map(rowToTransaction)
 }
 
+export async function getByMonths(months: string[]): Promise<Transaction[]> {
+  const uniqueMonths = [...new Set(months)].filter(Boolean)
+  if (uniqueMonths.length === 0) return []
+
+  const db = getDb()
+  const clauses = uniqueMonths.map(() => 'date LIKE ?').join(' OR ')
+  const rows = await db.getAllAsync<TxRow>(
+    `SELECT * FROM transactions WHERE ${clauses} ORDER BY date DESC, time DESC, created_at DESC`,
+    uniqueMonths.map((month) => `${month}-%`),
+  )
+  return rows.map(rowToTransaction)
+}
+
 export async function getUnreviewed(): Promise<Transaction[]> {
   const db = getDb()
   const rows = await db.getAllAsync<TxRow>(
@@ -229,7 +242,7 @@ export async function getMonthlySpends(limitMonths: number = 12): Promise<Monthl
   return db.getAllAsync<MonthlySpend>(
     `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS spent
      FROM transactions
-     WHERE type = 'debit' AND reviewed = 1
+     WHERE type = 'debit'
      GROUP BY month
      ORDER BY month DESC
      LIMIT ?`,
@@ -242,7 +255,7 @@ export async function getCategorySpendsByMonth(month: string): Promise<Array<{ c
   return db.getAllAsync(
     `SELECT category, SUM(amount) AS total
      FROM transactions
-     WHERE type = 'debit' AND date LIKE ? AND reviewed = 1 AND category IS NOT NULL
+     WHERE type = 'debit' AND date LIKE ? AND category IS NOT NULL
      GROUP BY category
      ORDER BY total DESC`,
     [`${month}-%`],

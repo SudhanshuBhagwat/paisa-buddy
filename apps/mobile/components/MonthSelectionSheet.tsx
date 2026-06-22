@@ -17,6 +17,7 @@ export type MonthPreset = 'this-month' | 'last-month' | 'last-3-months'
 type MonthSelectionSheetProps = {
   visible: boolean
   selectedMonth: string
+  selectedPreset?: MonthPreset | null
   monthlySpends: Record<string, number>
   onClose: () => void
   onSelectMonth: (month: string) => void
@@ -57,6 +58,7 @@ function buildMonthOptions(selectedMonth: string, monthlySpends: Record<string, 
 export function MonthSelectionSheet({
   visible,
   selectedMonth,
+  selectedPreset,
   monthlySpends,
   onClose,
   onSelectMonth,
@@ -65,6 +67,9 @@ export function MonthSelectionSheet({
   const thisMonth = toYearMonth(new Date())
   const lastMonth = addMonths(thisMonth, -1)
   const sections = buildMonthOptions(selectedMonth, monthlySpends)
+  const checkedMonths = selectedPreset === 'last-3-months'
+    ? new Set([selectedMonth, addMonths(selectedMonth, -1), addMonths(selectedMonth, -2)])
+    : new Set([selectedMonth])
 
   function selectMonth(month: string) {
     onSelectMonth(month)
@@ -74,12 +79,13 @@ export function MonthSelectionSheet({
   function selectPreset(preset: MonthPreset, month?: string) {
     onSelectPreset?.(preset)
     if (month) selectMonth(month)
+    else onClose()
   }
 
   const quickOptions: { key: MonthPreset; title: string; month?: string }[] = [
     { key: 'this-month', title: 'This Month', month: thisMonth },
     { key: 'last-month', title: 'Last Month', month: lastMonth },
-    { key: 'last-3-months', title: 'Last 3 Months' },
+    ...(onSelectPreset ? [{ key: 'last-3-months' as const, title: 'Last 3 Months' }] : []),
   ]
 
   return (
@@ -102,15 +108,18 @@ export function MonthSelectionSheet({
         <View style={s.quickSection}>
           <Text style={s.sectionTitle}>Quick Select</Text>
           <View style={s.quickRow}>
-            {quickOptions.map((option) => (
-              <Pressable
-                key={option.key}
-                style={s.quickTile}
-                onPress={() => selectPreset(option.key, option.month)}
-              >
-                <Text style={s.quickTitle} numberOfLines={2}>{option.title}</Text>
-              </Pressable>
-            ))}
+            {quickOptions.map((option) => {
+              const selected = selectedPreset === option.key
+              return (
+                <Pressable
+                  key={option.key}
+                  style={[s.quickTile, selected && s.quickTileSelected]}
+                  onPress={() => selectPreset(option.key, option.month)}
+                >
+                  <Text style={[s.quickTitle, selected && s.quickTitleSelected]} numberOfLines={2}>{option.title}</Text>
+                </Pressable>
+              )
+            })}
           </View>
         </View>
 
@@ -120,7 +129,7 @@ export function MonthSelectionSheet({
               <Text style={s.yearTitle}>{section.year}</Text>
               <View style={s.monthList}>
                 {section.months.map((month, idx) => {
-                  const selected = month === selectedMonth
+                  const selected = checkedMonths.has(month)
                   const spends = monthlySpends[month] ?? 0
                   return (
                     <Pressable
@@ -163,6 +172,7 @@ const s = StyleSheet.create({
   quickRow: { flexDirection: 'row', gap: 10 },
   quickTile: {
     flex: 1,
+    position: 'relative',
     borderRadius: 12,
     backgroundColor: C.brandPale,
     paddingHorizontal: 10,
@@ -170,7 +180,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quickTileSelected: { backgroundColor: C.brand },
   quickTitle: { fontSize: 13, lineHeight: 17, fontFamily: F.semibold, color: C.ink },
+  quickTitleSelected: { color: '#fff' },
   monthSections: { gap: 16 },
   monthSection: { gap: 8 },
   yearTitle: { fontSize: 13, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.55 },

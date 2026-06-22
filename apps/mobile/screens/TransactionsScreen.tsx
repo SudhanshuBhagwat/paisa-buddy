@@ -18,18 +18,19 @@ import type { Account } from '@paisa-buddy/shared/types/account'
 import type { TransactionMonthData } from '../lib/data'
 import { filterTransactions, groupByDate } from '@paisa-buddy/shared/logic/transaction'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
-import { formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
+import { addMonths, formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
 import { deleteTransaction } from '../repositories/transactionRepository'
-import { getTransactionMonthData } from '../lib/data'
+import { getTransactionMonthData, getTransactionMonthsData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
 import { MessageDialog, type MessageDialogState } from '../components/Dialog'
-import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
+import { MonthSelectionSheet, type MonthPreset } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 
 type TypeFilter = 'all' | 'credit' | 'debit' | 'transfer'
+type MonthMode = 'single' | 'last-3-months'
 
 const TYPE_PREFIX: Record<string, string> = { credit: '+', debit: '−', transfer: '⇄' }
 const TYPE_COLOR: Record<string, string> = { credit: C.pos, debit: C.neg, transfer: C.transfer }
@@ -162,9 +163,15 @@ export function TransactionsScreen() {
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
   const [month, setMonth] = useState(() => toYearMonth(new Date()))
+  const [monthMode, setMonthMode] = useState<MonthMode>('single')
+  const selectedMonths = monthMode === 'last-3-months'
+    ? [month, addMonths(month, -1), addMonths(month, -2)]
+    : [month]
   const transactionsQuery = useQuery({
-    queryKey: queryKeys.transactions(month),
-    queryFn: () => getTransactionMonthData(month),
+    queryKey: queryKeys.transactions(monthMode === 'last-3-months' ? `${month}:last-3-months` : month),
+    queryFn: () => monthMode === 'last-3-months'
+      ? getTransactionMonthsData(selectedMonths)
+      : getTransactionMonthData(month),
   })
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -200,6 +207,13 @@ export function TransactionsScreen() {
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]))
   const monthCategories = [...new Set(monthTxs.map((t) => t.category).filter(Boolean) as string[])]
   const monthlySpends = Object.fromEntries((transactionsQuery.data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
+  const activeMonthPreset: MonthPreset | null = monthMode === 'last-3-months'
+    ? 'last-3-months'
+    : month === toYearMonth(new Date())
+      ? 'this-month'
+      : month === addMonths(toYearMonth(new Date()), -1)
+        ? 'last-month'
+        : null
   const recentCategories = [...new Set(
     [...monthTxs]
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -235,6 +249,18 @@ export function TransactionsScreen() {
     setSelectedCategory(null)
     setSelectedAccount(null)
     setRecurringOnly(false)
+  }
+
+  function handleSelectMonth(nextMonth: string) {
+    setMonthMode('single')
+    setMonth(nextMonth)
+  }
+
+  function handleSelectPreset(preset: MonthPreset) {
+    if (preset === 'last-3-months') {
+      setMonthMode('last-3-months')
+      setMonth(toYearMonth(new Date()))
+    }
   }
 
   async function handleDeleteTransaction(tx: Transaction) {
@@ -324,7 +350,9 @@ export function TransactionsScreen() {
               <Path d="M3 10h18" />
               <Path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
             </Svg>
-            <Text style={s.monthButtonText}>{formatMonthLabel(month)}</Text>
+            <Text style={s.monthButtonText}>
+              {monthMode === 'last-3-months' ? 'Last 3 Months' : formatMonthLabel(month)}
+            </Text>
           </Pressable>
           <View style={s.totalSpentWrap}>
             <Text style={s.totalSpentValue}>{formatAmount(totalSpent)}</Text>
@@ -453,8 +481,10 @@ export function TransactionsScreen() {
         visible={monthSheetOpen}
         onClose={() => setMonthSheetOpen(false)}
         selectedMonth={month}
+        selectedPreset={activeMonthPreset}
         monthlySpends={monthlySpends}
-        onSelectMonth={setMonth}
+        onSelectMonth={handleSelectMonth}
+        onSelectPreset={handleSelectPreset}
       />
 
       <TransactionDetailSheet

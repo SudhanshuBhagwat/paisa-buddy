@@ -32,7 +32,6 @@ export async function listPlans(month: string): Promise<BudgetWithSpent[]> {
          WHERE t.category = p.category
            AND t.type = 'debit'
            AND t.date LIKE ? || '%'
-           AND t.reviewed = 1
        ), 0) AS spent
      FROM plans p
      ORDER BY p.created_at ASC`,

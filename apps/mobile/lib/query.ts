@@ -32,9 +32,12 @@ export function invalidateAccountData(queryClient: QueryClient) {
 export function invalidateCategoryData(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.home })
   queryClient.invalidateQueries({ queryKey: queryKeys.review })
+  queryClient.invalidateQueries({ queryKey: queryKeys.transactions() })
   queryClient.invalidateQueries({ queryKey: queryKeys.settings })
   queryClient.invalidateQueries({ queryKey: queryKeys.categories })
   queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
+  void queryClient.refetchQueries({ queryKey: queryKeys.transactions(), type: 'active' })
+  void queryClient.refetchQueries({ queryKey: queryKeys.categories, type: 'active' })
 }
 
 export function invalidateSettingsData(queryClient: QueryClient) {
