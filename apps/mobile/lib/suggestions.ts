@@ -17,6 +17,8 @@ const KEYWORD_RULES: Array<{ keywords: string[]; category: string; type?: Transa
   { keywords: ['netflix', 'prime', 'hotstar'], category: 'Entertainment' },
   { keywords: ['hpcl', 'bpcl', 'iocl', 'petrol'], category: 'Transport' },
   { keywords: ['salary', 'sal credit'], category: 'Income', type: 'credit' },
+  { keywords: ['rent', 'house rent'], category: 'Rent' },
+  { keywords: ['apple services', 'icloud', 'spotify', 'subscription'], category: 'Subscriptions' },
 ]
 
 export function keywordSuggestion(text: string | null | undefined): Pick<CategorySuggestion, 'category' | 'transactionType' | 'source'> {

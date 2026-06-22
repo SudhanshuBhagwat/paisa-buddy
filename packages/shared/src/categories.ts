@@ -5,15 +5,18 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Entertainment': '#C77D3A',
   'Health':        '#C65D5D',
   'Utilities':     '#6B8E3D',
+  'Family':        '#D16B86',
   'Income':        '#157F4C',
   'Returns':       '#7B5EA7',
+  'Rent':          '#8B6F47',
   'Investment':    '#C99A2E',
+  'Subscriptions': '#7C6ED6',
   'Transfer':      '#3B82C4',
   'Other':         '#7E8A82',
 }
 
 // Approximate hues of all predefined hex colors — custom color generation avoids these
-const PREDEFINED_HUES = [160, 190, 315, 30, 0, 84, 148, 265, 42, 210, 145]
+const PREDEFINED_HUES = [160, 190, 315, 30, 0, 84, 342, 148, 265, 35, 42, 247, 210, 145]
 
 /**
  * Generates a color maximally distant (in hue) from all existing colors.
@@ -57,9 +60,12 @@ export const PREDEFINED_CATEGORIES = [
   'Entertainment',
   'Health',
   'Utilities',
+  'Family',
   'Income',
   'Returns',
+  'Rent',
   'Investment',
+  'Subscriptions',
   'Transfer',
   'Other',
 ] as const

@@ -84,9 +84,12 @@ const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [
   { name: 'Entertainment', color: '#C77D3A' },
   { name: 'Health', color: '#C65D5D' },
   { name: 'Utilities', color: '#6B8E3D' },
+  { name: 'Family', color: '#D16B86' },
   { name: 'Income', color: '#157F4C' },
   { name: 'Returns', color: '#7B5EA7' },
+  { name: 'Rent', color: '#8B6F47' },
   { name: 'Investment', color: '#C99A2E' },
+  { name: 'Subscriptions', color: '#7C6ED6' },
   { name: 'Transfer', color: '#3B82C4' },
   { name: 'Other', color: '#7E8A82' },
 ]

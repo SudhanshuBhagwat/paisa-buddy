@@ -121,7 +121,7 @@ export function TransactionDetailSheet({
   const [accPickerOpen, setAccPickerOpen] = useState(false)
   const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])].filter((cat) => cat !== 'Investment')
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])]
   const toAccounts = accounts.filter((a) => a.id !== accountId)
 
   const recentCats = recentCategories.filter((c) => allCategories.includes(c)).slice(0, 3)

@@ -70,9 +70,12 @@ async function migration002SeedCategories(db: SQLiteDatabase): Promise<void> {
     { name: 'Entertainment', color: '#C77D3A' },
     { name: 'Health', color: '#C65D5D' },
     { name: 'Utilities', color: '#6B8E3D' },
+    { name: 'Family', color: '#D16B86' },
     { name: 'Income', color: '#157F4C' },
     { name: 'Returns', color: '#7B5EA7' },
+    { name: 'Rent', color: '#8B6F47' },
     { name: 'Investment', color: '#C99A2E' },
+    { name: 'Subscriptions', color: '#7C6ED6' },
     { name: 'Transfer', color: '#3B82C4' },
     { name: 'Other', color: '#7E8A82' },
   ]
@@ -205,6 +208,21 @@ async function migration006ImportReviewSessions(db: SQLiteDatabase): Promise<voi
   `)
 }
 
+async function migration007DefaultLaunchCategories(db: SQLiteDatabase): Promise<void> {
+  const categories: Array<{ name: string; color: string }> = [
+    { name: 'Family', color: '#D16B86' },
+    { name: 'Rent', color: '#8B6F47' },
+    { name: 'Subscriptions', color: '#7C6ED6' },
+  ]
+
+  for (const cat of categories) {
+    await db.runAsync(
+      'INSERT OR IGNORE INTO categories (name, color, is_custom) VALUES (?, ?, 0)',
+      [cat.name, cat.color],
+    )
+  }
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
@@ -212,6 +230,7 @@ const MIGRATIONS = [
   { version: 4, up: migration004IndexesAndBankColumn },
   { version: 5, up: migration005ImportIntelligence },
   { version: 6, up: migration006ImportReviewSessions },
+  { version: 7, up: migration007DefaultLaunchCategories },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

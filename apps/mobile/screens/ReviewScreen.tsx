@@ -186,9 +186,7 @@ export function ReviewScreen({ navigation }: Props) {
   const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
   // ── Derived ───────────────────────────────────────────────────────────────────
-  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])].filter(
-    (c) => c !== 'Investment',
-  )
+  const allCategories = [...new Set([...PREDEFINED_CATEGORIES, ...Object.keys(catColors)])]
   const recentCategories = [...new Set(
     [...individuals]
       .sort((a, b) => b.date.localeCompare(a.date))
