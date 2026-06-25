@@ -13,6 +13,8 @@ import * as DocumentPicker from 'expo-document-picker'
 import { File } from 'expo-file-system'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   setDisplayName,
@@ -20,8 +22,10 @@ import {
   addUpiId,
   removeUpiId,
   clearAllData,
+  setLastBackupMetadata,
 } from '../repositories/settingsRepository'
 import { createCategory, deleteCategory } from '../repositories/categoryRepository'
+import { updateLearnedMapping, forgetLearnedMapping, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import {
   countTransactionsForImportSession,
   getLatestCompletedImportSession,
@@ -42,6 +46,9 @@ import { C, F, RADIUS } from '../lib/tokens'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 import { useSetupReset } from '../navigation/setupContext'
+import type { RootStackParamList } from '../navigation/types'
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sl.text}>{children}</Text>
@@ -87,6 +94,7 @@ function InfoRow({ label, value }: { label: string; value: string | number }) {
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
+  const navigation = useNavigation<Nav>()
   const queryClient = useQueryClient()
   const onSetupReset = useSetupReset()
   const settingsQuery = useQuery({
@@ -111,6 +119,12 @@ export function SettingsScreen() {
   const [catSheetOpen, setCatSheetOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryWithCount | null>(null)
   const [deletingCategory, setDeletingCategory] = useState(false)
+  const [merchantSheetOpen, setMerchantSheetOpen] = useState(false)
+  const [editingMapping, setEditingMapping] = useState<LearnedMapping | null>(null)
+  const [mappingNameInput, setMappingNameInput] = useState('')
+  const [mappingCategoryInput, setMappingCategoryInput] = useState('')
+  const [savingMapping, setSavingMapping] = useState(false)
+  const [developerTapCount, setDeveloperTapCount] = useState(0)
 
   // Misc
   const [exporting, setExporting] = useState(false)
@@ -202,6 +216,47 @@ export function SettingsScreen() {
     }
   }
 
+  function handleEditMapping(mapping: LearnedMapping) {
+    setEditingMapping(mapping)
+    setMappingNameInput(mapping.display_name ?? '')
+    setMappingCategoryInput(mapping.category_id ?? '')
+    setMerchantSheetOpen(true)
+  }
+
+  async function handleSaveMapping() {
+    if (!editingMapping) return
+    setSavingMapping(true)
+    try {
+      await updateLearnedMapping({
+        id: editingMapping.id,
+        displayName: mappingNameInput,
+        categoryId: mappingCategoryInput,
+      })
+      invalidateSettingsData(queryClient)
+      setMerchantSheetOpen(false)
+      setEditingMapping(null)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not update this merchant.' })
+    } finally {
+      setSavingMapping(false)
+    }
+  }
+
+  async function handleForgetMapping() {
+    if (!editingMapping) return
+    setSavingMapping(true)
+    try {
+      await forgetLearnedMapping(editingMapping.id)
+      invalidateSettingsData(queryClient)
+      setMerchantSheetOpen(false)
+      setEditingMapping(null)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not forget this merchant.' })
+    } finally {
+      setSavingMapping(false)
+    }
+  }
+
   async function handleAddCategory() {
     const name = newCat.trim()
     if (!name) return
@@ -269,12 +324,43 @@ export function SettingsScreen() {
     }
   }
 
+  async function handleDownloadCsvTemplate() {
+    const template = 'Date,Description,Amount,Type,Account\n2026-06-01,Example merchant,250.00,debit,HDFC Bank'
+    await Share.share({ title: 'Paisa Buddy CSV Import Template', message: template })
+  }
+
+  async function handleDownloadExcelTemplate() {
+    const template = [
+      '<?xml version="1.0"?>',
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet">',
+      '<Worksheet ss:Name="Import Template" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+      '<Table>',
+      '<Row><Cell><Data ss:Type="String">Date</Data></Cell><Cell><Data ss:Type="String">Description</Data></Cell><Cell><Data ss:Type="String">Amount</Data></Cell><Cell><Data ss:Type="String">Type</Data></Cell><Cell><Data ss:Type="String">Account</Data></Cell></Row>',
+      '<Row><Cell><Data ss:Type="String">2026-06-01</Data></Cell><Cell><Data ss:Type="String">Example merchant</Data></Cell><Cell><Data ss:Type="Number">250.00</Data></Cell><Cell><Data ss:Type="String">debit</Data></Cell><Cell><Data ss:Type="String">HDFC Bank</Data></Cell></Row>',
+      '</Table></Worksheet></Workbook>',
+    ].join('')
+    await Share.share({ title: 'Paisa Buddy Excel Import Template', message: template })
+  }
+
+  function handleDeveloperTap() {
+    const next = developerTapCount + 1
+    if (next >= 5) {
+      setDeveloperTapCount(0)
+      navigation.navigate('DeveloperMode')
+      return
+    }
+    setDeveloperTapCount(next)
+  }
+
   async function handleBackupExport() {
     setExportingBackup(true)
     try {
       const backup = await generateBackupJson()
-      setLastBackupAt(new Date().toISOString())
+      const createdAt = new Date().toISOString()
+      await setLastBackupMetadata({ createdAt, sizeBytes: backup.length })
+      setLastBackupAt(createdAt)
       setLastBackupSize(backup.length)
+      invalidateSettingsData(queryClient)
       await Share.share({ message: backup, title: 'Paisa Buddy Backup' })
     } catch {
       setMessageDialog({ title: 'Error', message: 'Could not export backup.' })
@@ -402,6 +488,8 @@ export function SettingsScreen() {
   const learnedMappings = data?.learnedMappings ?? []
   const estimatedBackupSize = formatBytes(JSON.stringify(data ?? {}).length)
   const latestImport = data?.latestImport ?? null
+  const backupAt = lastBackupAt ?? data?.lastBackupAt ?? null
+  const backupSize = lastBackupSize || data?.lastBackupSize || 0
 
   return (
     <View style={s.root}>
@@ -490,32 +578,32 @@ export function SettingsScreen() {
               </Card>
               <Text style={s.hint}>Your UPI IDs help identify debit vs credit direction in uploaded receipts.</Text>
 
-              {/* Learned Mappings */}
-              <Text style={[s.subLabel, { marginTop: 14 }]}>Learned Mappings</Text>
+              {/* Known Merchants */}
+              <Text style={[s.subLabel, { marginTop: 14 }]}>Known Merchants</Text>
               <Card>
                 {learnedMappings.length === 0 ? (
                   <View style={s.emptyRow}>
-                    <Text style={s.emptyRowText}>No learned mappings yet</Text>
-                    <Text style={s.emptyRowSub}>Mappings are saved as you review imports, for example Rahul Patil to Family</Text>
+                    <Text style={s.emptyRowText}>No known merchants yet</Text>
+                    <Text style={s.emptyRowSub}>Merchants appear here after you confirm or edit imported transactions.</Text>
                   </View>
                 ) : (
                   learnedMappings.map((mapping, idx) => (
                     <View key={mapping.id}>
                       {idx > 0 && <RowDivider />}
-                      <View style={s.mappingRow}>
+                      <Pressable style={s.mappingRow} onPress={() => handleEditMapping(mapping)}>
                         <View style={s.mappingBody}>
                           <Text style={s.mappingName} numberOfLines={1}>
                             {mapping.display_name || mapping.normalized_lookup_key}
                           </Text>
                           <Text style={s.mappingMeta} numberOfLines={1}>
-                            {mapping.normalized_lookup_key}
+                            Parsed: {mapping.normalized_lookup_key}
                           </Text>
                         </View>
                         <View style={s.mappingRight}>
                           <Text style={s.mappingCategory} numberOfLines={1}>{mapping.category_id || 'Uncategorized'}</Text>
                           <Text style={s.mappingCount}>{mapping.usage_count} use{mapping.usage_count !== 1 ? 's' : ''}</Text>
                         </View>
-                      </View>
+                      </Pressable>
                     </View>
                   ))
                 )}
@@ -594,9 +682,6 @@ export function SettingsScreen() {
                   </Svg>
                   <Text style={s.exportText}>{exporting ? 'Exporting…' : 'Export to CSV'}</Text>
                 </Pressable>
-                <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
-                  <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
-                </Pressable>
               </View>
             </View>
 
@@ -604,9 +689,9 @@ export function SettingsScreen() {
               <View style={s.section}>
                 <SectionLabel>Backup</SectionLabel>
                 <Card>
-                  <InfoRow label="Last Backup" value={formatDateTime(lastBackupAt)} />
+                  <InfoRow label="Last Backup" value={formatDateTime(backupAt)} />
                   <RowDivider />
-                  <InfoRow label="Backup Size" value={lastBackupSize > 0 ? formatBytes(lastBackupSize) : 'Not available'} />
+                  <InfoRow label="Backup Size" value={backupSize > 0 ? formatBytes(backupSize) : 'Not available'} />
                   <RowDivider />
                   <InfoRow label="Schema Version" value={BACKUP_SCHEMA_VERSION} />
                 </Card>
@@ -623,20 +708,63 @@ export function SettingsScreen() {
               <View style={s.section}>
                 <SectionLabel>Import</SectionLabel>
                 <Card>
-                  <InfoRow label="Import History" value={latestImport ? 'Available' : 'No completed imports'} />
-                  <RowDivider />
-                  <InfoRow label="Latest Import" value={latestImport?.file_name || latestImport?.filename || 'Not available'} />
-                  <RowDivider />
-                  <InfoRow label="Imported Transactions" value={data?.latestImportTxCount ?? 0} />
-                  <RowDivider />
-                  <InfoRow label="Imported On" value={formatDateTime(latestImport?.updated_at ?? latestImport?.created_at)} />
+                  {(data?.importHistory ?? []).length === 0 ? (
+                    <View style={s.emptyRow}>
+                      <Text style={s.emptyRowText}>No imports yet</Text>
+                      <Text style={s.emptyRowSub}>Imported statements will appear here with review and duplicate status.</Text>
+                    </View>
+                  ) : (
+                    (data?.importHistory ?? []).map((item, idx) => (
+                      <View key={item.id}>
+                        {idx > 0 && <RowDivider />}
+                        <Pressable style={s.importHistoryRow} onPress={() => navigation.navigate('ImportDetails', { importSessionId: item.id })}>
+                          <View style={s.importHistoryBody}>
+                            <Text style={s.importHistoryTitle} numberOfLines={1}>{item.file_name || item.filename || 'Imported statement'}</Text>
+                            <Text style={s.importHistoryMeta}>
+                              {formatDateTime(item.updated_at ?? item.created_at)} · {item.transaction_count} tx · {item.duplicate_count} dup
+                            </Text>
+                            <Text style={s.importHistoryMeta}>Review: {item.review_status || 'Not started'} · Import: {item.status}</Text>
+                          </View>
+                          <Text style={s.summaryRowCta}>Details</Text>
+                        </Pressable>
+                      </View>
+                    ))
+                  )}
                 </Card>
+                <View style={[s.dataActions, { marginTop: 10 }]}>
+                  <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
+                    <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={s.section}>
+                <SectionLabel>Spreadsheet Template</SectionLabel>
+                <Card>
+                  <View style={s.templateRow}>
+                    <View style={s.summaryRowBody}>
+                      <Text style={s.summaryRowTitle}>Download Import Template</Text>
+                      <Text style={s.summaryRowSub}>Columns: Date, Description, Amount, Type, Account</Text>
+                    </View>
+                  </View>
+                </Card>
+                <View style={[s.dataActions, { marginTop: 10 }]}>
+                  <Pressable style={s.exportBtn} onPress={handleDownloadExcelTemplate}>
+                    <Text style={s.exportText}>Excel Template</Text>
+                  </Pressable>
+                  <Pressable style={s.exportBtn} onPress={handleDownloadCsvTemplate}>
+                    <Text style={s.exportText}>CSV Template</Text>
+                  </Pressable>
+                </View>
               </View>
 
               <View style={s.section}>
                 <SectionLabel>About</SectionLabel>
                 <Card>
-                  <InfoRow label="App Version" value={APP_VERSION} />
+                  <Pressable style={s.infoRow} onPress={handleDeveloperTap}>
+                    <Text style={s.infoLabel}>App Version</Text>
+                    <Text style={s.infoValue}>{APP_VERSION}</Text>
+                  </Pressable>
                   <RowDivider />
                   <InfoRow label="Database Version" value={DATABASE_VERSION} />
                   <RowDivider />
@@ -738,6 +866,87 @@ export function SettingsScreen() {
       />
 
       {/* ── Category Management Sheet ── */}
+      <Sheet
+        visible={merchantSheetOpen}
+        onClose={() => {
+          if (!savingMapping) {
+            setMerchantSheetOpen(false)
+            setEditingMapping(null)
+          }
+        }}
+        heightFraction={0.74}
+        header={(
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetTitle}>Known Merchant</Text>
+            <Pressable onPress={() => { setMerchantSheetOpen(false); setEditingMapping(null) }} hitSlop={8}>
+              <Text style={s.sheetDone}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.sheetContent}
+        >
+          {editingMapping ? (
+            <>
+              <View style={s.sheetSection}>
+                <Text style={s.sheetSectionLabel}>PARSED NAME</Text>
+                <Card>
+                  <View style={s.emptyRow}>
+                    <Text style={s.mappingMeta}>{editingMapping.normalized_lookup_key}</Text>
+                  </View>
+                </Card>
+              </View>
+
+              <View style={s.sheetSection}>
+                <Text style={s.sheetSectionLabel}>DISPLAY NAME</Text>
+                <Card>
+                  <View style={[s.addRow, { paddingVertical: 14 }]}>
+                    <TextInput
+                      style={[s.addInput, { fontFamily: F.regular }]}
+                      value={mappingNameInput}
+                      onChangeText={setMappingNameInput}
+                      placeholder="Merchant display name"
+                      placeholderTextColor={C.ink3}
+                      returnKeyType="done"
+                    />
+                  </View>
+                </Card>
+              </View>
+
+              <View style={s.sheetSection}>
+                <Text style={s.sheetSectionLabel}>DEFAULT CATEGORY</Text>
+                <View style={s.predefined}>
+                  {[...predefinedCats, ...customCats].map((cat) => {
+                    const selected = mappingCategoryInput === cat.name
+                    return (
+                      <Pressable
+                        key={cat.name}
+                        style={[s.predChip, selected && s.predChipSelected]}
+                        onPress={() => setMappingCategoryInput(cat.name)}
+                      >
+                        <Text style={[s.predChipText, selected && s.predChipTextSelected]}>{cat.name}</Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </View>
+
+              <View style={s.sheetSection}>
+                <Pressable style={s.exportBtn} onPress={handleSaveMapping} disabled={savingMapping}>
+                  <Text style={s.exportText}>{savingMapping ? 'Saving...' : 'Save Merchant'}</Text>
+                </Pressable>
+                <Pressable style={[s.dangerBtn, { marginTop: 10 }]} onPress={handleForgetMapping} disabled={savingMapping}>
+                  <Text style={s.dangerText}>Forget Mapping</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
+        </ScrollView>
+      </Sheet>
+
       <Sheet
         visible={catSheetOpen}
         onClose={() => { setCatSheetOpen(false); setNewCat('') }}
@@ -875,6 +1084,11 @@ const s = StyleSheet.create({
   mappingRight: { alignItems: 'flex-end', gap: 2, maxWidth: '42%' },
   mappingCategory: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
   mappingCount: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
+  importHistoryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  importHistoryBody: { flex: 1, minWidth: 0, gap: 3 },
+  importHistoryTitle: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
+  importHistoryMeta: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, lineHeight: 16 },
+  templateRow: { paddingHorizontal: 16, paddingVertical: 14 },
 
   // UPI / shared row patterns
   upiRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13, paddingHorizontal: 16 },
@@ -933,7 +1147,9 @@ const s = StyleSheet.create({
   catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
   predefined: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   predChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  predChipSelected: { borderColor: C.brand, backgroundColor: C.brandPale },
   predChipText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  predChipTextSelected: { fontFamily: F.bold, color: C.brandDeep },
   predChipCount: { fontSize: 12, fontFamily: F.bold, color: C.ink },
 
   // Category sheet

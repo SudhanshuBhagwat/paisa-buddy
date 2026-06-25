@@ -15,6 +15,25 @@ export type ImportSession = {
   updated_at: string | null
 }
 
+export type ImportHistoryItem = ImportSession & {
+  imported_count: number
+  duplicate_count: number
+  review_status: string | null
+}
+
+export type ImportDetails = {
+  session: ImportSession
+  transactionsImported: number
+  duplicateCount: number
+  groupCount: number
+  newMerchantCount: number
+  learnedMappingsUsed: number
+  unknownMerchantCount: number
+  reviewedCount: number
+  totalReviewCount: number
+  reviewStatus: string
+}
+
 export type ImportSessionInput = {
   fileName: string | null
   fileHash: string | null
@@ -71,6 +90,87 @@ export async function getLatestCompletedImportSession(): Promise<ImportSession |
   return db.getFirstAsync<ImportSession>(
     "SELECT * FROM import_sessions WHERE status = 'done' ORDER BY created_at DESC LIMIT 1",
   )
+}
+
+export async function listImportHistory(limit = 20): Promise<ImportHistoryItem[]> {
+  const db = getDb()
+  return db.getAllAsync<ImportHistoryItem>(
+    `SELECT
+       i.*,
+       COUNT(t.id) AS imported_count,
+       SUM(CASE WHEN t.duplicate_status IN ('confirmed_duplicate', 'possible_duplicate') THEN 1 ELSE 0 END) AS duplicate_count,
+       COALESCE(MAX(rs.review_status), CASE WHEN COUNT(t.id) = 0 THEN NULL ELSE 'completed' END) AS review_status
+     FROM import_sessions i
+     LEFT JOIN transactions t ON t.import_session_id = i.id
+     LEFT JOIN review_sessions rs ON rs.import_session_id = i.id
+     GROUP BY i.id
+     ORDER BY COALESCE(i.updated_at, i.created_at) DESC
+     LIMIT ?`,
+    [limit],
+  )
+}
+
+export async function getImportDetails(importSessionId: string): Promise<ImportDetails | null> {
+  const db = getDb()
+  const session = await db.getFirstAsync<ImportSession>(
+    'SELECT * FROM import_sessions WHERE id = ?',
+    [importSessionId],
+  )
+  if (!session) return null
+
+  const counts = await db.getFirstAsync<{
+    transactions_imported: number
+    duplicate_count: number
+    group_count: number
+    new_merchant_count: number
+    learned_mappings_used: number
+    unknown_merchant_count: number
+    reviewed_count: number
+  }>(
+    `SELECT
+       COUNT(*) AS transactions_imported,
+       SUM(CASE WHEN duplicate_status IN ('confirmed_duplicate', 'possible_duplicate') THEN 1 ELSE 0 END) AS duplicate_count,
+       COUNT(DISTINCT COALESCE(normalized_lookup_key, parsed_display_name, merchant, raw_description, description, id)) AS group_count,
+       COUNT(DISTINCT CASE WHEN category_source != 'learned' OR category_source IS NULL THEN normalized_lookup_key END) AS new_merchant_count,
+       COUNT(DISTINCT CASE WHEN category_source = 'learned' THEN normalized_lookup_key END) AS learned_mappings_used,
+       COUNT(DISTINCT CASE WHEN category_source IS NULL OR category_source = 'unknown' THEN normalized_lookup_key END) AS unknown_merchant_count,
+       SUM(CASE WHEN reviewed = 1 THEN 1 ELSE 0 END) AS reviewed_count
+     FROM transactions
+     WHERE import_session_id = ?`,
+    [importSessionId],
+  )
+  const review = await db.getFirstAsync<{ review_status: string; review_progress: number; total_count: number }>(
+    'SELECT review_status, review_progress, total_count FROM review_sessions WHERE import_session_id = ? ORDER BY updated_at DESC LIMIT 1',
+    [importSessionId],
+  )
+
+  const totalReviewCount = review?.total_count ?? counts?.transactions_imported ?? 0
+  const reviewedCount = review?.review_progress ?? counts?.reviewed_count ?? 0
+
+  return {
+    session,
+    transactionsImported: counts?.transactions_imported ?? 0,
+    duplicateCount: counts?.duplicate_count ?? 0,
+    groupCount: counts?.group_count ?? 0,
+    newMerchantCount: counts?.new_merchant_count ?? 0,
+    learnedMappingsUsed: counts?.learned_mappings_used ?? 0,
+    unknownMerchantCount: counts?.unknown_merchant_count ?? 0,
+    reviewedCount,
+    totalReviewCount,
+    reviewStatus: review?.review_status ?? (session.status === 'done' ? 'completed' : session.status),
+  }
+}
+
+export async function countImportSessions(): Promise<number> {
+  const db = getDb()
+  const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM import_sessions')
+  return row?.count ?? 0
+}
+
+export async function countReviewSessions(): Promise<number> {
+  const db = getDb()
+  const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM review_sessions')
+  return row?.count ?? 0
 }
 
 export async function countTransactionsForImportSession(importSessionId: string): Promise<number> {

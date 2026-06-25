@@ -4,6 +4,8 @@ export type RootStackParamList = {
   Setup: undefined
   Main: undefined
   ImportStatement: undefined
+  ImportDetails: { importSessionId: string }
+  DeveloperMode: undefined
   Review: undefined
 }
 

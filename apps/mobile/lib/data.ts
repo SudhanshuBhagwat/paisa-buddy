@@ -18,7 +18,15 @@ import {
 import { listPlans } from '../repositories/planRepository'
 import { listLearnedMappings, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import { getActiveReviewSession, type ReviewSession } from '../repositories/reviewSessionRepository'
-import { getLatestCompletedImportSession, countTransactionsForImportSession, type ImportSession } from '../repositories/importRepository'
+import {
+  getLatestCompletedImportSession,
+  countTransactionsForImportSession,
+  listImportHistory,
+  countImportSessions,
+  countReviewSessions,
+  type ImportHistoryItem,
+  type ImportSession,
+} from '../repositories/importRepository'
 import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -181,6 +189,11 @@ export type SettingsData = {
   categoryCount: number
   latestImport: ImportSession | null
   latestImportTxCount: number
+  importHistory: ImportHistoryItem[]
+  importCount: number
+  reviewSessionCount: number
+  lastBackupAt: string | null
+  lastBackupSize: number
 }
 
 export type SettingsQueryData = {
@@ -189,13 +202,16 @@ export type SettingsQueryData = {
 }
 
 export async function getSettingsData(): Promise<SettingsQueryData> {
-  const [raw, cats, accounts, txCount, learnedMappings, latestImport] = await Promise.all([
+  const [raw, cats, accounts, txCount, learnedMappings, latestImport, importHistory, importCount, reviewSessionCount] = await Promise.all([
     getAllSettings(),
     listCategories(),
     listAccounts(),
     getTotalCount(),
-    listLearnedMappings(10),
+    listLearnedMappings(50),
     getLatestCompletedImportSession(),
+    listImportHistory(10),
+    countImportSessions(),
+    countReviewSessions(),
   ])
   const latestImportTxCount = latestImport ? await countTransactionsForImportSession(latestImport.id) : 0
   const settings: SettingsData = {
@@ -214,6 +230,11 @@ export async function getSettingsData(): Promise<SettingsQueryData> {
     categoryCount: cats.length,
     latestImport,
     latestImportTxCount,
+    importHistory,
+    importCount,
+    reviewSessionCount,
+    lastBackupAt: raw.lastBackupAt,
+    lastBackupSize: raw.lastBackupSize,
   }
   return { settings, email: raw.email }
 }

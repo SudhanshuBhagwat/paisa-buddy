@@ -27,6 +27,8 @@ export type AllSettings = {
   email: string | null
   expectedMonthlyIncome: number
   upiIds: string[]
+  lastBackupAt: string | null
+  lastBackupSize: number
 }
 
 export async function getAllSettings(): Promise<AllSettings> {
@@ -42,6 +44,8 @@ export async function getAllSettings(): Promise<AllSettings> {
       ? parseInt(map['expected_monthly_income'], 10)
       : 0,
     upiIds: map['upi_ids'] ? (JSON.parse(map['upi_ids']) as string[]) : [],
+    lastBackupAt: map['last_backup_at'] ?? null,
+    lastBackupSize: map['last_backup_size'] ? parseInt(map['last_backup_size'], 10) : 0,
   }
 }
 
@@ -75,6 +79,11 @@ export async function addUpiId(id: string): Promise<void> {
 export async function removeUpiId(id: string): Promise<void> {
   const settings = await getAllSettings()
   await setSetting('upi_ids', JSON.stringify(settings.upiIds.filter((u) => u !== id)))
+}
+
+export async function setLastBackupMetadata(input: { createdAt: string; sizeBytes: number }): Promise<void> {
+  await setSetting('last_backup_at', input.createdAt)
+  await setSetting('last_backup_size', String(input.sizeBytes))
 }
 
 const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [

@@ -56,6 +56,32 @@ export async function listLearnedMappings(limit = 20): Promise<LearnedMapping[]>
   )
 }
 
+export async function updateLearnedMapping(input: {
+  id: string
+  displayName: string | null
+  categoryId: string | null
+}): Promise<void> {
+  const db = getDb()
+  await db.runAsync(
+    `UPDATE learned_mappings
+     SET display_name = ?,
+         category_id = ?,
+         updated_at = ?
+     WHERE id = ?`,
+    [
+      input.displayName?.trim() || null,
+      input.categoryId || null,
+      new Date().toISOString(),
+      input.id,
+    ],
+  )
+}
+
+export async function forgetLearnedMapping(id: string): Promise<void> {
+  const db = getDb()
+  await db.runAsync('DELETE FROM learned_mappings WHERE id = ?', [id])
+}
+
 export async function saveLearnedMapping(input: LearnedMappingInput): Promise<void> {
   const key = input.normalizedLookupKey?.trim()
   if (!key) return

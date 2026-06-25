@@ -17,6 +17,8 @@ import { AccountsScreen } from '../screens/AccountsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 import { ReviewScreen } from '../screens/ReviewScreen'
 import { ImportStatementScreen } from '../screens/ImportStatementScreen'
+import { ImportDetailsScreen } from '../screens/ImportDetailsScreen'
+import { DeveloperModeScreen } from '../screens/DeveloperModeScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { SetupCompleteCtx, SetupResetCtx } from './setupContext'
 import type { MainTabParamList, RootStackParamList, SetupStartAction } from './types'
@@ -100,6 +102,8 @@ export function RootNavigator() {
                 {() => <MainTabs initialAction={setupStartAction} />}
               </Stack.Screen>
               <Stack.Screen name="ImportStatement" component={ImportStatementScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="ImportDetails" component={ImportDetailsScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="DeveloperMode" component={DeveloperModeScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
             </>
           )}
