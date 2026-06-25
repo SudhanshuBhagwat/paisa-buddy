@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Svg, { Circle, Path, Polyline } from 'react-native-svg'
+import Svg, { Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -50,14 +50,6 @@ const card = StyleSheet.create({
 })
 
 function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
-
-function CheckMark() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <Polyline points="20 6 9 17 4 12" />
-    </Svg>
-  )
-}
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
@@ -458,23 +450,6 @@ export function SettingsScreen() {
                 </View>
               </Card>
 
-              {/* Privacy commitments */}
-              <View style={[s.privacyCard, { marginTop: 10 }]}>
-                {[
-                  'Offline First',
-                  'Data Never Leaves Device',
-                  'No Cloud Processing',
-                ].map((item, idx) => (
-                  <View key={item}>
-                    {idx > 0 && <RowDivider />}
-                    <View style={s.privacyRow}>
-                      <CheckMark />
-                      <Text style={s.privacyText}>{item}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
               {/* Actions */}
               <View style={[s.dataActions, { marginTop: 10 }]}>
                 <Pressable style={s.exportBtn} onPress={handleExport} disabled={exporting}>
@@ -707,20 +682,6 @@ const s = StyleSheet.create({
   txCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, padding: 16 },
   txCountNum: { fontSize: 22, fontFamily: F.extrabold, color: C.ink },
   txCountLabel: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
-  privacyCard: {
-    backgroundColor: C.surface,
-    borderRadius: RADIUS,
-    borderWidth: 1,
-    borderColor: C.line,
-    overflow: 'hidden',
-    shadowColor: '#14281E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
-  privacyText: { fontSize: 13, fontFamily: F.medium, color: C.ink },
   dataActions: { gap: 10 },
   exportBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
