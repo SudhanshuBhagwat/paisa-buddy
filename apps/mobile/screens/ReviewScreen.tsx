@@ -20,7 +20,7 @@ import { Dialog, MessageDialog, type MessageDialogState } from '../components/Di
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
 import { getReviewData } from '../lib/data'
-import { updateTransaction, deleteTransaction } from '../repositories/transactionRepository'
+import { updateTransaction, deleteTransaction, getTransactionById } from '../repositories/transactionRepository'
 import {
   completeReviewSession,
   ensureActiveReviewSession,
@@ -138,6 +138,17 @@ function hasDuplicateWarning(tx: Transaction | null): boolean {
   return !!tx?.duplicate_status && tx.duplicate_status !== 'none' && tx.duplicate_status !== 'not_duplicate'
 }
 
+function detailNameForTx(tx: Transaction | null): string {
+  if (!tx) return 'Not available'
+  return displayNameForTx(tx)
+}
+
+function confidenceLabel(source: TxGroup['suggestionSource']): string {
+  if (source === 'learned') return 'Seen Before'
+  if (source === 'keyword') return 'Suggested'
+  return 'Needs Review'
+}
+
 function clampCount(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
@@ -179,6 +190,8 @@ export function ReviewScreen({ navigation }: Props) {
   // ── Individual review sheet ───────────────────────────────────────────────────
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activeTx, setActiveTx] = useState<Transaction | null>(null)
+  const [duplicateOfTx, setDuplicateOfTx] = useState<Transaction | null>(null)
+  const [duplicateLoading, setDuplicateLoading] = useState(false)
   const [activeTxContext, setActiveTxContext] = useState<ActiveTxContext>('individual')
   const [form, setForm] = useState<ReviewFormState | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -234,7 +247,7 @@ export function ReviewScreen({ navigation }: Props) {
       getActiveReviewSession(),
     ]).then(async ([gWithSug, savedSession]) => {
       const session = await ensureActiveReviewSession(txs.length, importSessionId)
-      const activeSession = savedSession ?? session
+      const activeSession = savedSession?.review_status === 'active' ? savedSession : session
       const nextTotal = Math.max(activeSession.total_count, txs.length)
       const impliedReviewed = Math.max(0, nextTotal - txs.length)
       const nextReviewed = clampCount(Math.max(activeSession.review_progress, impliedReviewed), 0, nextTotal)
@@ -254,7 +267,11 @@ export function ReviewScreen({ navigation }: Props) {
       setCompletionStats({ groupCount: 0, groupTxCount: 0, individualCount: 0 })
       setIndividuals(nextSingles)
       setGroups(gWithSug)
-      setReviewSession(activeSession)
+      setReviewSession({
+        ...activeSession,
+        total_count: nextTotal,
+        review_progress: nextReviewed,
+      })
       if (savedItemIdx >= 0 && savedGroupIdx < 0) {
         setPhase('individual-review')
       } else {
@@ -375,11 +392,18 @@ export function ReviewScreen({ navigation }: Props) {
   // ── Individual actions ────────────────────────────────────────────────────────
   function openSheet(tx: Transaction, context: ActiveTxContext = 'individual') {
     setActiveTx(tx)
+    setDuplicateOfTx(null)
     setActiveTxContext(context)
     setForm(txToFormState(tx))
     setShowDatePicker(false)
     setShowTimePicker(false)
     setSheetOpen(true)
+    if (hasDuplicateWarning(tx) && tx.duplicate_of_transaction_id) {
+      setDuplicateLoading(true)
+      void getTransactionById(tx.duplicate_of_transaction_id)
+        .then(setDuplicateOfTx)
+        .finally(() => setDuplicateLoading(false))
+    }
   }
 
   function removeIndividual(id: string) {
@@ -484,6 +508,12 @@ export function ReviewScreen({ navigation }: Props) {
   const formDate = form ? new Date(form.date + 'T00:00:00') : new Date()
   const selectedAccountName = form ? accounts.find((a) => a.id === form.accountId)?.name : undefined
   const selectedToAccountName = form ? toAccounts.find((a) => a.id === form.toAccountId)?.name : undefined
+  const duplicateExistingAccountName = duplicateOfTx?.account_id
+    ? accounts.find((a) => a.id === duplicateOfTx.account_id)?.name
+    : null
+  const activeAccountName = activeTx?.account_id
+    ? accounts.find((a) => a.id === activeTx.account_id)?.name
+    : null
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -567,7 +597,7 @@ export function ReviewScreen({ navigation }: Props) {
                     <View style={s.suggestionRow}>
                       <View style={s.suggestionChip}>
                         <Text style={s.suggestionText}>
-                          {currentGroup.suggestionSource === 'learned' ? 'Seen before' : 'New payee'}: {currentGroup.suggestion}
+                          {confidenceLabel(currentGroup.suggestionSource)}: {currentGroup.suggestion}
                         </Text>
                       </View>
                       <Pressable style={s.suggestionConfirm} onPress={() => setPendingCategory(currentGroup.suggestion)}>
@@ -576,7 +606,7 @@ export function ReviewScreen({ navigation }: Props) {
                     </View>
                   )}
                   {!currentGroup.suggestion && !groupJustDone && (
-                    <Text style={s.groupStateText}>New payee. Please review once.</Text>
+                    <Text style={s.groupStateText}>Needs Review: New payee detected.</Text>
                   )}
                   {groupHasDuplicate && !groupJustDone && (
                     <Text style={s.duplicateText}>Possible duplicate in this group. Review items individually.</Text>
@@ -843,10 +873,39 @@ export function ReviewScreen({ navigation }: Props) {
                   {activeTx?.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
                 </Text>
                 <Text style={s.duplicatePanelText}>
-                  {activeTx?.duplicate_status === 'confirmed_duplicate'
+                  {duplicateOfTx?.source === 'manual'
+                    ? 'Looks like you already added this manually.'
+                    : activeTx?.duplicate_status === 'confirmed_duplicate'
                     ? 'This transaction appears to already exist. Keep the existing transaction, or save this import as a new one.'
                     : 'This looks similar to a transaction already saved. Review it before deciding.'}
                 </Text>
+                <View style={s.duplicateCompare}>
+                  <View style={s.duplicateDetailBlock}>
+                    <Text style={s.duplicateDetailTitle}>Existing Transaction</Text>
+                    {duplicateLoading ? (
+                      <ActivityIndicator size="small" color={C.neg} />
+                    ) : (
+                      <>
+                        <Text style={s.duplicateDetailLine}>{detailNameForTx(duplicateOfTx)}</Text>
+                        <Text style={s.duplicateDetailLine}>{duplicateOfTx ? formatAmount(duplicateOfTx.amount) : 'Amount unavailable'}</Text>
+                        <Text style={s.duplicateDetailMuted}>{duplicateOfTx ? formatDateLabel(duplicateOfTx.date) : 'Date unavailable'}</Text>
+                        <Text style={s.duplicateDetailMuted}>Category: {duplicateOfTx?.category || 'Uncategorized'}</Text>
+                        <Text style={s.duplicateDetailMuted}>Account: {duplicateExistingAccountName || 'Not set'}</Text>
+                      </>
+                    )}
+                  </View>
+                  <View style={s.duplicateDetailBlock}>
+                    <Text style={s.duplicateDetailTitle}>Imported Transaction</Text>
+                    <Text style={s.duplicateDetailLine}>{detailNameForTx(activeTx)}</Text>
+                    <Text style={s.duplicateDetailLine}>{activeTx ? formatAmount(activeTx.amount) : 'Amount unavailable'}</Text>
+                    <Text style={s.duplicateDetailMuted}>{activeTx ? formatDateLabel(activeTx.date) : 'Date unavailable'}</Text>
+                    <Text style={s.duplicateDetailMuted}>Suggested: {form.category || activeTx?.category || 'Needs review'}</Text>
+                    <Text style={s.duplicateDetailMuted}>Account: {selectedAccountName || activeAccountName || 'Not set'}</Text>
+                    {!!activeTx?.raw_description && (
+                      <Text style={s.duplicateDetailRaw} numberOfLines={3}>{activeTx.raw_description}</Text>
+                    )}
+                  </View>
+                </View>
                 <View style={s.duplicateActions}>
                   <Pressable
                     style={[s.duplicateSkipBtn, rejecting && s.btnDisabled]}
@@ -1509,6 +1568,19 @@ const s = StyleSheet.create({
   },
   duplicatePanelTitle: { fontSize: 14, fontFamily: F.extrabold, color: C.neg },
   duplicatePanelText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink2, lineHeight: 18 },
+  duplicateCompare: { gap: 8, marginTop: 8 },
+  duplicateDetailBlock: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.surface,
+    padding: 10,
+    gap: 3,
+  },
+  duplicateDetailTitle: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.4 },
+  duplicateDetailLine: { fontSize: 13, fontFamily: F.semibold, color: C.ink },
+  duplicateDetailMuted: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+  duplicateDetailRaw: { marginTop: 2, fontSize: 11.5, fontFamily: F.regular, color: C.ink3, lineHeight: 16 },
   duplicateActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   duplicateSkipBtn: {
     flex: 1,

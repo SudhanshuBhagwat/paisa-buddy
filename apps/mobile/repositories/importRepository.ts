@@ -66,21 +66,34 @@ export async function getLatestImportSession(): Promise<ImportSession | null> {
   )
 }
 
-export async function undoLatestImport(): Promise<number> {
-  const latest = await getLatestImportSession()
+export async function getLatestCompletedImportSession(): Promise<ImportSession | null> {
+  const db = getDb()
+  return db.getFirstAsync<ImportSession>(
+    "SELECT * FROM import_sessions WHERE status = 'done' ORDER BY created_at DESC LIMIT 1",
+  )
+}
+
+export async function countTransactionsForImportSession(importSessionId: string): Promise<number> {
+  const db = getDb()
+  const row = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM transactions WHERE import_session_id = ?',
+    [importSessionId],
+  )
+  return row?.count ?? 0
+}
+
+export async function undoLatestCompletedImport(): Promise<number> {
+  const latest = await getLatestCompletedImportSession()
   if (!latest) return 0
 
   const db = getDb()
-  const countRow = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) AS count FROM transactions WHERE import_session_id = ?',
-    [latest.id],
-  )
+  const count = await countTransactionsForImportSession(latest.id)
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM transactions WHERE import_session_id = ?', [latest.id])
     await db.runAsync('DELETE FROM review_sessions WHERE import_session_id = ?', [latest.id])
     await db.runAsync("UPDATE import_sessions SET status = 'undone', updated_at = ? WHERE id = ?", [new Date().toISOString(), latest.id])
   })
-  return countRow?.count ?? 0
+  return count
 }
 
 export async function bulkInsertUnreviewed(

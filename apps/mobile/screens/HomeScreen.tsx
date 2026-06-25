@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
+import type { ReviewSession } from '../repositories/reviewSessionRepository'
 import {
   calcSummary,
   getMonthTransactions,
@@ -43,6 +44,7 @@ type HomeData = {
   accounts: Account[]
   settings: { display_name: string | null; expected_monthly_income: number | null }
   categoryColors: Record<string, string>
+  reviewSession: ReviewSession | null
 }
 
 type QuickAction = {
@@ -239,6 +241,7 @@ export function HomeScreen() {
   const accounts = homeQuery.data?.accounts ?? []
   const settings = homeQuery.data?.settings ?? null
   const catColors = homeQuery.data?.categoryColors ?? {}
+  const reviewSession = homeQuery.data?.reviewSession ?? null
 
   function upsertTx(tx: Transaction) {
     queryClient.setQueryData<HomeData>(queryKeys.home, (prev) => {
@@ -268,6 +271,9 @@ export function HomeScreen() {
       : 'happy'
     : displayBalance < 0 ? 'sad' : displayBalance === 0 ? 'neutral' : 'happy'
   const pendingCount = allTxs.filter((t) => !t.reviewed).length
+  const reviewRemaining = reviewSession
+    ? Math.max(reviewSession.total_count - reviewSession.review_progress, pendingCount)
+    : pendingCount
   const now = new Date()
   const firstName = settings?.display_name?.split(' ')[0] ?? null
   const dayGreeting = getDayGreeting(now)
@@ -439,19 +445,19 @@ export function HomeScreen() {
         </View>
 
         {/* ── Pending review banner ── */}
-        {pendingCount > 0 && (
+        {reviewRemaining > 0 && (
           <Pressable
             style={s.pendingBanner}
             onPress={() => navigation.navigate('Review')}
           >
             <View style={s.pendingBadge}>
-              <Text style={s.pendingBadgeText}>{pendingCount}</Text>
+              <Text style={s.pendingBadgeText}>{reviewRemaining}</Text>
             </View>
             <View style={s.pendingInfo}>
-              <Text style={s.pendingTitle}>Transactions Need Review</Text>
-              <Text style={s.pendingSub}>{pendingCount} Remaining</Text>
+              <Text style={s.pendingTitle}>Resume Review</Text>
+              <Text style={s.pendingSub}>{reviewRemaining} transactions remaining</Text>
             </View>
-            <Text style={s.resumeText}>Resume Review</Text>
+            <Text style={s.resumeText}>Continue</Text>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.neg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <Polyline points="9 18 15 12 9 6" />
             </Svg>

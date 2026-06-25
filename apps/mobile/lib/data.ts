@@ -17,6 +17,7 @@ import {
 } from '../repositories/transactionRepository'
 import { listPlans } from '../repositories/planRepository'
 import { listLearnedMappings, type LearnedMapping } from '../repositories/learnedMappingRepository'
+import { getActiveReviewSession, type ReviewSession } from '../repositories/reviewSessionRepository'
 import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -46,12 +47,14 @@ export async function getHomeData(): Promise<{
   accounts: Account[]
   settings: { display_name: string | null; expected_monthly_income: number | null }
   categoryColors: Record<string, string>
+  reviewSession: ReviewSession | null
 }> {
-  const [transactions, accounts, settings, categoryColors] = await Promise.all([
+  const [transactions, accounts, settings, categoryColors, reviewSession] = await Promise.all([
     getAll(),
     listAccounts(),
     getAllSettings(),
     getCategoryColors(),
+    getActiveReviewSession(),
   ])
   return {
     transactions,
@@ -61,6 +64,7 @@ export async function getHomeData(): Promise<{
       expected_monthly_income: settings.expectedMonthlyIncome || null,
     },
     categoryColors,
+    reviewSession,
   }
 }
 

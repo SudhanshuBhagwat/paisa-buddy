@@ -205,6 +205,12 @@ export async function getAll(): Promise<Transaction[]> {
   return rows.map(rowToTransaction)
 }
 
+export async function getTransactionById(id: string): Promise<Transaction | null> {
+  const db = getDb()
+  const row = await db.getFirstAsync<TxRow>('SELECT * FROM transactions WHERE id = ?', [id])
+  return row ? rowToTransaction(row) : null
+}
+
 export async function getByMonth(month: string): Promise<Transaction[]> {
   const db = getDb()
   const rows = await db.getAllAsync<TxRow>(

@@ -333,7 +333,7 @@ export function ImportStatementScreen({ navigation }: Props) {
                 </View>
                 <Text style={s.uploadTitle}>Import your statement</Text>
                 <Text style={s.uploadSub}>Excel and CSV statements are parsed on-device.</Text>
-                <Text style={s.privacyText}>Your statement stays on your device.</Text>
+                <Text style={s.privacyText}>Your statement is processed locally on this device.</Text>
               </View>
 
               <View style={s.formatCard}>
@@ -499,7 +499,7 @@ export function ImportStatementScreen({ navigation }: Props) {
         <View style={s.modalOverlay}>
           <View style={s.passwordCard}>
             <Text style={s.passwordTitle}>Password protected file</Text>
-            <Text style={s.passwordSub}>{pendingExcel?.name} needs a password. The password stays on this device.</Text>
+            <Text style={s.passwordSub}>{pendingExcel?.name} needs a password. The password is used locally on this device.</Text>
             <TextInput
               style={s.passwordInput}
               value={password}
@@ -639,7 +639,7 @@ function unsupportedFileDialog(fileName: string): MessageDialogState {
   if (isPdf(fileName)) {
     return {
       title: 'PDF import coming soon',
-      message: 'PDF statement import is coming soon.\n\nFor now, export transactions as Excel or CSV and import those files.',
+      message: 'PDF import is coming soon. Please export Excel or CSV for now.',
     }
   }
   if (/\.(jpg|jpeg|png|heic|webp|tiff?)$/i.test(fileName)) {

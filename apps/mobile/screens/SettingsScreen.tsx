@@ -9,6 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import * as DocumentPicker from 'expo-document-picker'
+import { File } from 'expo-file-system'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -20,7 +22,13 @@ import {
   clearAllData,
 } from '../repositories/settingsRepository'
 import { createCategory, deleteCategory } from '../repositories/categoryRepository'
-import { undoLatestImport } from '../repositories/importRepository'
+import {
+  countTransactionsForImportSession,
+  getLatestCompletedImportSession,
+  undoLatestCompletedImport,
+  type ImportSession,
+} from '../repositories/importRepository'
+import { generateBackupJson, restoreBackupJson, validateBackupJson } from '../repositories/backupRepository'
 import {
   generateExportCsv,
   getSettingsData,
@@ -80,7 +88,14 @@ export function SettingsScreen() {
 
   // Misc
   const [exporting, setExporting] = useState(false)
+  const [exportingBackup, setExportingBackup] = useState(false)
+  const [restoringBackup, setRestoringBackup] = useState(false)
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
+  const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null)
   const [undoingImport, setUndoingImport] = useState(false)
+  const [undoImportDialogOpen, setUndoImportDialogOpen] = useState(false)
+  const [latestCompletedImport, setLatestCompletedImport] = useState<ImportSession | null>(null)
+  const [latestCompletedImportCount, setLatestCompletedImportCount] = useState(0)
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
@@ -226,18 +241,99 @@ export function SettingsScreen() {
     }
   }
 
+  async function handleBackupExport() {
+    setExportingBackup(true)
+    try {
+      const backup = await generateBackupJson()
+      await Share.share({ message: backup, title: 'Paisa Buddy Backup' })
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not export backup.' })
+    } finally {
+      setExportingBackup(false)
+    }
+  }
+
+  async function handleRestoreBackup() {
+    setRestoringBackup(true)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled) return
+      const json = new File(result.assets[0].uri).textSync()
+      validateBackupJson(json)
+      setPendingRestoreJson(json)
+      setRestoreDialogOpen(true)
+    } catch (error) {
+      setMessageDialog({
+        title: 'Restore failed',
+        message: error instanceof Error ? error.message : 'Could not read this backup file.',
+      })
+    } finally {
+      setRestoringBackup(false)
+    }
+  }
+
+  async function confirmRestoreBackup() {
+    if (!pendingRestoreJson) return
+    setRestoringBackup(true)
+    try {
+      await restoreBackupJson(pendingRestoreJson)
+      queryClient.clear()
+      setRestoreDialogOpen(false)
+      setPendingRestoreJson(null)
+      onSetupReset()
+    } catch (error) {
+      setRestoreDialogOpen(false)
+      setMessageDialog({
+        title: 'Restore failed',
+        message: error instanceof Error ? error.message : 'Could not restore this backup.',
+      })
+    } finally {
+      setRestoringBackup(false)
+    }
+  }
+
   async function handleUndoLastImport() {
     setUndoingImport(true)
     try {
-      const deleted = await undoLatestImport()
+      const latest = await getLatestCompletedImportSession()
+      if (!latest) {
+        setMessageDialog({
+          title: 'No import to undo',
+          message: 'There is no completed statement import available to undo.',
+        })
+        return
+      }
+      const count = await countTransactionsForImportSession(latest.id)
+      setLatestCompletedImport(latest)
+      setLatestCompletedImportCount(count)
+      setUndoImportDialogOpen(true)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not prepare the last import for undo.' })
+    } finally {
+      setUndoingImport(false)
+    }
+  }
+
+  async function confirmUndoLastImport() {
+    setUndoingImport(true)
+    try {
+      const deleted = await undoLatestCompletedImport()
       invalidateTransactionData(queryClient)
+      setUndoImportDialogOpen(false)
+      setLatestCompletedImport(null)
+      setLatestCompletedImportCount(0)
       setMessageDialog({
-        title: deleted > 0 ? 'Last import undone' : 'No import to undo',
+        title: deleted > 0 ? 'Last import undone' : 'No imported transactions found',
         message: deleted > 0
           ? `${deleted} imported transaction${deleted !== 1 ? 's' : ''} removed.`
-          : 'There is no imported statement available to undo.',
+          : 'The latest completed import had no transactions to remove.',
       })
     } catch {
+      setUndoImportDialogOpen(false)
       setMessageDialog({ title: 'Error', message: 'Could not undo the last import.' })
     } finally {
       setUndoingImport(false)
@@ -463,13 +559,11 @@ export function SettingsScreen() {
                 <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
                   <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
                 </Pressable>
-                <Pressable style={[s.exportBtn, s.disabledBtn]} disabled>
-                  <Text style={s.disabledBtnText}>Backup Data</Text>
-                  <View style={s.comingSoonBadge}><Text style={s.comingSoonText}>Soon</Text></View>
+                <Pressable style={s.exportBtn} onPress={handleBackupExport} disabled={exportingBackup}>
+                  <Text style={s.exportText}>{exportingBackup ? 'Backing up...' : 'Backup Data'}</Text>
                 </Pressable>
-                <Pressable style={[s.exportBtn, s.disabledBtn]} disabled>
-                  <Text style={s.disabledBtnText}>Restore Backup</Text>
-                  <View style={s.comingSoonBadge}><Text style={s.comingSoonText}>Soon</Text></View>
+                <Pressable style={s.exportBtn} onPress={handleRestoreBackup} disabled={restoringBackup}>
+                  <Text style={s.exportText}>{restoringBackup ? 'Restoring...' : 'Restore Backup'}</Text>
                 </Pressable>
               </View>
             </View>
@@ -508,6 +602,55 @@ export function SettingsScreen() {
             variant: 'destructive',
             onPress: confirmClearAll,
             loading: clearing,
+          },
+        ]}
+      />
+
+      <Dialog
+        visible={undoImportDialogOpen}
+        onClose={() => {
+          if (!undoingImport) setUndoImportDialogOpen(false)
+        }}
+        title="Undo last import?"
+        message={`This will remove ${latestCompletedImportCount} transaction${latestCompletedImportCount !== 1 ? 's' : ''} from your last import${latestCompletedImport?.file_name ? ` (${latestCompletedImport.file_name})` : ''}.`}
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setUndoImportDialogOpen(false),
+            disabled: undoingImport,
+          },
+          {
+            label: 'Undo Import',
+            variant: 'destructive',
+            onPress: confirmUndoLastImport,
+            loading: undoingImport,
+          },
+        ]}
+      />
+
+      <Dialog
+        visible={restoreDialogOpen}
+        onClose={() => {
+          if (!restoringBackup) setRestoreDialogOpen(false)
+        }}
+        title="Restore backup?"
+        message="This will replace current app data with the selected backup. This cannot be undone."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => {
+              setRestoreDialogOpen(false)
+              setPendingRestoreJson(null)
+            },
+            disabled: restoringBackup,
+          },
+          {
+            label: 'Restore Backup',
+            variant: 'destructive',
+            onPress: confirmRestoreBackup,
+            loading: restoringBackup,
           },
         ]}
       />

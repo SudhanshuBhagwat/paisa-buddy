@@ -372,7 +372,7 @@ export function SetupScreen() {
               <Text style={s.wordmarkPaisa}>Paisa </Text>
               <Text style={s.wordmarkBuddy}>Buddy</Text>
             </View>
-            <Text style={s.tagline}>Your money. Your device. 100% private.</Text>
+            <Text style={s.tagline}>Your money. Stored locally on this device.</Text>
           </View>
 
           {/* Value cards */}
@@ -380,7 +380,7 @@ export function SetupScreen() {
             const items = [
               { icon: <LockIcon />, title: 'No account required', sub: 'No account. No passwords. No cloud sync.' },
               { icon: <WifiOffIcon />, title: 'Works fully offline', sub: 'Works even without internet.' },
-              { icon: <PhoneIcon />, title: 'Data never leaves your phone', sub: 'Your financial data stays on your device.' },
+              { icon: <PhoneIcon />, title: 'Stored on this device', sub: 'Your financial data is stored locally on this device.' },
             ]
             return (
               <View style={[s.groupCard, { marginBottom: 36 }]}>
@@ -401,7 +401,7 @@ export function SetupScreen() {
 
           <View style={s.welcomeFooter}>
             <ShieldCheckIcon size={13} />
-            <Text style={s.welcomeFooterText}>All data stays on your device.</Text>
+            <Text style={s.welcomeFooterText}>Your financial data is stored locally on this device.</Text>
           </View>
         </ScrollView>
       </View>
@@ -491,7 +491,7 @@ export function SetupScreen() {
               {/* Tip card */}
               <View style={s.tipCard}>
                 <BuddySVG size={28} />
-                <Text style={s.tipText}>Your name is stored only on this device. It never leaves your phone.</Text>
+                <Text style={s.tipText}>Your name is stored locally on this device.</Text>
               </View>
 
               <View style={s.field}>
