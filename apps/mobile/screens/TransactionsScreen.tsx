@@ -21,6 +21,7 @@ import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { addMonths, formatDateLabel, formatMonthLabel, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { categoryColor } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS, ROW_PAD } from '../lib/tokens'
+import { CategoryIcon } from '../components/CategoryIcon'
 import { deleteTransaction } from '../repositories/transactionRepository'
 import { getTransactionMonthData, getTransactionMonthsData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
@@ -90,7 +91,7 @@ function TxItem({
       android_ripple={{ color: C.line }}
     >
       <Animated.View style={[ti.row, animStyle]}>
-        <View style={[ti.dot, { backgroundColor: catC }]} />
+        <CategoryIcon category={tx.category} colorMap={catColors} size={18} circleSize={34} />
         <View style={ti.info}>
           <Text style={ti.name} numberOfLines={1}>
             {tx.merchant || tx.description || '—'}
@@ -515,7 +516,6 @@ const ti = StyleSheet.create({
     borderBottomColor: C.line,
     gap: 10,
   },
-  dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   info: { flex: 1, minWidth: 0 },
   name: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   sub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, marginTop: 1 },

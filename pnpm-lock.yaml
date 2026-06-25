@@ -62,6 +62,9 @@ importers:
       expo-status-bar:
         specifier: ~3.0.9
         version: 3.0.9(react-native@0.81.5)(react@19.1.0)
+      phosphor-react-native:
+        specifier: ^3.0.6
+        version: 3.0.6(react-native-svg@15.15.5)(react-native@0.81.5)(react@19.1.0)
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -7761,6 +7764,18 @@ packages:
     engines: {node: '>=22.13.0 || >=24'}
     optionalDependencies:
       '@napi-rs/canvas': 1.0.0
+    dev: false
+
+  /phosphor-react-native@3.0.6(react-native-svg@15.15.5)(react-native@0.81.5)(react@19.1.0):
+    resolution: {integrity: sha512-mIhv+hBbDWz3yLbTOq/esVUkrMoKzEvLIcSeZo3YTdT+sbOBxzxKg5WZN3wpqt3pkkhKf0wVpOyZ3d9mNBNRhg==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-svg: '*'
+    dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.0)(react@19.1.0)
+      react-native-svg: 15.15.5(react-native@0.81.5)(react@19.1.0)
     dev: false
 
   /picocolors@1.1.1:

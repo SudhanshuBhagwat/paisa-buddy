@@ -24,6 +24,7 @@ import { formatAmount } from '@paisa-buddy/shared/logic/amount'
 import { budgetProgress } from '@paisa-buddy/shared/logic/budget'
 import { categoryColor, CATEGORY_COLORS } from '@paisa-buddy/shared/categories'
 import { C, F, RADIUS } from '../lib/tokens'
+import { CategoryIcon } from '../components/CategoryIcon'
 import { Sheet } from '../components/Sheet'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
@@ -625,6 +626,7 @@ function BudgetBar({
   return (
     <Pressable style={[bb.row, !isLast && bb.rowBorder]} onPress={onEdit}>
       <View style={bb.header}>
+        <CategoryIcon category={budget.category} size={18} circleSize={32} />
         <View style={bb.headerMain}>
           <View style={bb.headerRow}>
             <View style={bb.titleButton}>
@@ -1047,7 +1049,7 @@ function BudgetSheet({
             <Pressable style={bs.selectField} onPress={() => setCatPickerOpen(true)}>
               <View style={bs.selectInner}>
                 {!!category && (
-                  <View style={[bs.catDot, { backgroundColor: categoryColor(category) }]} />
+                  <CategoryIcon category={category} size={13} circleSize={24} />
                 )}
                 <Text style={[bs.selectText, !category && bs.selectPlaceholder]} numberOfLines={1}>
                   {category || 'Select category'}
@@ -1115,7 +1117,7 @@ function BudgetSheet({
                   style={bs.pickerRow}
                   onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
                 >
-                  <View style={[bs.catDot, { backgroundColor: color }]} />
+                  <CategoryIcon category={cat} size={18} circleSize={32} />
                   <Text style={[bs.pickerRowText, selected && { color: C.brand, fontFamily: F.semibold }]}>
                     {cat}
                   </Text>

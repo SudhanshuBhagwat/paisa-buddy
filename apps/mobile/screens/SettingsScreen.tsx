@@ -24,7 +24,7 @@ import {
   clearAllData,
   setLastBackupMetadata,
 } from '../repositories/settingsRepository'
-import { createCategory, deleteCategory } from '../repositories/categoryRepository'
+import { createCategory, deleteCategory, updateCategoryIcon } from '../repositories/categoryRepository'
 import { updateLearnedMapping, forgetLearnedMapping, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import {
   countTransactionsForImportSession,
@@ -43,6 +43,8 @@ import {
 import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
+import { CategoryIcon, ICON_MAP } from '../components/CategoryIcon'
+import { CATEGORY_METADATA, DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR, getCategoryIcon } from '../lib/categoryMetadata'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 import { useSetupReset } from '../navigation/setupContext'
@@ -119,6 +121,9 @@ export function SettingsScreen() {
   const [catSheetOpen, setCatSheetOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryWithCount | null>(null)
   const [deletingCategory, setDeletingCategory] = useState(false)
+  const [iconPickerCat, setIconPickerCat] = useState<CategoryWithCount | null>(null)
+  const [newCatPickerOpen, setNewCatPickerOpen] = useState(false)
+  const [newCatIcon, setNewCatIcon] = useState<string | null>(null)
   const [merchantSheetOpen, setMerchantSheetOpen] = useState(false)
   const [editingMapping, setEditingMapping] = useState<LearnedMapping | null>(null)
   const [mappingNameInput, setMappingNameInput] = useState('')
@@ -263,17 +268,20 @@ export function SettingsScreen() {
     setAddingCat(true)
     try {
       const { name: n, color } = await createCategory(name)
+      if (newCatIcon) await updateCategoryIcon(n, newCatIcon)
       queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
         prev ? {
           ...prev,
           settings: {
             ...prev.settings,
-            customCategories: [...prev.settings.customCategories, { name: n, color, transactionCount: 0 }],
+            customCategories: [...prev.settings.customCategories, { name: n, color, icon: newCatIcon, transactionCount: 0 }],
           },
         } : prev
       ))
       invalidateCategoryData(queryClient)
       setNewCat('')
+      setNewCatIcon(null)
+      setNewCatPickerOpen(false)
     } catch {
       setCatSheetOpen(false)
       setMessageDialog({ title: 'Error', message: 'Could not add category.' })
@@ -284,6 +292,28 @@ export function SettingsScreen() {
 
   function handleRemoveCategory(cat: CategoryWithCount) {
     setCategoryToDelete(cat)
+  }
+
+  async function handleSetCategoryIcon(cat: CategoryWithCount, iconName: string | null) {
+    try {
+      await updateCategoryIcon(cat.name, iconName)
+      queryClient.setQueryData<SettingsQueryData>(queryKeys.settings, (prev) => (
+        prev ? {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            customCategories: prev.settings.customCategories.map((c) =>
+              c.name === cat.name ? { ...c, icon: iconName } : c
+            ),
+          },
+        } : prev
+      ))
+      invalidateCategoryData(queryClient)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not update icon.' })
+    } finally {
+      setIconPickerCat(null)
+    }
   }
 
   async function confirmRemoveCategory() {
@@ -949,7 +979,7 @@ export function SettingsScreen() {
 
       <Sheet
         visible={catSheetOpen}
-        onClose={() => { setCatSheetOpen(false); setNewCat('') }}
+        onClose={() => { setCatSheetOpen(false); setNewCat(''); setNewCatIcon(null); setNewCatPickerOpen(false); setIconPickerCat(null) }}
         heightFraction={0.82}
         header={(
           <View style={s.sheetHeader}>
@@ -970,6 +1000,17 @@ export function SettingsScreen() {
             <Text style={s.sheetSectionLabel}>ADD CATEGORY</Text>
             <Card>
               <View style={[s.addRow, { paddingVertical: 14 }]}>
+                <Pressable
+                  onPress={() => { setNewCatPickerOpen(true); setIconPickerCat(null) }}
+                  hitSlop={4}
+                >
+                  <CategoryIcon
+                    forceIconName={newCatIcon}
+                    forceBgColor={DEFAULT_CATEGORY_COLOR}
+                    size={14}
+                    circleSize={26}
+                  />
+                </Pressable>
                 <TextInput
                   style={s.addInput}
                   value={newCat}
@@ -997,7 +1038,18 @@ export function SettingsScreen() {
                   <View key={cat.name}>
                     {idx > 0 && <RowDivider />}
                     <View style={s.catRow}>
-                      <View style={[s.catDot, { backgroundColor: cat.color }]} />
+                      <Pressable
+                        onPress={() => { setIconPickerCat(cat); setNewCatPickerOpen(false) }}
+                        hitSlop={4}
+                      >
+                        <CategoryIcon
+                          category={cat.name}
+                          forceIconName={cat.icon}
+                          forceBgColor={cat.color}
+                          size={14}
+                          circleSize={26}
+                        />
+                      </Pressable>
                       <View style={s.catNameGroup}>
                         <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
                         {cat.transactionCount > 0 && (
@@ -1045,10 +1097,136 @@ export function SettingsScreen() {
             { label: 'Delete', variant: 'destructive', onPress: confirmRemoveCategory, loading: deletingCategory },
           ]}
         />
+
+        <Sheet
+          visible={!!iconPickerCat || newCatPickerOpen}
+          onClose={() => { setIconPickerCat(null); setNewCatPickerOpen(false) }}
+          heightFraction={0.72}
+          header={(
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Choose Icon</Text>
+              <Pressable onPress={() => { setIconPickerCat(null); setNewCatPickerOpen(false) }} hitSlop={8}>
+                <Text style={s.sheetDone}>Done</Text>
+              </Pressable>
+            </View>
+          )}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={ip.scroll}
+          >
+            <View style={ip.grid}>
+              {ICON_PICKER_OPTIONS.map((iconName) => {
+                const pickerColor = iconPickerCat?.color ?? DEFAULT_CATEGORY_COLOR
+                const currentIcon = iconPickerCat
+                  ? (iconPickerCat.icon ?? getCategoryIcon(iconPickerCat.name))
+                  : (newCatIcon ?? DEFAULT_CATEGORY_ICON)
+                const selected = currentIcon === iconName
+                const label = ICON_LABELS[iconName] ?? iconName.replace('Icon', '')
+                return (
+                  <Pressable
+                    key={iconName}
+                    style={[ip.cell, selected && ip.cellSelected]}
+                    onPress={() => {
+                      const picked = iconName === DEFAULT_CATEGORY_ICON ? null : iconName
+                      if (iconPickerCat) {
+                        handleSetCategoryIcon(iconPickerCat, picked)
+                      } else {
+                        setNewCatIcon(picked)
+                        setNewCatPickerOpen(false)
+                      }
+                    }}
+                  >
+                    <CategoryIcon forceIconName={iconName} forceBgColor={pickerColor} size={18} circleSize={34} />
+                    <Text style={[ip.cellLabel, selected && ip.cellLabelSelected]} numberOfLines={1}>{label}</Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </ScrollView>
+        </Sheet>
       </Sheet>
+
     </View>
   )
 }
+
+const ICON_PICKER_OPTIONS: string[] = [
+  'TagIcon',
+  // Predefined category icons
+  'ForkKnifeIcon', 'CarIcon', 'ShoppingBagIcon', 'FilmSlateIcon',
+  'HeartbeatIcon', 'LightningIcon', 'UsersThreeIcon', 'CoinsIcon',
+  'ArrowCounterClockwiseIcon', 'HouseIcon', 'TrendUpIcon', 'RepeatIcon',
+  'ArrowsLeftRightIcon', 'DotsThreeIcon',
+  // Extended icons
+  'GiftIcon', 'AirplaneInFlightIcon', 'GraduationCapIcon', 'CoffeeIcon',
+  'BarbellIcon', 'BriefcaseIcon', 'MusicNotesIcon', 'GameControllerIcon',
+  'PillIcon', 'UmbrellaIcon', 'DogIcon', 'BookOpenIcon',
+  'PhoneIcon', 'GlobeIcon', 'LeafIcon', 'WrenchIcon',
+  'ReceiptIcon', 'TrophyIcon', 'StarIcon', 'PiggyBankIcon',
+  'GasCanIcon', 'ScissorsIcon', 'StorefrontIcon', 'BabyIcon', 'TicketIcon',
+]
+
+const ICON_LABELS: Record<string, string> = {
+  TagIcon: 'Default',
+  ForkKnifeIcon: 'Food',
+  CarIcon: 'Car',
+  ShoppingBagIcon: 'Shopping',
+  FilmSlateIcon: 'Movies',
+  HeartbeatIcon: 'Health',
+  LightningIcon: 'Bills',
+  UsersThreeIcon: 'People',
+  CoinsIcon: 'Money',
+  ArrowCounterClockwiseIcon: 'Refund',
+  HouseIcon: 'Home',
+  TrendUpIcon: 'Invest',
+  RepeatIcon: 'Subscrib.',
+  ArrowsLeftRightIcon: 'Transfer',
+  DotsThreeIcon: 'Other',
+  GiftIcon: 'Gifts',
+  AirplaneInFlightIcon: 'Travel',
+  GraduationCapIcon: 'Education',
+  CoffeeIcon: 'Cafe',
+  BarbellIcon: 'Gym',
+  BriefcaseIcon: 'Work',
+  MusicNotesIcon: 'Music',
+  GameControllerIcon: 'Gaming',
+  PillIcon: 'Medicine',
+  UmbrellaIcon: 'Insurance',
+  DogIcon: 'Pets',
+  BookOpenIcon: 'Books',
+  PhoneIcon: 'Phone',
+  GlobeIcon: 'Abroad',
+  LeafIcon: 'Nature',
+  WrenchIcon: 'Repairs',
+  ReceiptIcon: 'Tax',
+  TrophyIcon: 'Goals',
+  StarIcon: 'Faves',
+  PiggyBankIcon: 'Savings',
+  GasCanIcon: 'Fuel',
+  ScissorsIcon: 'Beauty',
+  StorefrontIcon: 'Market',
+  BabyIcon: 'Kids',
+  TicketIcon: 'Events',
+}
+
+const ip = StyleSheet.create({
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-start' },
+  cell: {
+    width: 60,
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  cellSelected: { borderColor: C.brand, backgroundColor: C.brandPale },
+  cellLabel: { fontSize: 11, fontFamily: F.medium, color: C.ink3, textAlign: 'center' },
+  cellLabelSelected: { color: C.brand, fontFamily: F.semibold },
+})
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },

@@ -21,6 +21,7 @@ import { C, F, RADIUS } from '../lib/tokens'
 import { updateTransaction } from '../repositories/transactionRepository'
 import { invalidateTransactionData } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
+import { CategoryIcon } from './CategoryIcon'
 import {
   sanitizeAmountInput,
   parseAmountToPaise,
@@ -319,7 +320,7 @@ export function TransactionDetailSheet({
           >
             <View style={s.selectInner}>
               {!!category && (
-                <View style={[s.catDot, { backgroundColor: categoryColor(category, catColors) }]} />
+                <CategoryIcon category={category} colorMap={catColors} size={13} circleSize={24} />
               )}
               <Text style={[s.selectText, !category && s.selectPlaceholder]} numberOfLines={1}>
                 {category || 'Select category'}
@@ -441,7 +442,7 @@ export function TransactionDetailSheet({
                   style={s.pickerRow}
                   onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
                 >
-                  <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                  <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
                   <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
                     {cat}
                   </Text>
@@ -457,7 +458,7 @@ export function TransactionDetailSheet({
               style={s.pickerRow}
               onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
             >
-              <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+              <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
               <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
                 {cat}
               </Text>

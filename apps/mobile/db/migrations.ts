@@ -223,6 +223,13 @@ async function migration007DefaultLaunchCategories(db: SQLiteDatabase): Promise<
   }
 }
 
+async function migration008CategoryIconColumn(db: SQLiteDatabase): Promise<void> {
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)')
+  if (!cols.some((c) => c.name === 'icon')) {
+    await db.execAsync('ALTER TABLE categories ADD COLUMN icon TEXT')
+  }
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
@@ -231,6 +238,7 @@ const MIGRATIONS = [
   { version: 5, up: migration005ImportIntelligence },
   { version: 6, up: migration006ImportReviewSessions },
   { version: 7, up: migration007DefaultLaunchCategories },
+  { version: 8, up: migration008CategoryIconColumn },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

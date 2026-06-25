@@ -30,6 +30,7 @@ import {
 } from '../repositories/reviewSessionRepository'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { PREDEFINED_CATEGORIES, categoryColor } from '@paisa-buddy/shared/categories'
+import { CategoryIcon } from '../components/CategoryIcon'
 import {
   sanitizeAmountInput,
   formatDisplayAmount,
@@ -678,7 +679,7 @@ export function ReviewScreen({ navigation }: Props) {
                         ]}
                         onPress={() => setPendingCategory(cat)}
                       >
-                        <View style={[s.catPillDot, { backgroundColor: color }]} />
+                        <CategoryIcon category={cat} colorMap={catColors} size={11} circleSize={20} />
                         <Text style={[s.catPillText, isSelected && { color, fontFamily: F.semibold }]}>{cat}</Text>
                         {isSuggested && <Text style={s.suggestedTag}>✦</Text>}
                       </Pressable>
@@ -986,7 +987,7 @@ export function ReviewScreen({ navigation }: Props) {
               <Pressable style={s.selectField} onPress={() => setCatPickerOpen(true)}>
                 <View style={s.selectInner}>
                   {!!form.category && (
-                    <View style={[s.catDot, { backgroundColor: categoryColor(form.category, catColors) }]} />
+                    <CategoryIcon category={form.category} colorMap={catColors} size={13} circleSize={24} />
                   )}
                   <Text style={[s.selectText, !form.category && s.selectPlaceholder]} numberOfLines={1}>
                     {form.category || 'Select category'}
@@ -1126,7 +1127,7 @@ export function ReviewScreen({ navigation }: Props) {
                   <Text style={s.pickerSectionLabel}>RECENT</Text>
                   {shownRecentCats.map((cat) => (
                     <Pressable key={`r-${cat}`} style={s.pickerRow} onPress={() => { setForm({ ...form, category: cat }); setCatPickerOpen(false); setCategorySearch('') }}>
-                      <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                      <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
                       <Text style={[s.pickerRowText, form.category === cat && { color: activeType.color, fontFamily: F.semibold }]}>{cat}</Text>
                       {form.category === cat && <CheckIcon color={activeType.color} />}
                     </Pressable>
@@ -1136,7 +1137,7 @@ export function ReviewScreen({ navigation }: Props) {
               <Text style={s.pickerSectionLabel}>{shownRecentCats.length > 0 ? 'ALL' : 'CATEGORIES'}</Text>
               {shownRestCats.map((cat) => (
                 <Pressable key={cat} style={s.pickerRow} onPress={() => { setForm({ ...form, category: cat }); setCatPickerOpen(false); setCategorySearch('') }}>
-                  <View style={[s.catDot, { backgroundColor: categoryColor(cat, catColors) }]} />
+                  <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
                   <Text style={[s.pickerRowText, form.category === cat && { color: activeType.color, fontFamily: F.semibold }]}>{cat}</Text>
                   {form.category === cat && <CheckIcon color={activeType.color} />}
                 </Pressable>

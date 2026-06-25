@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
+import { CreditCardIcon, WalletIcon, PiggyBankIcon, BuildingsIcon, CircleDashedIcon } from 'phosphor-react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -83,34 +84,22 @@ function accountIconColors(type: AccountType): { bg: string; fg: string } {
   return { bg: '#D1FAE5', fg: C.brand }
 }
 
+function accountPhosphorIcon(type: AccountType, fg: string, iconSize: number) {
+  const props = { size: iconSize, weight: 'fill' as const, color: fg }
+  if (type === 'savings') return <PiggyBankIcon {...props} />
+  if (type === 'current') return <BuildingsIcon {...props} />
+  if (type === 'credit') return <CreditCardIcon {...props} />
+  if (type === 'wallet') return <WalletIcon {...props} />
+  return <CircleDashedIcon {...props} />
+}
+
 function AccountIcon({ type, size = 42 }: { type: AccountType; size?: number }) {
   const { bg, fg } = accountIconColors(type)
-  const isBank = type === 'savings' || type === 'current'
-  const isCredit = type === 'credit'
+  const iconSize = Math.round(size * 0.42)
 
   return (
     <View style={[ico.wrap, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: bg }]}>
-      {isBank ? (
-        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M3 21h18" />
-          <Path d="M5 21V10" />
-          <Path d="M19 21V10" />
-          <Path d="M9 21V10" />
-          <Path d="M15 21V10" />
-          <Path d="M3 10h18" />
-          <Path d="M12 3 3 8h18z" />
-        </Svg>
-      ) : isCredit ? (
-        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <Rect x="2" y="5" width="20" height="14" rx="2" />
-          <Path d="M2 10h20" />
-        </Svg>
-      ) : (
-        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-          <Path d="M16 12h4v4h-4z" />
-        </Svg>
-      )}
+      {accountPhosphorIcon(type, fg, iconSize)}
     </View>
   )
 }

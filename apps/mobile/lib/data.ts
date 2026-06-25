@@ -175,7 +175,7 @@ export async function generateExportCsv(): Promise<string> {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-export type CategoryWithCount = { name: string; color: string; transactionCount: number }
+export type CategoryWithCount = { name: string; color: string; icon: string | null; transactionCount: number }
 
 export type SettingsData = {
   displayName: string | null
@@ -221,7 +221,7 @@ export async function getSettingsData(): Promise<SettingsQueryData> {
     learnedMappings,
     customCategories: cats
       .filter((c) => c.is_custom)
-      .map(({ name, color, transactionCount }) => ({ name, color, transactionCount })),
+      .map(({ name, color, icon, transactionCount }) => ({ name, color, icon, transactionCount })),
     predefinedCategories: cats
       .filter((c) => !c.is_custom)
       .map(({ name, transactionCount }) => ({ name, transactionCount })),

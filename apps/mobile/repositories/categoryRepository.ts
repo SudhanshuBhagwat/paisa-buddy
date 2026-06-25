@@ -4,6 +4,7 @@ import { CATEGORY_COLORS, PREDEFINED_CATEGORIES, generateUniqueColor } from '@pa
 export type CategoryRow = {
   name: string
   color: string
+  icon: string | null
   is_custom: number
   transaction_count: number
 }
@@ -11,6 +12,7 @@ export type CategoryRow = {
 export type CategoryWithCount = {
   name: string
   color: string
+  icon: string | null
   is_custom: boolean
   transactionCount: number
 }
@@ -18,7 +20,7 @@ export type CategoryWithCount = {
 export async function listCategories(): Promise<CategoryWithCount[]> {
   const db = getDb()
   const rows = await db.getAllAsync<CategoryRow>(`
-    SELECT c.name, c.color, c.is_custom,
+    SELECT c.name, c.color, c.icon, c.is_custom,
       COUNT(t.id) AS transaction_count
     FROM categories c
     LEFT JOIN transactions t ON t.category = c.name
@@ -28,6 +30,7 @@ export async function listCategories(): Promise<CategoryWithCount[]> {
   return rows.map((r) => ({
     name: r.name,
     color: r.color,
+    icon: r.icon ?? null,
     is_custom: r.is_custom === 1,
     transactionCount: r.transaction_count,
   }))
@@ -67,6 +70,11 @@ export async function ensureDefaultCategories(): Promise<void> {
       [name, CATEGORY_COLORS[name]],
     )
   }
+}
+
+export async function updateCategoryIcon(name: string, icon: string | null): Promise<void> {
+  const db = getDb()
+  await db.runAsync('UPDATE categories SET icon = ? WHERE name = ?', [icon, name])
 }
 
 export async function deleteCategory(name: string, unlink: boolean): Promise<void> {
