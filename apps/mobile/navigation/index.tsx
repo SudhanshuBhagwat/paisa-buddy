@@ -19,6 +19,10 @@ import { ReviewScreen } from '../screens/ReviewScreen'
 import { ImportStatementScreen } from '../screens/ImportStatementScreen'
 import { ImportDetailsScreen } from '../screens/ImportDetailsScreen'
 import { DeveloperModeScreen } from '../screens/DeveloperModeScreen'
+import { BackupRestoreScreen } from '../screens/BackupRestoreScreen'
+import { StorageScreen } from '../screens/StorageScreen'
+import { PrivacyScreen } from '../screens/PrivacyScreen'
+import { ImportHistoryScreen } from '../screens/ImportHistoryScreen'
 import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { SetupCompleteCtx, SetupResetCtx } from './setupContext'
 import type { MainTabParamList, RootStackParamList, SetupStartAction } from './types'
@@ -105,6 +109,10 @@ export function RootNavigator() {
               <Stack.Screen name="ImportDetails" component={ImportDetailsScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="DeveloperMode" component={DeveloperModeScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="Review" component={ReviewScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="Storage" component={StorageScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="ImportHistory" component={ImportHistoryScreen} options={{ headerShown: false, animation: 'slide_from_right' }} />
             </>
           )}
         </Stack.Navigator>

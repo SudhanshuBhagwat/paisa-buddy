@@ -9,8 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import * as DocumentPicker from 'expo-document-picker'
-import { File } from 'expo-file-system'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
@@ -22,28 +20,19 @@ import {
   addUpiId,
   removeUpiId,
   clearAllData,
-  setLastBackupMetadata,
 } from '../repositories/settingsRepository'
 import { createCategory, deleteCategory, updateCategoryIcon } from '../repositories/categoryRepository'
 import { updateLearnedMapping, forgetLearnedMapping, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import {
-  countTransactionsForImportSession,
-  getLatestCompletedImportSession,
-  undoLatestCompletedImport,
-  type ImportSession,
-} from '../repositories/importRepository'
-import { BACKUP_SCHEMA_VERSION, generateBackupJson, restoreBackupJson, validateBackupJson } from '../repositories/backupRepository'
-import {
   generateExportCsv,
   getSettingsData,
-  type SettingsData,
   type CategoryWithCount,
   type SettingsQueryData,
 } from '../lib/data'
-import { invalidateCategoryData, invalidateSettingsData, invalidateTransactionData, queryKeys } from '../lib/query'
+import { invalidateCategoryData, invalidateSettingsData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
-import { CategoryIcon, ICON_MAP } from '../components/CategoryIcon'
+import { CategoryIcon } from '../components/CategoryIcon'
 import { CATEGORY_METADATA, DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR, getCategoryIcon } from '../lib/categoryMetadata'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
@@ -68,30 +57,21 @@ const card = StyleSheet.create({
 
 function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
 
-const APP_VERSION = '1.0.0'
-const DATABASE_VERSION = 7
-const PARSER_VERSION = 'description-parser-v1'
-
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return '0 KB'
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+function Chevron() {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="9 18 15 12 9 6" />
+    </Svg>
+  )
 }
+
+const APP_VERSION = '1.0.0'
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return 'Not available'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Not available'
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function InfoRow({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View style={s.infoRow}>
-      <Text style={s.infoLabel}>{label}</Text>
-      <Text style={s.infoValue} numberOfLines={2}>{value}</Text>
-    </View>
-  )
 }
 
 export function SettingsScreen() {
@@ -124,28 +104,20 @@ export function SettingsScreen() {
   const [iconPickerCat, setIconPickerCat] = useState<CategoryWithCount | null>(null)
   const [newCatPickerOpen, setNewCatPickerOpen] = useState(false)
   const [newCatIcon, setNewCatIcon] = useState<string | null>(null)
+
+  // Known Merchants
   const [merchantSheetOpen, setMerchantSheetOpen] = useState(false)
   const [editingMapping, setEditingMapping] = useState<LearnedMapping | null>(null)
   const [mappingNameInput, setMappingNameInput] = useState('')
   const [mappingCategoryInput, setMappingCategoryInput] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
-  const [developerTapCount, setDeveloperTapCount] = useState(0)
 
   // Misc
   const [exporting, setExporting] = useState(false)
-  const [exportingBackup, setExportingBackup] = useState(false)
-  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null)
-  const [lastBackupSize, setLastBackupSize] = useState(0)
-  const [restoringBackup, setRestoringBackup] = useState(false)
-  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
-  const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null)
-  const [undoingImport, setUndoingImport] = useState(false)
-  const [undoImportDialogOpen, setUndoImportDialogOpen] = useState(false)
-  const [latestCompletedImport, setLatestCompletedImport] = useState<ImportSession | null>(null)
-  const [latestCompletedImportCount, setLatestCompletedImportCount] = useState(0)
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
+  const [developerTapCount, setDeveloperTapCount] = useState(0)
 
   useEffect(() => {
     if (!data) return
@@ -382,110 +354,6 @@ export function SettingsScreen() {
     setDeveloperTapCount(next)
   }
 
-  async function handleBackupExport() {
-    setExportingBackup(true)
-    try {
-      const backup = await generateBackupJson()
-      const createdAt = new Date().toISOString()
-      await setLastBackupMetadata({ createdAt, sizeBytes: backup.length })
-      setLastBackupAt(createdAt)
-      setLastBackupSize(backup.length)
-      invalidateSettingsData(queryClient)
-      await Share.share({ message: backup, title: 'Paisa Buddy Backup' })
-    } catch {
-      setMessageDialog({ title: 'Error', message: 'Could not export backup.' })
-    } finally {
-      setExportingBackup(false)
-    }
-  }
-
-  async function handleRestoreBackup() {
-    setRestoringBackup(true)
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
-        copyToCacheDirectory: true,
-        multiple: false,
-      })
-      if (result.canceled) return
-      const json = new File(result.assets[0].uri).textSync()
-      validateBackupJson(json)
-      setPendingRestoreJson(json)
-      setRestoreDialogOpen(true)
-    } catch (error) {
-      setMessageDialog({
-        title: 'Restore failed',
-        message: error instanceof Error ? error.message : 'Could not read this backup file.',
-      })
-    } finally {
-      setRestoringBackup(false)
-    }
-  }
-
-  async function confirmRestoreBackup() {
-    if (!pendingRestoreJson) return
-    setRestoringBackup(true)
-    try {
-      await restoreBackupJson(pendingRestoreJson)
-      queryClient.clear()
-      setRestoreDialogOpen(false)
-      setPendingRestoreJson(null)
-      onSetupReset()
-    } catch (error) {
-      setRestoreDialogOpen(false)
-      setMessageDialog({
-        title: 'Restore failed',
-        message: error instanceof Error ? error.message : 'Could not restore this backup.',
-      })
-    } finally {
-      setRestoringBackup(false)
-    }
-  }
-
-  async function handleUndoLastImport() {
-    setUndoingImport(true)
-    try {
-      const latest = await getLatestCompletedImportSession()
-      if (!latest) {
-        setMessageDialog({
-          title: 'No import to undo',
-          message: 'There is no completed statement import available to undo.',
-        })
-        return
-      }
-      const count = await countTransactionsForImportSession(latest.id)
-      setLatestCompletedImport(latest)
-      setLatestCompletedImportCount(count)
-      setUndoImportDialogOpen(true)
-    } catch {
-      setMessageDialog({ title: 'Error', message: 'Could not prepare the last import for undo.' })
-    } finally {
-      setUndoingImport(false)
-    }
-  }
-
-  async function confirmUndoLastImport() {
-    setUndoingImport(true)
-    try {
-      const deleted = await undoLatestCompletedImport()
-      invalidateTransactionData(queryClient)
-      setUndoImportDialogOpen(false)
-      setLatestCompletedImport(null)
-      setLatestCompletedImportCount(0)
-      setMessageDialog({
-        title: deleted > 0 ? 'Last import undone' : 'No imported transactions found',
-        message: deleted > 0
-          ? `${deleted} imported transaction${deleted !== 1 ? 's' : ''} removed.`
-          : 'The latest completed import had no transactions to remove.',
-      })
-    } catch {
-      setUndoImportDialogOpen(false)
-      setMessageDialog({ title: 'Error', message: 'Could not undo the last import.' })
-    } finally {
-      setUndoingImport(false)
-    }
-  }
-
   function handleClearAll() {
     setClearDialogOpen(true)
   }
@@ -516,10 +384,6 @@ export function SettingsScreen() {
   const customCats = data?.customCategories ?? []
   const predefinedCats = data?.predefinedCategories ?? []
   const learnedMappings = data?.learnedMappings ?? []
-  const estimatedBackupSize = formatBytes(JSON.stringify(data ?? {}).length)
-  const latestImport = data?.latestImport ?? null
-  const backupAt = lastBackupAt ?? data?.lastBackupAt ?? null
-  const backupSize = lastBackupSize || data?.lastBackupSize || 0
 
   return (
     <View style={s.root}>
@@ -537,9 +401,9 @@ export function SettingsScreen() {
         ) : (
           <View style={s.body}>
 
-            {/* ── Profile ── */}
+            {/* ── 1. Personal ── */}
             <View style={s.section}>
-              <SectionLabel>Profile</SectionLabel>
+              <SectionLabel>Personal</SectionLabel>
               <Card>
                 <View style={s.profileRow}>
                   <View style={s.avatar}>
@@ -562,14 +426,65 @@ export function SettingsScreen() {
                   </View>
                 </View>
               </Card>
-              <Text style={s.hint}>Your name helps identify you as sender or receiver in uploaded receipts.</Text>
+              <View style={s.gap10} />
+              <Card>
+                <View style={[s.addRow, { paddingVertical: 14 }]}>
+                  <Text style={s.rupeeLabel}>₹</Text>
+                  <TextInput
+                    style={[s.addInput, { fontFamily: F.regular }]}
+                    value={incomeDisplay}
+                    onChangeText={(t) => setIncomeInput(t.replace(/[^0-9]/g, ''))}
+                    onBlur={handleSaveIncome}
+                    onSubmitEditing={handleSaveIncome}
+                    placeholder="Monthly salary (e.g. 85,000)"
+                    placeholderTextColor={C.ink3}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                  />
+                  {incomeSaved && <Text style={s.savedBadge}>Saved</Text>}
+                </View>
+              </Card>
+              <Text style={s.hint}>Your name and monthly income are used to personalise summaries and track spending against salary.</Text>
             </View>
 
-            {/* ── Recognition ── */}
+            {/* ── 2. Finance ── */}
             <View style={s.section}>
-              <SectionLabel>Recognition</SectionLabel>
+              <SectionLabel>Finance</SectionLabel>
+              <Card>
+                <Pressable style={s.summaryRow} onPress={() => setCatSheetOpen(true)}>
+                  <View style={s.summaryRowBody}>
+                    <Text style={s.summaryRowTitle}>Categories</Text>
+                    <Text style={s.summaryRowSub}>
+                      {totalCatCount} categor{totalCatCount !== 1 ? 'ies' : 'y'}
+                      {customCats.length > 0 ? `, ${customCats.length} custom` : ''}
+                    </Text>
+                  </View>
+                  <Chevron />
+                </Pressable>
+                <RowDivider />
+                <Pressable
+                  style={s.summaryRow}
+                  onPress={() => { setEditingMapping(null); setMerchantSheetOpen(true) }}
+                >
+                  <View style={s.summaryRowBody}>
+                    <Text style={s.summaryRowTitle}>Known Merchants</Text>
+                    <Text style={s.summaryRowSub}>
+                      {learnedMappings.length === 0
+                        ? 'None learned yet'
+                        : `${learnedMappings.length} merchant${learnedMappings.length !== 1 ? 's' : ''}`}
+                    </Text>
+                  </View>
+                  <Chevron />
+                </Pressable>
+              </Card>
+            </View>
+
+            {/* ── 3. Import & Recognition ── */}
+            <View style={s.section}>
+              <SectionLabel>Import & Recognition</SectionLabel>
 
               {/* UPI IDs */}
+              <Text style={s.subLabel}>UPI IDs</Text>
               <Card>
                 {(data?.upiIds ?? []).length === 0 ? (
                   <View style={s.emptyRow}><Text style={s.emptyRowText}>No UPI IDs added yet</Text></View>
@@ -608,209 +523,91 @@ export function SettingsScreen() {
               </Card>
               <Text style={s.hint}>Your UPI IDs help identify debit vs credit direction in uploaded receipts.</Text>
 
-              {/* Known Merchants */}
-              <Text style={[s.subLabel, { marginTop: 14 }]}>Known Merchants</Text>
+              {/* Import History */}
+              <View style={s.gap14} />
               <Card>
-                {learnedMappings.length === 0 ? (
-                  <View style={s.emptyRow}>
-                    <Text style={s.emptyRowText}>No known merchants yet</Text>
-                    <Text style={s.emptyRowSub}>Merchants appear here after you confirm or edit imported transactions.</Text>
-                  </View>
-                ) : (
-                  learnedMappings.map((mapping, idx) => (
-                    <View key={mapping.id}>
-                      {idx > 0 && <RowDivider />}
-                      <Pressable style={s.mappingRow} onPress={() => handleEditMapping(mapping)}>
-                        <View style={s.mappingBody}>
-                          <Text style={s.mappingName} numberOfLines={1}>
-                            {mapping.display_name || mapping.normalized_lookup_key}
-                          </Text>
-                          <Text style={s.mappingMeta} numberOfLines={1}>
-                            Parsed: {mapping.normalized_lookup_key}
-                          </Text>
-                        </View>
-                        <View style={s.mappingRight}>
-                          <Text style={s.mappingCategory} numberOfLines={1}>{mapping.category_id || 'Uncategorized'}</Text>
-                          <Text style={s.mappingCount}>{mapping.usage_count} use{mapping.usage_count !== 1 ? 's' : ''}</Text>
-                        </View>
-                      </Pressable>
-                    </View>
-                  ))
-                )}
-              </Card>
-            </View>
-
-            {/* ── Income ── */}
-            <View style={s.section}>
-              <SectionLabel>Income</SectionLabel>
-              <Card>
-                <View style={[s.addRow, { paddingVertical: 14 }]}>
-                  <Text style={s.rupeeLabel}>₹</Text>
-                  <TextInput
-                    style={[s.addInput, { fontFamily: F.regular }]}
-                    value={incomeDisplay}
-                    onChangeText={(t) => setIncomeInput(t.replace(/[^0-9]/g, ''))}
-                    onBlur={handleSaveIncome}
-                    onSubmitEditing={handleSaveIncome}
-                    placeholder="Monthly salary (e.g. 85,000)"
-                    placeholderTextColor={C.ink3}
-                    keyboardType="numeric"
-                    returnKeyType="done"
-                  />
-                  {incomeSaved && <Text style={s.savedBadge}>Saved</Text>}
-                </View>
-              </Card>
-              <Text style={s.hint}>Your expected monthly income. Used to track how much of your salary has been spent.</Text>
-            </View>
-
-            {/* ── Categories ── */}
-            <View style={s.section}>
-              <SectionLabel>Categories</SectionLabel>
-              <Card>
-                <Pressable style={s.summaryRow} onPress={() => setCatSheetOpen(true)}>
+                <Pressable style={s.summaryRow} onPress={() => navigation.navigate('ImportHistory')}>
                   <View style={s.summaryRowBody}>
-                    <Text style={s.summaryRowTitle}>
-                      {totalCatCount} Categor{totalCatCount !== 1 ? 'ies' : 'y'}
+                    <Text style={s.summaryRowTitle}>Import History</Text>
+                    <Text style={s.summaryRowSub}>
+                      {data?.importCount ?? 0} import{data?.importCount !== 1 ? 's' : ''}
                     </Text>
-                    {customCats.length > 0 && (
-                      <Text style={s.summaryRowSub}>{customCats.length} custom</Text>
-                    )}
                   </View>
-                  <Text style={s.summaryRowCta}>Manage</Text>
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <Polyline points="9 18 15 12 9 6" />
-                  </Svg>
+                  <Chevron />
                 </Pressable>
               </Card>
+
+              {/* Download Templates */}
+              <View style={s.gap14} />
+              <Text style={s.subLabel}>Import Template</Text>
+              <Card>
+                <View style={s.templateRow}>
+                  <View style={s.summaryRowBody}>
+                    <Text style={s.summaryRowTitle}>Download Import Template</Text>
+                    <Text style={s.summaryRowSub}>Columns: Date, Description, Amount, Type, Account</Text>
+                  </View>
+                </View>
+              </Card>
+              <View style={[s.dataActions, { marginTop: 10 }]}>
+                <Pressable style={s.exportBtn} onPress={handleDownloadExcelTemplate}>
+                  <Text style={s.exportText}>Excel Template</Text>
+                </Pressable>
+                <Pressable style={s.exportBtn} onPress={handleDownloadCsvTemplate}>
+                  <Text style={s.exportText}>CSV Template</Text>
+                </Pressable>
+              </View>
             </View>
 
-            {/* ── Data & Privacy ── */}
+            {/* ── 4. Data & Privacy ── */}
             <View style={s.section}>
               <SectionLabel>Data & Privacy</SectionLabel>
-
-              {/* Transaction count */}
               <Card>
-                <InfoRow label="Storage Used" value={estimatedBackupSize} />
-                <RowDivider />
-                <InfoRow label="Database Size" value={estimatedBackupSize} />
-                <RowDivider />
-                <InfoRow label="Transaction Count" value={data?.txCount ?? 0} />
-                <RowDivider />
-                <InfoRow label="Account Count" value={data?.accountCount ?? 0} />
-                <RowDivider />
-                <InfoRow label="Category Count" value={data?.categoryCount ?? 0} />
-              </Card>
-              <Text style={s.hint}>Your financial data is stored locally on this device.</Text>
-
-              {/* Actions */}
-              <View style={[s.dataActions, { marginTop: 10 }]}>
-                <Pressable style={s.exportBtn} onPress={handleExport} disabled={exporting}>
-                  <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <Polyline points="7 10 12 15 17 10" />
-                    <Path d="M12 15V3" />
-                  </Svg>
-                  <Text style={s.exportText}>{exporting ? 'Exporting…' : 'Export to CSV'}</Text>
+                <Pressable style={s.summaryRow} onPress={() => navigation.navigate('BackupRestore')}>
+                  <Text style={s.summaryRowTitle}>Backup & Restore</Text>
+                  <Chevron />
                 </Pressable>
-              </View>
+                <RowDivider />
+                <Pressable style={s.summaryRow} onPress={handleExport} disabled={exporting}>
+                  <Text style={s.summaryRowTitle}>Export Transactions</Text>
+                  {exporting
+                    ? <ActivityIndicator size="small" color={C.brand} />
+                    : <Chevron />}
+                </Pressable>
+                <RowDivider />
+                <Pressable style={s.summaryRow} onPress={() => navigation.navigate('Storage')}>
+                  <Text style={s.summaryRowTitle}>Storage</Text>
+                  <Chevron />
+                </Pressable>
+                <RowDivider />
+                <Pressable style={s.summaryRow} onPress={() => navigation.navigate('Privacy')}>
+                  <Text style={s.summaryRowTitle}>Privacy</Text>
+                  <Chevron />
+                </Pressable>
+              </Card>
             </View>
 
-            {/* ── Danger Zone ── */}
-              <View style={s.section}>
-                <SectionLabel>Backup</SectionLabel>
-                <Card>
-                  <InfoRow label="Last Backup" value={formatDateTime(backupAt)} />
-                  <RowDivider />
-                  <InfoRow label="Backup Size" value={backupSize > 0 ? formatBytes(backupSize) : 'Not available'} />
-                  <RowDivider />
-                  <InfoRow label="Schema Version" value={BACKUP_SCHEMA_VERSION} />
-                </Card>
-                <View style={[s.dataActions, { marginTop: 10 }]}>
-                  <Pressable style={s.exportBtn} onPress={handleBackupExport} disabled={exportingBackup}>
-                    <Text style={s.exportText}>{exportingBackup ? 'Backing up...' : 'Backup Data'}</Text>
-                  </Pressable>
-                  <Pressable style={s.exportBtn} onPress={handleRestoreBackup} disabled={restoringBackup}>
-                    <Text style={s.exportText}>{restoringBackup ? 'Restoring...' : 'Restore Backup'}</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={s.section}>
-                <SectionLabel>Import</SectionLabel>
-                <Card>
-                  {(data?.importHistory ?? []).length === 0 ? (
-                    <View style={s.emptyRow}>
-                      <Text style={s.emptyRowText}>No imports yet</Text>
-                      <Text style={s.emptyRowSub}>Imported statements will appear here with review and duplicate status.</Text>
-                    </View>
-                  ) : (
-                    (data?.importHistory ?? []).map((item, idx) => (
-                      <View key={item.id}>
-                        {idx > 0 && <RowDivider />}
-                        <Pressable style={s.importHistoryRow} onPress={() => navigation.navigate('ImportDetails', { importSessionId: item.id })}>
-                          <View style={s.importHistoryBody}>
-                            <Text style={s.importHistoryTitle} numberOfLines={1}>{item.file_name || item.filename || 'Imported statement'}</Text>
-                            <Text style={s.importHistoryMeta}>
-                              {formatDateTime(item.updated_at ?? item.created_at)} · {item.transaction_count} tx · {item.duplicate_count} dup
-                            </Text>
-                            <Text style={s.importHistoryMeta}>Review: {item.review_status || 'Not started'} · Import: {item.status}</Text>
-                          </View>
-                          <Text style={s.summaryRowCta}>Details</Text>
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
-                </Card>
-                <View style={[s.dataActions, { marginTop: 10 }]}>
-                  <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
-                    <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={s.section}>
-                <SectionLabel>Spreadsheet Template</SectionLabel>
-                <Card>
-                  <View style={s.templateRow}>
-                    <View style={s.summaryRowBody}>
-                      <Text style={s.summaryRowTitle}>Download Import Template</Text>
-                      <Text style={s.summaryRowSub}>Columns: Date, Description, Amount, Type, Account</Text>
-                    </View>
-                  </View>
-                </Card>
-                <View style={[s.dataActions, { marginTop: 10 }]}>
-                  <Pressable style={s.exportBtn} onPress={handleDownloadExcelTemplate}>
-                    <Text style={s.exportText}>Excel Template</Text>
-                  </Pressable>
-                  <Pressable style={s.exportBtn} onPress={handleDownloadCsvTemplate}>
-                    <Text style={s.exportText}>CSV Template</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={s.section}>
-                <SectionLabel>About</SectionLabel>
-                <Card>
-                  <Pressable style={s.infoRow} onPress={handleDeveloperTap}>
-                    <Text style={s.infoLabel}>App Version</Text>
-                    <Text style={s.infoValue}>{APP_VERSION}</Text>
-                  </Pressable>
-                  <RowDivider />
-                  <InfoRow label="Database Version" value={DATABASE_VERSION} />
-                  <RowDivider />
-                  <InfoRow label="Parser Version" value={PARSER_VERSION} />
-                  <RowDivider />
-                  <InfoRow label="Privacy Summary" value="Your financial data is stored locally on this device." />
-                </Card>
-              </View>
-
-              <View style={s.section}>
-                <SectionLabel>Danger Zone</SectionLabel>
-              <View style={s.dataActions}>
-                <Pressable style={s.dangerBtn} onPress={handleClearAll} disabled={clearing}>
-                  <Text style={s.dangerText}>{clearing ? 'Clearing…' : 'Clear All Data'}</Text>
+            {/* ── 5. About ── */}
+            <View style={s.section}>
+              <SectionLabel>About</SectionLabel>
+              <Card>
+                <Pressable style={s.infoRow} onPress={handleDeveloperTap}>
+                  <Text style={s.infoLabel}>App Version</Text>
+                  <Text style={s.infoValue}>{APP_VERSION}</Text>
                 </Pressable>
-              </View>
+                <RowDivider />
+                <View style={s.infoRow}>
+                  <Text style={s.infoLabel}>Paisa Buddy</Text>
+                  <Text style={[s.infoValue, { maxWidth: '60%' }]}>Your finances, offline and private.</Text>
+                </View>
+              </Card>
+            </View>
+
+            {/* ── 6. Danger Zone ── */}
+            <View style={s.section}>
+              <SectionLabel>Danger Zone</SectionLabel>
+              <Pressable style={s.dangerBtn} onPress={handleClearAll} disabled={clearing}>
+                <Text style={s.dangerText}>{clearing ? 'Clearing…' : 'Clear All Data'}</Text>
+              </Pressable>
             </View>
 
           </View>
@@ -818,11 +615,10 @@ export function SettingsScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* ── Dialogs ── */}
       <Dialog
         visible={clearDialogOpen}
-        onClose={() => {
-          if (!clearing) setClearDialogOpen(false)
-        }}
+        onClose={() => { if (!clearing) setClearDialogOpen(false) }}
         title="Reset all data?"
         message="This will permanently delete all your transactions, accounts, and settings, and restart the app setup. This cannot be undone."
         actions={[
@@ -841,61 +637,12 @@ export function SettingsScreen() {
         ]}
       />
 
-      <Dialog
-        visible={undoImportDialogOpen}
-        onClose={() => {
-          if (!undoingImport) setUndoImportDialogOpen(false)
-        }}
-        title="Undo last import?"
-        message={`This will remove ${latestCompletedImportCount} transaction${latestCompletedImportCount !== 1 ? 's' : ''} from your last import${latestCompletedImport?.file_name ? ` (${latestCompletedImport.file_name})` : ''}.`}
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => setUndoImportDialogOpen(false),
-            disabled: undoingImport,
-          },
-          {
-            label: 'Undo Import',
-            variant: 'destructive',
-            onPress: confirmUndoLastImport,
-            loading: undoingImport,
-          },
-        ]}
-      />
-
-      <Dialog
-        visible={restoreDialogOpen}
-        onClose={() => {
-          if (!restoringBackup) setRestoreDialogOpen(false)
-        }}
-        title="Restore backup?"
-        message="This will replace current app data with the selected backup. This cannot be undone."
-        actions={[
-          {
-            label: 'Cancel',
-            variant: 'secondary',
-            onPress: () => {
-              setRestoreDialogOpen(false)
-              setPendingRestoreJson(null)
-            },
-            disabled: restoringBackup,
-          },
-          {
-            label: 'Restore Backup',
-            variant: 'destructive',
-            onPress: confirmRestoreBackup,
-            loading: restoringBackup,
-          },
-        ]}
-      />
-
       <MessageDialog
         dialog={messageDialog}
         onClose={() => setMessageDialog(null)}
       />
 
-      {/* ── Category Management Sheet ── */}
+      {/* ── Known Merchants Sheet (list → edit) ── */}
       <Sheet
         visible={merchantSheetOpen}
         onClose={() => {
@@ -907,7 +654,16 @@ export function SettingsScreen() {
         heightFraction={0.74}
         header={(
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Known Merchant</Text>
+            {editingMapping ? (
+              <Pressable onPress={() => setEditingMapping(null)} hitSlop={8}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M15 18 9 12l6-6" />
+                </Svg>
+              </Pressable>
+            ) : null}
+            <Text style={[s.sheetTitle, { flex: 1 }]}>
+              {editingMapping ? 'Edit Merchant' : 'Known Merchants'}
+            </Text>
             <Pressable onPress={() => { setMerchantSheetOpen(false); setEditingMapping(null) }} hitSlop={8}>
               <Text style={s.sheetDone}>Done</Text>
             </Pressable>
@@ -917,7 +673,7 @@ export function SettingsScreen() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.sheetContent}
+          contentContainerStyle={editingMapping ? s.sheetContent : s.sheetListContent}
         >
           {editingMapping ? (
             <>
@@ -973,10 +729,38 @@ export function SettingsScreen() {
                 </Pressable>
               </View>
             </>
-          ) : null}
+          ) : (
+            learnedMappings.length === 0 ? (
+              <View style={s.emptyRow}>
+                <Text style={s.emptyRowText}>No known merchants yet</Text>
+                <Text style={s.emptyRowSub}>Merchants appear here after you confirm or edit imported transactions.</Text>
+              </View>
+            ) : (
+              learnedMappings.map((mapping, idx) => (
+                <View key={mapping.id}>
+                  {idx > 0 && <RowDivider />}
+                  <Pressable style={s.mappingRow} onPress={() => handleEditMapping(mapping)}>
+                    <View style={s.mappingBody}>
+                      <Text style={s.mappingName} numberOfLines={1}>
+                        {mapping.display_name || mapping.normalized_lookup_key}
+                      </Text>
+                      <Text style={s.mappingMeta} numberOfLines={1}>
+                        Parsed: {mapping.normalized_lookup_key}
+                      </Text>
+                    </View>
+                    <View style={s.mappingRight}>
+                      <Text style={s.mappingCategory} numberOfLines={1}>{mapping.category_id || 'Uncategorized'}</Text>
+                      <Text style={s.mappingCount}>{mapping.usage_count} use{mapping.usage_count !== 1 ? 's' : ''}</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              ))
+            )
+          )}
         </ScrollView>
       </Sheet>
 
+      {/* ── Categories Sheet ── */}
       <Sheet
         visible={catSheetOpen}
         onClose={() => { setCatSheetOpen(false); setNewCat(''); setNewCatIcon(null); setNewCatPickerOpen(false); setIconPickerCat(null) }}
@@ -1154,12 +938,10 @@ export function SettingsScreen() {
 
 const ICON_PICKER_OPTIONS: string[] = [
   'TagIcon',
-  // Predefined category icons
   'ForkKnifeIcon', 'CarIcon', 'ShoppingBagIcon', 'FilmSlateIcon',
   'HeartbeatIcon', 'LightningIcon', 'UsersThreeIcon', 'CoinsIcon',
   'ArrowCounterClockwiseIcon', 'HouseIcon', 'TrendUpIcon', 'RepeatIcon',
   'ArrowsLeftRightIcon', 'DotsThreeIcon',
-  // Extended icons
   'GiftIcon', 'AirplaneInFlightIcon', 'GraduationCapIcon', 'CoffeeIcon',
   'BarbellIcon', 'BriefcaseIcon', 'MusicNotesIcon', 'GameControllerIcon',
   'PillIcon', 'UmbrellaIcon', 'DogIcon', 'BookOpenIcon',
@@ -1238,6 +1020,8 @@ const s = StyleSheet.create({
   section: { marginBottom: 22 },
   hint: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, marginTop: 6, lineHeight: 18 },
   subLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, letterSpacing: 0.5, marginBottom: 6 },
+  gap10: { height: 10 },
+  gap14: { height: 14 },
 
   // Profile
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
@@ -1255,6 +1039,8 @@ const s = StyleSheet.create({
   emptyRow: { padding: 14, gap: 3 },
   emptyRowText: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   emptyRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+
+  // Merchant rows
   mappingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
   mappingBody: { flex: 1, minWidth: 0, gap: 2 },
   mappingName: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
@@ -1262,10 +1048,6 @@ const s = StyleSheet.create({
   mappingRight: { alignItems: 'flex-end', gap: 2, maxWidth: '42%' },
   mappingCategory: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
   mappingCount: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
-  importHistoryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
-  importHistoryBody: { flex: 1, minWidth: 0, gap: 3 },
-  importHistoryTitle: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
-  importHistoryMeta: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, lineHeight: 16 },
   templateRow: { paddingHorizontal: 16, paddingVertical: 14 },
 
   // UPI / shared row patterns
@@ -1277,26 +1059,19 @@ const s = StyleSheet.create({
   addActionText: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
   rupeeLabel: { fontSize: 14, fontFamily: F.semibold, color: C.ink3, flexShrink: 0 },
 
-  // Categories summary row
+  // Nav / summary rows
   summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14, gap: 10,
   },
   summaryRowBody: { flex: 1, gap: 2 },
   summaryRowTitle: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   summaryRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  summaryRowCta: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
   infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingHorizontal: 16, paddingVertical: 13 },
   infoLabel: { flex: 1, fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   infoValue: { maxWidth: '54%', textAlign: 'right', fontSize: 13, fontFamily: F.semibold, color: C.ink },
 
   // Data & Privacy
-  txCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, padding: 16 },
-  txCountNum: { fontSize: 22, fontFamily: F.extrabold, color: C.ink },
-  txCountLabel: { fontSize: 13, fontFamily: F.regular, color: C.ink3 },
   dataActions: { gap: 10 },
   exportBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1304,10 +1079,6 @@ const s = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1, borderColor: C.brand,
   },
   exportText: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
-  disabledBtn: { borderColor: C.line, opacity: 0.5 },
-  disabledBtnText: { fontSize: 14, fontFamily: F.semibold, color: C.ink3 },
-  comingSoonBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
-  comingSoonText: { fontSize: 10, fontFamily: F.bold, color: C.ink3 },
 
   // Danger Zone
   dangerBtn: {
@@ -1318,7 +1089,6 @@ const s = StyleSheet.create({
 
   // Categories
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, paddingHorizontal: 16 },
-  catDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   catNameGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   catName: { fontSize: 14, fontFamily: F.regular, color: C.ink, flexShrink: 1 },
   catBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
@@ -1330,11 +1100,12 @@ const s = StyleSheet.create({
   predChipTextSelected: { fontFamily: F.bold, color: C.brandDeep },
   predChipCount: { fontSize: 12, fontFamily: F.bold, color: C.ink },
 
-  // Category sheet
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
+  // Sheets
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
   sheetTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   sheetDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
   sheetContent: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },
+  sheetListContent: { paddingBottom: 40 },
   sheetSection: { marginBottom: 20 },
   sheetSectionLabel: { fontSize: 10.5, fontFamily: F.bold, letterSpacing: 0.07 * 10, color: C.ink3, textTransform: 'uppercase', marginBottom: 8 },
 })

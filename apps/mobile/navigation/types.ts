@@ -7,6 +7,10 @@ export type RootStackParamList = {
   ImportDetails: { importSessionId: string }
   DeveloperMode: undefined
   Review: undefined
+  BackupRestore: undefined
+  Storage: undefined
+  Privacy: undefined
+  ImportHistory: undefined
 }
 
 export type MainTabParamList = {
