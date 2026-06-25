@@ -13,7 +13,7 @@ import {
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import Svg, { Circle, Path, Polyline } from 'react-native-svg'
+import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
@@ -24,6 +24,7 @@ import { updateTransaction, deleteTransaction } from '../repositories/transactio
 import {
   completeReviewSession,
   ensureActiveReviewSession,
+  getActiveReviewSession,
   updateReviewSessionProgress,
   type ReviewSession,
 } from '../repositories/reviewSessionRepository'
@@ -51,7 +52,7 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Review'>
 }
 
-type Phase = 'loading' | 'empty' | 'summary' | 'group-review' | 'individual-review' | 'done'
+type Phase = 'loading' | 'empty' | 'group-review' | 'individual-review' | 'done'
 type ActiveTxContext = 'group' | 'individual'
 
 const TYPE_COLOR: Record<TransactionType, string> = {
@@ -133,6 +134,14 @@ function displayNameForTx(tx: Transaction): string {
     '—'
 }
 
+function hasDuplicateWarning(tx: Transaction | null): boolean {
+  return !!tx?.duplicate_status && tx.duplicate_status !== 'none' && tx.duplicate_status !== 'not_duplicate'
+}
+
+function clampCount(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
 const pb = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingBottom: 10, gap: 6 },
   track: { height: 5, borderRadius: 99, backgroundColor: C.line, overflow: 'hidden' },
@@ -204,13 +213,11 @@ export function ReviewScreen({ navigation }: Props) {
     : restCats
   const currentGroup = groups[currentGroupIdx] ?? null
   const groupedIndividuals = groupTransactionsByMonth(individuals)
-  const groupedTxCount = groups.reduce((n, g) => n + g.transactions.length, 0)
-  const remainingCount = Math.max(totalCount - reviewedCount, 0)
   const completedGroupCount = currentGroupIdx
   const selectedGroupAccountName = pendingAccountId
     ? accounts.find((account) => account.id === pendingAccountId)?.name
     : null
-  const groupHasDuplicate = currentGroup?.transactions.some((tx) => tx.duplicate_status && tx.duplicate_status !== 'none') ?? false
+  const groupHasDuplicate = currentGroup?.transactions.some(hasDuplicateWarning) ?? false
 
   // ── Init from query ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -221,17 +228,38 @@ export function ReviewScreen({ navigation }: Props) {
     if (txs.length === 0) { setPhase('empty'); return }
 
     const { groups: g, singles } = groupTransactions(txs)
-    setTotalCount(txs.length)
-    setReviewedCount(0)
-    setCurrentGroupIdx(0)
-    setCompletionStats({ groupCount: 0, groupTxCount: 0, individualCount: 0 })
-    setIndividuals(singles)
+    const importSessionId = txs.find((tx) => tx.import_session_id)?.import_session_id ?? null
+    void Promise.all([
+      loadSuggestionsForGroups(g),
+      getActiveReviewSession(),
+    ]).then(async ([gWithSug, savedSession]) => {
+      const session = await ensureActiveReviewSession(txs.length, importSessionId)
+      const activeSession = savedSession ?? session
+      const nextTotal = Math.max(activeSession.total_count, txs.length)
+      const impliedReviewed = Math.max(0, nextTotal - txs.length)
+      const nextReviewed = clampCount(Math.max(activeSession.review_progress, impliedReviewed), 0, nextTotal)
+      const savedGroupIdx = activeSession.current_group_id
+        ? gWithSug.findIndex((group) => group.key === activeSession.current_group_id)
+        : -1
+      const savedItemIdx = activeSession.current_item_id
+        ? singles.findIndex((tx) => tx.id === activeSession.current_item_id)
+        : -1
+      const nextSingles = savedItemIdx > 0
+        ? [singles[savedItemIdx], ...singles.filter((_, idx) => idx !== savedItemIdx)]
+        : singles
 
-    loadSuggestionsForGroups(g).then((gWithSug) => {
+      setTotalCount(nextTotal)
+      setReviewedCount(nextReviewed)
+      setCurrentGroupIdx(savedGroupIdx >= 0 ? savedGroupIdx : 0)
+      setCompletionStats({ groupCount: 0, groupTxCount: 0, individualCount: 0 })
+      setIndividuals(nextSingles)
       setGroups(gWithSug)
-      setPhase(gWithSug.length > 0 ? 'group-review' : 'individual-review')
-      const importSessionId = txs.find((tx) => tx.import_session_id)?.import_session_id ?? null
-      void ensureActiveReviewSession(txs.length, importSessionId).then(setReviewSession)
+      setReviewSession(activeSession)
+      if (savedItemIdx >= 0 && savedGroupIdx < 0) {
+        setPhase('individual-review')
+      } else {
+        setPhase(gWithSug.length > 0 ? 'group-review' : 'individual-review')
+      }
     })
   }, [reviewQuery.isLoading, reviewQuery.data?.transactions.length])
 
@@ -400,6 +428,35 @@ export function ReviewScreen({ navigation }: Props) {
     }
   }
 
+  async function skipActiveDuplicate() {
+    if (!activeTx) return
+    setRejecting(true)
+    try {
+      await deleteTransaction(activeTx.id)
+      if (activeTxContext === 'group') {
+        const lastItemInGroup = currentGroup?.transactions.length === 1
+        setGroups((prev) => lastItemInGroup
+          ? prev.filter((_, idx) => idx !== currentGroupIdx)
+          : prev.map((group, idx) => idx === currentGroupIdx
+            ? { ...group, transactions: group.transactions.filter((tx) => tx.id !== activeTx.id) }
+            : group))
+        setReviewedCount((prev) => prev + 1)
+        invalidateTransactionData(queryClient)
+        if (lastItemInGroup && currentGroupIdx >= groups.length - 1) {
+          setPhase(individuals.length > 0 ? 'individual-review' : 'done')
+        }
+      } else {
+        removeIndividual(activeTx.id)
+      }
+      setSheetOpen(false)
+      setActiveTx(null)
+    } catch (e) {
+      setMessageDialog({ title: 'Error', message: e instanceof Error ? e.message : 'Could not skip this import.' })
+    } finally {
+      setRejecting(false)
+    }
+  }
+
   function handleReject() {
     setRejectDialogOpen(true)
   }
@@ -480,71 +537,6 @@ export function ReviewScreen({ navigation }: Props) {
           <Text style={s.emptyTitle}>All caught up!</Text>
           <Text style={s.emptySub}>No transactions to review right now.</Text>
         </View>
-      )}
-
-      {/* ── Summary ── */}
-      {phase === 'summary' && (
-        <ScrollView
-          style={s.scroll}
-          contentContainerStyle={[s.summaryContent, { paddingBottom: insets.bottom + 32 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={s.summaryHero}>
-            <Text style={s.summaryCount}>{totalCount}</Text>
-            <Text style={s.summaryCountLabel}>Transactions Imported</Text>
-            <Text style={s.summaryPrivacy}>Your statement stays on your device.</Text>
-          </View>
-
-          <View style={s.summaryCards}>
-            {groups.length > 0 && (
-              <View style={s.summaryCard}>
-                <View style={s.summaryCardIcon}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <Circle cx="9" cy="7" r="4" />
-                    <Path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <Path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </Svg>
-                </View>
-                <View style={s.summaryCardBody}>
-                  <Text style={s.summaryCardNum}>{groupedTxCount} transactions grouped</Text>
-                  <Text style={s.summaryCardSub}>{groups.length} group{groups.length !== 1 ? 's' : ''} ready for batch review</Text>
-                </View>
-                <View style={s.summaryCardBadge}>
-                  <Text style={s.summaryCardBadgeText}>Offline</Text>
-                </View>
-              </View>
-            )}
-
-            {individuals.length > 0 && (
-              <View style={s.summaryCard}>
-                <View style={s.summaryCardIcon}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <Circle cx="12" cy="7" r="4" />
-                  </Svg>
-                </View>
-                <View style={s.summaryCardBody}>
-                  <Text style={s.summaryCardNum}>{individuals.length} need individual review</Text>
-                  <Text style={s.summaryCardSub}>odd transactions kept in a queue</Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          <Text style={s.summaryHint}>
-            {groups.length > 0
-              ? `Review ${groups.length} group${groups.length !== 1 ? 's' : ''} first, then ${individuals.length} individual transaction${individuals.length !== 1 ? 's' : ''}.`
-              : `Review ${individuals.length} transaction${individuals.length !== 1 ? 's' : ''} one by one.`}
-          </Text>
-
-          <Pressable
-            style={s.startBtn}
-            onPress={() => setPhase(groups.length > 0 ? 'group-review' : 'individual-review')}
-          >
-            <Text style={s.startBtnText}>Start Review →</Text>
-          </Pressable>
-        </ScrollView>
       )}
 
       {/* ── Group Review ── */}
@@ -748,7 +740,7 @@ export function ReviewScreen({ navigation }: Props) {
                         <View style={s.rowBody}>
                           <Text style={s.rowMerchant} numberOfLines={1}>{displayNameForTx(tx)}</Text>
                           <View style={s.rowChips}>
-                            {tx.duplicate_status && tx.duplicate_status !== 'none' && (
+                            {hasDuplicateWarning(tx) && (
                               <View style={[s.rowInfoChip, s.duplicateChip]}>
                                 <Text style={[s.rowInfoText, s.duplicateChipText]} numberOfLines={1}>
                                   {tx.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
@@ -845,14 +837,40 @@ export function ReviewScreen({ navigation }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {activeTx && activeTx.duplicate_status && activeTx.duplicate_status !== 'none' && (
+            {hasDuplicateWarning(activeTx) && (
               <View style={s.duplicatePanel}>
                 <Text style={s.duplicatePanelTitle}>
-                  {activeTx.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
+                  {activeTx?.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
                 </Text>
                 <Text style={s.duplicatePanelText}>
-                  This looks similar to a transaction already saved. Reject to skip this import, or confirm to save anyway.
+                  {activeTx?.duplicate_status === 'confirmed_duplicate'
+                    ? 'This transaction appears to already exist. Keep the existing transaction, or save this import as a new one.'
+                    : 'This looks similar to a transaction already saved. Review it before deciding.'}
                 </Text>
+                <View style={s.duplicateActions}>
+                  <Pressable
+                    style={[s.duplicateSkipBtn, rejecting && s.btnDisabled]}
+                    onPress={skipActiveDuplicate}
+                    disabled={rejecting || confirming}
+                  >
+                    {rejecting
+                      ? <ActivityIndicator size="small" color={C.neg} />
+                      : <Text style={s.duplicateSkipText}>
+                          {activeTx?.duplicate_status === 'confirmed_duplicate' ? 'Keep Existing' : 'Skip Import'}
+                        </Text>}
+                  </Pressable>
+                  <Pressable
+                    style={[s.duplicateSaveBtn, (!canConfirm || confirming) && s.btnDisabled]}
+                    onPress={handleConfirm}
+                    disabled={!canConfirm || confirming || rejecting}
+                  >
+                    {confirming
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={s.duplicateSaveText}>
+                          {activeTx?.duplicate_status === 'confirmed_duplicate' ? 'Save As New' : 'Save Anyway'}
+                        </Text>}
+                  </Pressable>
+                </View>
               </View>
             )}
 
@@ -1014,7 +1032,7 @@ export function ReviewScreen({ navigation }: Props) {
               >
                 {confirming
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={s.confirmBtnText}>Confirm →</Text>}
+                  : <Text style={s.confirmBtnText}>{hasDuplicateWarning(activeTx) ? 'Save Anyway' : 'Confirm →'}</Text>}
               </Pressable>
             </View>
           </ScrollView>
@@ -1251,52 +1269,6 @@ const s = StyleSheet.create({
   checkCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   emptySub: { fontSize: 14, fontFamily: F.regular, color: C.ink3, textAlign: 'center' },
-
-  // Summary
-  summaryContent: { paddingHorizontal: 16, paddingTop: 24, gap: 20 },
-  summaryHero: { alignItems: 'center', gap: 4 },
-  summaryCount: { fontSize: 64, fontFamily: F.extrabold, color: C.ink, lineHeight: 72 },
-  summaryCountLabel: { fontSize: 16, fontFamily: F.extrabold, color: C.ink },
-  summaryPrivacy: { fontSize: 13, fontFamily: F.regular, color: C.brand, marginTop: 4 },
-  summaryCards: { gap: 10 },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: C.surface,
-    borderRadius: RADIUS,
-    borderWidth: 1,
-    borderColor: C.line,
-    padding: 14,
-  },
-  summaryCardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: C.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  summaryCardBody: { flex: 1, gap: 2 },
-  summaryCardNum: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
-  summaryCardSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
-  summaryCardBadge: {
-    backgroundColor: C.brandPale,
-    borderRadius: 99,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  summaryCardBadgeText: { fontSize: 11, fontFamily: F.bold, color: C.brand },
-  summaryHint: { fontSize: 13.5, fontFamily: F.regular, color: C.ink3, lineHeight: 20, textAlign: 'center' },
-  startBtn: {
-    backgroundColor: C.brand,
-    borderRadius: RADIUS,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  startBtnText: { fontSize: 16, fontFamily: F.semibold, color: '#fff' },
 
   // Group review
   groupProgressArea: { paddingTop: 4 },
@@ -1537,6 +1509,25 @@ const s = StyleSheet.create({
   },
   duplicatePanelTitle: { fontSize: 14, fontFamily: F.extrabold, color: C.neg },
   duplicatePanelText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink2, lineHeight: 18 },
+  duplicateActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  duplicateSkipBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.neg,
+    backgroundColor: C.surface,
+  },
+  duplicateSkipText: { fontSize: 13.5, fontFamily: F.semibold, color: C.neg },
+  duplicateSaveBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS,
+    alignItems: 'center',
+    backgroundColor: C.brand,
+  },
+  duplicateSaveText: { fontSize: 13.5, fontFamily: F.semibold, color: '#fff' },
   rawDescriptionText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink3, lineHeight: 18 },
   amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   rupeeSign: { fontSize: 40, fontFamily: F.regular, lineHeight: 56 },
