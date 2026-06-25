@@ -53,7 +53,7 @@ const SKIP_KW = ['balance', 'opening', 'closing', 'available']
 export function parseStatementText(fileName: string, text: string): ParsedImport {
   const lower = fileName.toLowerCase()
   if (lower.endsWith('.pdf')) {
-    throw new Error('PDF import needs an offline PDF text extractor. Use CSV, XLSX, OFX, or QIF for now.')
+    throw new Error('PDF import is coming soon. Please export Excel or CSV for now.')
   }
   if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
     throw new Error('Excel files must be read with parseSpreadsheetRows.')

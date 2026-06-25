@@ -18,6 +18,7 @@ import {
 import { listPlans } from '../repositories/planRepository'
 import { listLearnedMappings, type LearnedMapping } from '../repositories/learnedMappingRepository'
 import { getActiveReviewSession, type ReviewSession } from '../repositories/reviewSessionRepository'
+import { getLatestCompletedImportSession, countTransactionsForImportSession, type ImportSession } from '../repositories/importRepository'
 import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
@@ -176,6 +177,10 @@ export type SettingsData = {
   customCategories: CategoryWithCount[]
   predefinedCategories: { name: string; transactionCount: number }[]
   txCount: number
+  accountCount: number
+  categoryCount: number
+  latestImport: ImportSession | null
+  latestImportTxCount: number
 }
 
 export type SettingsQueryData = {
@@ -184,12 +189,15 @@ export type SettingsQueryData = {
 }
 
 export async function getSettingsData(): Promise<SettingsQueryData> {
-  const [raw, cats, txCount, learnedMappings] = await Promise.all([
+  const [raw, cats, accounts, txCount, learnedMappings, latestImport] = await Promise.all([
     getAllSettings(),
     listCategories(),
+    listAccounts(),
     getTotalCount(),
     listLearnedMappings(10),
+    getLatestCompletedImportSession(),
   ])
+  const latestImportTxCount = latestImport ? await countTransactionsForImportSession(latestImport.id) : 0
   const settings: SettingsData = {
     displayName: raw.displayName,
     expectedMonthlyIncome: raw.expectedMonthlyIncome,
@@ -202,6 +210,10 @@ export async function getSettingsData(): Promise<SettingsQueryData> {
       .filter((c) => !c.is_custom)
       .map(({ name, transactionCount }) => ({ name, transactionCount })),
     txCount,
+    accountCount: accounts.length,
+    categoryCount: cats.length,
+    latestImport,
+    latestImportTxCount,
   }
   return { settings, email: raw.email }
 }

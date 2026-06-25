@@ -1,7 +1,7 @@
 import { getDb } from '../db/database'
 
 const BACKUP_APP = 'paisa-buddy'
-const BACKUP_SCHEMA_VERSION = 1
+export const BACKUP_SCHEMA_VERSION = 1
 
 type BackupPayload = {
   app: typeof BACKUP_APP

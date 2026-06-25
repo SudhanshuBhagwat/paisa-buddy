@@ -92,7 +92,8 @@ function topSpendingCategories(cats: { category: string; total: number }[]): { c
   return otherTotal > 0 ? [...top, { category: 'Other', total: otherTotal }] : top
 }
 
-type Highlight = { label: string; text: string; accent: string; icon: 'category' | 'day' | 'month' }
+type Highlight = { label: string; text: string; accent: string; icon: 'category' | 'day' | 'month' | 'merchant' | 'income' | 'review' }
+type TimelineEvent = { title: string; detail: string; date: string; accent: string }
 
 function formatHighlightDate(date: string): string {
   const d = new Date(date + 'T00:00:00')
@@ -111,6 +112,19 @@ function buildStoryHighlights({
   previousMonthSpend: number
 }): Highlight[] {
   const topCat = expenseCats[0]
+  const largestTx = txs
+    .filter((tx) => tx.type === 'debit')
+    .sort((a, b) => b.amount - a.amount)[0]
+  const highestIncome = txs
+    .filter((tx) => tx.type === 'credit')
+    .sort((a, b) => b.amount - a.amount)[0]
+  const merchantCounts = new Map<string, number>()
+  for (const tx of txs) {
+    if (tx.type !== 'debit') continue
+    const name = tx.user_display_name || tx.merchant || tx.parsed_display_name
+    if (name) merchantCounts.set(name, (merchantCounts.get(name) ?? 0) + 1)
+  }
+  const topMerchant = Array.from(merchantCounts.entries()).sort((a, b) => b[1] - a[1])[0]
   const dayTotals = new Map<string, number>()
   for (const tx of txs) {
     if (tx.type !== 'debit') continue
@@ -125,12 +139,36 @@ function buildStoryHighlights({
 
   return [
     {
+      label: 'TOP MERCHANT',
+      text: topMerchant
+        ? `Most visited: ${topMerchant[0]} appeared ${topMerchant[1]} time${topMerchant[1] !== 1 ? 's' : ''}.`
+        : 'Most visited: no repeat merchant yet.',
+      accent: topMerchant ? C.brand : C.ink3,
+      icon: 'merchant',
+    },
+    {
+      label: 'LARGEST TRANSACTION',
+      text: largestTx
+        ? `Largest purchase: ${displayNameForStory(largestTx)} for ${formatAmount(largestTx.amount)}.`
+        : 'Largest purchase: no debit transaction yet.',
+      accent: largestTx ? C.neg : C.ink3,
+      icon: 'day',
+    },
+    {
       label: 'TOP CATEGORY',
       text: topCat && expense > 0
         ? `Top category: ${topCat.category} took the biggest share.`
         : 'Top category: no spending category stood out.',
       accent: topCat ? C.brand : C.ink3,
       icon: 'category',
+    },
+    {
+      label: 'HIGHEST INCOME',
+      text: highestIncome
+        ? `Highest income: ${displayNameForStory(highestIncome)} added ${formatAmount(highestIncome.amount)}.`
+        : 'Highest income: no income recorded this month.',
+      accent: highestIncome ? C.pos : C.ink3,
+      icon: 'income',
     },
     {
       label: 'BIGGEST DAY',
@@ -153,10 +191,92 @@ function buildStoryHighlights({
   ]
 }
 
+function displayNameForStory(tx: Transaction): string {
+  return tx.user_display_name || tx.merchant || tx.parsed_display_name || tx.description || 'Transaction'
+}
+
+function buildMonthlyStoryLines(args: {
+  expense: number
+  income: number
+  expectedIncome: number
+  previousMonthSpend: number
+  expenseCats: { category: string; total: number }[]
+  budgets: BudgetWithSpent[]
+  txs: Transaction[]
+}): string[] {
+  const lines: string[] = []
+  const { expense, income, expectedIncome, previousMonthSpend, expenseCats, budgets, txs } = args
+
+  if (txs.length === 0) {
+    return [
+      'No transactions yet for this month.',
+      'Add transactions or import a statement to build your story.',
+      'Your plan will start comparing once spending appears.',
+    ]
+  }
+
+  if (previousMonthSpend > 0) {
+    const diff = expense - previousMonthSpend
+    if (diff === 0) lines.push('You spent the same as last month.')
+    else lines.push(`You spent ${formatAmount(Math.abs(diff))} ${diff < 0 ? 'less' : 'more'} than last month.`)
+  } else {
+    lines.push('This is the first month with enough spending to track.')
+  }
+
+  const topCat = expenseCats[0]
+  if (topCat) lines.push(`${topCat.category} was your largest category.`)
+
+  const overPlan = budgets.find((budget) => budget.spent > budget.amount)
+  const withinPlan = budgets.find((budget) => budget.spent > 0 && budget.spent <= budget.amount)
+  if (overPlan) lines.push(`${overPlan.category} exceeded plan by ${formatAmount(overPlan.spent - overPlan.amount)}.`)
+  else if (withinPlan) lines.push(`${withinPlan.category} stayed within your plan.`)
+  else lines.push('No plan category has been tested by spending yet.')
+
+  const dayTotals = new Map<string, number>()
+  for (const tx of txs) {
+    if (tx.type === 'debit') dayTotals.set(tx.date, (dayTotals.get(tx.date) ?? 0) + tx.amount)
+  }
+  const biggestDay = Array.from(dayTotals.entries()).sort((a, b) => b[1] - a[1])[0]
+  if (biggestDay) {
+    const day = new Date(`${biggestDay[0]}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })
+    lines.push(`${day} was your most expensive day.`)
+  }
+
+  if (expectedIncome > 0 && income > 0) {
+    const saved = income - expense
+    lines.push(saved >= 0
+      ? `You saved ${Math.round((saved / expectedIncome) * 100)}% of expected income.`
+      : `Spending exceeded income by ${formatAmount(Math.abs(saved))}.`)
+  }
+
+  return lines.slice(0, 5)
+}
+
+function buildTimelineEvents(txs: Transaction[], budgets: BudgetWithSpent[]): TimelineEvent[] {
+  const events: TimelineEvent[] = []
+  const salary = txs.find((tx) => tx.type === 'credit' && /salary/i.test(`${tx.description} ${tx.merchant ?? ''}`))
+  const largestDebit = txs.filter((tx) => tx.type === 'debit').sort((a, b) => b.amount - a.amount)[0]
+  const importTx = txs.find((tx) => tx.source === 'bank_import')
+  const exceeded = budgets.find((budget) => budget.spent > budget.amount)
+
+  if (salary) events.push({ title: 'Salary received', detail: formatAmount(salary.amount), date: salary.date, accent: C.pos })
+  if (largestDebit) events.push({ title: 'Largest purchase', detail: `${displayNameForStory(largestDebit)} · ${formatAmount(largestDebit.amount)}`, date: largestDebit.date, accent: C.neg })
+  if (exceeded) events.push({ title: 'Plan exceeded', detail: `${exceeded.category} crossed by ${formatAmount(exceeded.spent - exceeded.amount)}`, date: '', accent: C.gold })
+  if (importTx) events.push({ title: 'Statement imported', detail: displayNameForStory(importTx), date: importTx.date, accent: C.brand })
+
+  return events.slice(0, 4)
+}
+
 function HighlightIcon({ type, color }: { type: Highlight['icon']; color: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      {type === 'category' ? (
+      {type === 'merchant' ? (
+        <><Path d="M6 2h12l3 7H3l3-7z" /><Path d="M5 9v11h14V9" /><Path d="M9 20v-6h6v6" /></>
+      ) : type === 'income' ? (
+        <><Path d="M12 19V5" /><Polyline points="5 12 12 5 19 12" /></>
+      ) : type === 'review' ? (
+        <><Path d="M9 11l2 2 4-4" /><Path d="M21 12a9 9 0 1 1-3-6.7" /></>
+      ) : type === 'category' ? (
         <><Path d="M20 12v7a2 2 0 0 1-2 2h-7" /><Path d="M14 3H5a2 2 0 0 0-2 2v9" /><Path d="m7 7 10 10" /><Path d="M7 17 17 7" /></>
       ) : type === 'day' ? (
         <><Path d="M8 2v4" /><Path d="M16 2v4" /><Path d="M3 10h18" /><Path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /></>
@@ -180,6 +300,90 @@ function StoryHighlights({ highlights }: { highlights: Highlight[] }) {
               <HighlightIcon type={item.icon} color={item.accent} />
             </View>
             <Text style={hl.text}>{item.text}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function MonthStoryHeader({
+  month,
+  spent,
+  saved,
+  previousMonthLabel,
+  onComparePress,
+}: {
+  month: string
+  spent: number
+  saved: number
+  previousMonthLabel: string
+  onComparePress: () => void
+}) {
+  return (
+    <View style={s.monthStoryHeaderCard}>
+      <View style={s.monthStoryHeaderTop}>
+        <Text style={s.monthStoryTitle}>{month}</Text>
+        <Pressable style={s.compareButton} onPress={onComparePress} accessibilityLabel={`Compare with ${previousMonthLabel}`}>
+          <Text style={s.compareButtonText}>Compare With {previousMonthLabel}</Text>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <Polyline points="6 9 12 15 18 9" />
+          </Svg>
+        </Pressable>
+      </View>
+      <View style={s.monthStoryMetricRow}>
+        <View style={s.monthStoryMetric}>
+          <Text style={s.monthStoryMetricLabel}>Spent</Text>
+          <Text style={[s.monthStoryMetricValue, { color: C.neg }]}>{formatAmount(spent)}</Text>
+        </View>
+        <View style={s.monthStoryMetricDivider} />
+        <View style={s.monthStoryMetric}>
+          <Text style={s.monthStoryMetricLabel}>{saved >= 0 ? 'Saved' : 'Over'}</Text>
+          <Text style={[s.monthStoryMetricValue, { color: saved >= 0 ? C.pos : C.neg }]}>{formatAmount(Math.abs(saved))}</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function MonthlyStory({ lines }: { lines: string[] }) {
+  return (
+    <View>
+      <View style={s.highlightsHeader}>
+        <Text style={s.sectionTitle}>Monthly Story</Text>
+      </View>
+      <View style={s.storyLinesCard}>
+        {lines.map((line, idx) => (
+          <View key={`${line}-${idx}`} style={[s.storyLineRow, idx > 0 && s.storyLineBorder]}>
+            <View style={s.storyLineDot} />
+            <Text style={s.storyLineText}>{line}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function MonthTimeline({ events }: { events: TimelineEvent[] }) {
+  return (
+    <View>
+      <View style={s.highlightsHeader}>
+        <Text style={s.sectionTitle}>Timeline</Text>
+      </View>
+      <View style={s.timelineCard}>
+        {events.length === 0 ? (
+          <View style={s.timelineEmpty}>
+            <Text style={s.timelineEmptyTitle}>No major events yet</Text>
+            <Text style={s.timelineEmptyText}>Salary, large purchases, imports, and plan alerts will appear here.</Text>
+          </View>
+        ) : events.map((event, idx) => (
+          <View key={`${event.title}-${idx}`} style={[s.timelineRow, idx > 0 && s.timelineBorder]}>
+            <View style={[s.timelineMarker, { backgroundColor: event.accent }]} />
+            <View style={s.timelineBody}>
+              <Text style={s.timelineTitle}>{event.title}</Text>
+              <Text style={s.timelineDetail} numberOfLines={2}>{event.detail}</Text>
+            </View>
+            {event.date ? <Text style={s.timelineDate}>{formatHighlightDate(event.date)}</Text> : null}
           </View>
         ))}
       </View>
@@ -1178,12 +1382,18 @@ export function StatsScreen() {
     return `${label} ${year}`
   }
 
+  function monthShortLabel(value: string): string {
+    const [year, monthNumber] = value.split('-').map(Number)
+    return new Date(year, monthNumber - 1, 1).toLocaleString('en-US', { month: 'short' })
+  }
+
   const txs = data?.transactions ?? []
   const budgets = data?.budgets ?? []
   const colorMap = data?.categoryColors ?? {}
   const { income, expense } = calcSummary(txs)
   const expectedIncome = data?.settings.expected_monthly_income ?? 0
   const remaining = expectedIncome - expense
+  const savedAmount = income > 0 ? income - expense : remaining
   const monthlySpends = Object.fromEntries((data?.monthlySpends ?? []).map((item) => [item.month, item.spent]))
   monthlySpends[month] = monthlySpends[month] ?? expense
   const previousMonthSpend = monthlySpends[addMonths(month, -1)] ?? 0
@@ -1193,6 +1403,8 @@ export function StatsScreen() {
   }, {})
   const expenseCats = topSpendingCategories(groupByCategory(txs, 'debit'))
   const storyHighlights = buildStoryHighlights({ txs, expense, expenseCats, previousMonthSpend })
+  const storyLines = buildMonthlyStoryLines({ expense, income, expectedIncome, previousMonthSpend, expenseCats, budgets, txs })
+  const timelineEvents = buildTimelineEvents(txs, budgets)
   const allCategories = [...new Set([...Object.keys(CATEGORY_COLORS), ...Object.keys(colorMap)])]
   const monthProgressPct = getMonthProgressPct(month)
   const storyHeadline = getStoryHeadline({ expectedIncome, expense, remaining, monthProgressPct })
@@ -1293,6 +1505,13 @@ export function StatsScreen() {
             <Animated.View style={contentAnimStyle}>
             {activeTab === 'story' ? (
               <View style={s.storyStack}>
+                <MonthStoryHeader
+                  month={monthHeaderLabel()}
+                  spent={expense}
+                  saved={savedAmount}
+                  previousMonthLabel={monthShortLabel(addMonths(month, -1))}
+                  onComparePress={() => setMonthSheetOpen(true)}
+                />
                 <View style={s.storySummaryCardWrap}>
                 <View style={s.storySummaryCard}>
                   <View style={s.mascotWrap}>
@@ -1341,7 +1560,9 @@ export function StatsScreen() {
                     </View>
                   ))}
                 </View>
+                <MonthlyStory lines={storyLines} />
                 <StoryHighlights highlights={storyHighlights} />
+                <MonthTimeline events={timelineEvents} />
               </View>
             ) : activeTab === 'plan' ? (
               <>
@@ -1463,6 +1684,28 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 18, paddingTop: 10, gap: 12 },
   storyStack: { gap: 16 },
   spendingStack: { gap: 8 },
+  monthStoryHeaderCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 16,
+    gap: 14,
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  monthStoryHeaderTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  monthStoryTitle: { flex: 1, fontSize: 21, fontFamily: F.extrabold, color: C.ink },
+  compareButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
+  compareButtonText: { fontSize: 12.5, fontFamily: F.bold, color: C.brand },
+  monthStoryMetricRow: { flexDirection: 'row', alignItems: 'stretch' },
+  monthStoryMetric: { flex: 1, gap: 4 },
+  monthStoryMetricDivider: { width: 1, backgroundColor: C.line, marginHorizontal: 14 },
+  monthStoryMetricLabel: { fontSize: 11, fontFamily: F.bold, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  monthStoryMetricValue: { fontSize: 19, fontFamily: F.monoBold },
   storySummaryCardWrap: {
     borderRadius: RADIUS,
     shadowColor: '#14281E',
@@ -1546,6 +1789,44 @@ const s = StyleSheet.create({
   budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 8 },
   highlightsHeader: { marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
+  storyLinesCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    overflow: 'hidden',
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  storyLineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 15, paddingVertical: 13 },
+  storyLineBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  storyLineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.brand, marginTop: 6 },
+  storyLineText: { flex: 1, fontSize: 13.5, fontFamily: F.regular, lineHeight: 20, color: C.ink },
+  timelineCard: {
+    backgroundColor: C.surface,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    borderColor: C.line,
+    overflow: 'hidden',
+    shadowColor: '#14281E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  timelineRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 15, paddingVertical: 13 },
+  timelineBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  timelineMarker: { width: 9, height: 9, borderRadius: 5 },
+  timelineBody: { flex: 1, minWidth: 0, gap: 2 },
+  timelineTitle: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
+  timelineDetail: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
+  timelineDate: { fontSize: 11.5, fontFamily: F.bold, color: C.ink3 },
+  timelineEmpty: { paddingHorizontal: 15, paddingVertical: 16, gap: 3 },
+  timelineEmptyTitle: { fontSize: 13.5, fontFamily: F.semibold, color: C.ink },
+  timelineEmptyText: { fontSize: 12, fontFamily: F.regular, color: C.ink3, lineHeight: 17 },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -28,7 +28,7 @@ import {
   undoLatestCompletedImport,
   type ImportSession,
 } from '../repositories/importRepository'
-import { generateBackupJson, restoreBackupJson, validateBackupJson } from '../repositories/backupRepository'
+import { BACKUP_SCHEMA_VERSION, generateBackupJson, restoreBackupJson, validateBackupJson } from '../repositories/backupRepository'
 import {
   generateExportCsv,
   getSettingsData,
@@ -58,6 +58,32 @@ const card = StyleSheet.create({
 })
 
 function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
+
+const APP_VERSION = '1.0.0'
+const DATABASE_VERSION = 7
+const PARSER_VERSION = 'description-parser-v1'
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return 'Not available'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Not available'
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function InfoRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <View style={s.infoRow}>
+      <Text style={s.infoLabel}>{label}</Text>
+      <Text style={s.infoValue} numberOfLines={2}>{value}</Text>
+    </View>
+  )
+}
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets()
@@ -89,6 +115,8 @@ export function SettingsScreen() {
   // Misc
   const [exporting, setExporting] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null)
+  const [lastBackupSize, setLastBackupSize] = useState(0)
   const [restoringBackup, setRestoringBackup] = useState(false)
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null)
@@ -245,6 +273,8 @@ export function SettingsScreen() {
     setExportingBackup(true)
     try {
       const backup = await generateBackupJson()
+      setLastBackupAt(new Date().toISOString())
+      setLastBackupSize(backup.length)
       await Share.share({ message: backup, title: 'Paisa Buddy Backup' })
     } catch {
       setMessageDialog({ title: 'Error', message: 'Could not export backup.' })
@@ -370,6 +400,8 @@ export function SettingsScreen() {
   const customCats = data?.customCategories ?? []
   const predefinedCats = data?.predefinedCategories ?? []
   const learnedMappings = data?.learnedMappings ?? []
+  const estimatedBackupSize = formatBytes(JSON.stringify(data ?? {}).length)
+  const latestImport = data?.latestImport ?? null
 
   return (
     <View style={s.root}>
@@ -540,11 +572,17 @@ export function SettingsScreen() {
 
               {/* Transaction count */}
               <Card>
-                <View style={s.txCountRow}>
-                  <Text style={s.txCountNum}>{data?.txCount ?? 0}</Text>
-                  <Text style={s.txCountLabel}>Transaction{data?.txCount !== 1 ? 's' : ''} Stored</Text>
-                </View>
+                <InfoRow label="Storage Used" value={estimatedBackupSize} />
+                <RowDivider />
+                <InfoRow label="Database Size" value={estimatedBackupSize} />
+                <RowDivider />
+                <InfoRow label="Transaction Count" value={data?.txCount ?? 0} />
+                <RowDivider />
+                <InfoRow label="Account Count" value={data?.accountCount ?? 0} />
+                <RowDivider />
+                <InfoRow label="Category Count" value={data?.categoryCount ?? 0} />
               </Card>
+              <Text style={s.hint}>Your financial data is stored locally on this device.</Text>
 
               {/* Actions */}
               <View style={[s.dataActions, { marginTop: 10 }]}>
@@ -559,18 +597,57 @@ export function SettingsScreen() {
                 <Pressable style={s.exportBtn} onPress={handleUndoLastImport} disabled={undoingImport}>
                   <Text style={s.exportText}>{undoingImport ? 'Undoing...' : 'Undo Last Import'}</Text>
                 </Pressable>
-                <Pressable style={s.exportBtn} onPress={handleBackupExport} disabled={exportingBackup}>
-                  <Text style={s.exportText}>{exportingBackup ? 'Backing up...' : 'Backup Data'}</Text>
-                </Pressable>
-                <Pressable style={s.exportBtn} onPress={handleRestoreBackup} disabled={restoringBackup}>
-                  <Text style={s.exportText}>{restoringBackup ? 'Restoring...' : 'Restore Backup'}</Text>
-                </Pressable>
               </View>
             </View>
 
             {/* ── Danger Zone ── */}
-            <View style={s.section}>
-              <SectionLabel>Danger Zone</SectionLabel>
+              <View style={s.section}>
+                <SectionLabel>Backup</SectionLabel>
+                <Card>
+                  <InfoRow label="Last Backup" value={formatDateTime(lastBackupAt)} />
+                  <RowDivider />
+                  <InfoRow label="Backup Size" value={lastBackupSize > 0 ? formatBytes(lastBackupSize) : 'Not available'} />
+                  <RowDivider />
+                  <InfoRow label="Schema Version" value={BACKUP_SCHEMA_VERSION} />
+                </Card>
+                <View style={[s.dataActions, { marginTop: 10 }]}>
+                  <Pressable style={s.exportBtn} onPress={handleBackupExport} disabled={exportingBackup}>
+                    <Text style={s.exportText}>{exportingBackup ? 'Backing up...' : 'Backup Data'}</Text>
+                  </Pressable>
+                  <Pressable style={s.exportBtn} onPress={handleRestoreBackup} disabled={restoringBackup}>
+                    <Text style={s.exportText}>{restoringBackup ? 'Restoring...' : 'Restore Backup'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={s.section}>
+                <SectionLabel>Import</SectionLabel>
+                <Card>
+                  <InfoRow label="Import History" value={latestImport ? 'Available' : 'No completed imports'} />
+                  <RowDivider />
+                  <InfoRow label="Latest Import" value={latestImport?.file_name || latestImport?.filename || 'Not available'} />
+                  <RowDivider />
+                  <InfoRow label="Imported Transactions" value={data?.latestImportTxCount ?? 0} />
+                  <RowDivider />
+                  <InfoRow label="Imported On" value={formatDateTime(latestImport?.updated_at ?? latestImport?.created_at)} />
+                </Card>
+              </View>
+
+              <View style={s.section}>
+                <SectionLabel>About</SectionLabel>
+                <Card>
+                  <InfoRow label="App Version" value={APP_VERSION} />
+                  <RowDivider />
+                  <InfoRow label="Database Version" value={DATABASE_VERSION} />
+                  <RowDivider />
+                  <InfoRow label="Parser Version" value={PARSER_VERSION} />
+                  <RowDivider />
+                  <InfoRow label="Privacy Summary" value="Your financial data is stored locally on this device." />
+                </Card>
+              </View>
+
+              <View style={s.section}>
+                <SectionLabel>Danger Zone</SectionLabel>
               <View style={s.dataActions}>
                 <Pressable style={s.dangerBtn} onPress={handleClearAll} disabled={clearing}>
                   <Text style={s.dangerText}>{clearing ? 'Clearing…' : 'Clear All Data'}</Text>
@@ -820,6 +897,9 @@ const s = StyleSheet.create({
   summaryRowTitle: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
   summaryRowSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
   summaryRowCta: { fontSize: 13, fontFamily: F.semibold, color: C.brand },
+  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingHorizontal: 16, paddingVertical: 13 },
+  infoLabel: { flex: 1, fontSize: 13, fontFamily: F.regular, color: C.ink3 },
+  infoValue: { maxWidth: '54%', textAlign: 'right', fontSize: 13, fontFamily: F.semibold, color: C.ink },
 
   // Data & Privacy
   txCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, padding: 16 },
