@@ -10,7 +10,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   Home: { initialAction?: SetupStartAction } | undefined
   Transactions: undefined
-  Month: undefined
+  Month: { initialAction?: 'budget'; actionId?: number } | undefined
   Accounts: undefined
   Settings: undefined
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   Pressable,
   ScrollView,
@@ -10,6 +10,8 @@ import {
 import Svg, { Circle, Path, Polyline, Text as SvgText } from 'react-native-svg'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRoute } from '@react-navigation/native'
+import type { RouteProp } from '@react-navigation/native'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { upsertPlan, deletePlan } from '../repositories/planRepository'
 import { getStatsData, type StatsData } from '../lib/data'
@@ -26,6 +28,7 @@ import { Sheet } from '../components/Sheet'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
+import type { MainTabParamList } from '../navigation/types'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
 
@@ -1130,7 +1133,9 @@ const sk = StyleSheet.create({
 
 export function StatsScreen() {
   const insets = useSafeAreaInsets()
+  const route = useRoute<RouteProp<MainTabParamList, 'Month'>>()
   const queryClient = useQueryClient()
+  const handledInitialAction = useRef<number | 'initial' | null>(null)
   const addBudgetScale = useSharedValue(1)
   const addBudgetAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBudgetScale.value }] }))
 
@@ -1209,6 +1214,18 @@ export function StatsScreen() {
 
   function openAdd() { setEditingBudget(null); setBudgetSheetOpen(true) }
   function openEdit(b: BudgetWithSpent) { setEditingBudget(b); setBudgetSheetOpen(true) }
+
+  useEffect(() => {
+    if (route.params?.initialAction !== 'budget') return
+    if (!data) return
+    const actionKey = route.params.actionId ?? 'initial'
+    if (handledInitialAction.current === actionKey) return
+    handledInitialAction.current = actionKey
+    setActiveTab('plan')
+    if (budgets.length === 0) {
+      openAdd()
+    }
+  }, [budgets.length, data, route.params?.actionId, route.params?.initialAction])
 
   function handleBudgetSaved(b: BudgetWithSpent) {
     queryClient.setQueryData<StatsData>(queryKeys.stats(month), (prev) => {

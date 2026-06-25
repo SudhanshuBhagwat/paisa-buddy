@@ -48,7 +48,7 @@ type HomeData = {
 type QuickAction = {
   key: string
   label: string
-  icon: 'plus' | 'import' | 'account'
+  icon: 'plus' | 'import' | 'budget' | 'account'
   onPress: () => void
 }
 
@@ -161,6 +161,14 @@ function QuickActionButton({ action }: { action: QuickAction }) {
               <Path d="M12 3v12" />
               <Path d="M7 10l5 5 5-5" />
               <Path d="M5 21h14" />
+            </Svg>
+          ) : action.icon === 'budget' ? (
+            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M4 19V5" />
+              <Path d="M4 19h16" />
+              <Path d="M8 15v-4" />
+              <Path d="M12 15V8" />
+              <Path d="M16 15v-6" />
             </Svg>
           ) : (
             <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -291,15 +299,27 @@ export function HomeScreen() {
   const quickActions: QuickAction[] = [
     {
       key: 'add-transaction',
-      label: 'Add Transaction',
+      label: 'Add\nTransaction',
       icon: 'plus',
       onPress: () => { setEditTx(null); setAddSheetOpen(true) },
     },
     {
       key: 'import-statement',
-      label: 'Import Statement',
+      label: 'Import\nStatement',
       icon: 'import',
       onPress: () => navigation.navigate('ImportStatement'),
+    },
+    {
+      key: 'add-edit-budget',
+      label: 'Add/Edit\nBudget',
+      icon: 'budget',
+      onPress: () => navigation.dispatch(CommonActions.navigate({
+        name: 'Main',
+        params: {
+          screen: 'Month',
+          params: { initialAction: 'budget', actionId: Date.now() },
+        },
+      })),
     },
     {
       key: 'add-account',
@@ -652,7 +672,7 @@ const s = StyleSheet.create({
     fontFamily: F.extrabold,
     color: C.ink,
   },
-  quickActionsRow: { flexDirection: 'row', gap: 16 },
+  quickActionsRow: { flexDirection: 'row', gap: 10 },
   quickAction: {
     flex: 1,
     minWidth: 0,
@@ -667,14 +687,14 @@ const s = StyleSheet.create({
   },
   quickActionIcon: {
     alignSelf: 'stretch',
-    height: 58,
+    height: 54,
     borderRadius: 12,
     backgroundColor: C.brandPale,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionText: {
-    minHeight: 30,
+    minHeight: 34,
     fontSize: 12,
     lineHeight: 16,
     fontFamily: F.semibold,
