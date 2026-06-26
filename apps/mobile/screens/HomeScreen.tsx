@@ -31,6 +31,7 @@ import { C, F, RADIUS } from '../lib/tokens'
 import { getHomeData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
+import { AnimatedAmount } from '../components/AnimatedAmount'
 import type { MonthlyTransactionTotals } from '../repositories/transactionRepository'
 
 type HomeData = {
@@ -292,11 +293,6 @@ export function HomeScreen() {
     })
     .slice(0, 3)
 
-  const absFmt = formatAmount(Math.abs(displayBalance))
-  const balSign = displayBalance < 0 ? '−' : ''
-  const dotIdx = absFmt.lastIndexOf('.')
-  const balInt = dotIdx === -1 ? absFmt : absFmt.slice(0, dotIdx)
-  const balDec = dotIdx === -1 ? '' : absFmt.slice(dotIdx)
   const quickActions: QuickAction[] = [
     {
       key: 'add-transaction',
@@ -368,12 +364,11 @@ export function HomeScreen() {
                   {hasIncomeTarget ? 'Remaining' : 'Net balance'}
                 </Text>
                 <View style={s.balRow}>
-                  <Text style={[s.balInt, { color: displayBalanceColor }]}>
-                    {balSign}{balInt}
-                  </Text>
-                  {balDec ? (
-                    <Text style={[s.balDec, { color: C.ink3 }]}>{balDec}</Text>
-                  ) : null}
+                  <AnimatedAmount
+                    amount={displayBalance}
+                    style={[s.balInt, { color: displayBalanceColor }]}
+                    numberOfLines={1}
+                  />
                 </View>
                 {hasIncomeTarget && (
                   <View style={s.progressWrap}>
@@ -583,7 +578,6 @@ const s = StyleSheet.create({
   },
   balRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
   balInt: { fontSize: 34, fontFamily: F.monoBold, letterSpacing: -0.68 },
-  balDec: { fontSize: 20, fontFamily: F.mono, marginLeft: 1 },
   progressWrap: { marginTop: 8, paddingLeft: 6 },
   progressLabelRow: {
     flexDirection: 'row',
