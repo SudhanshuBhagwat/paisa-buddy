@@ -23,6 +23,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { MainTabParamList, RootStackParamList } from '../navigation/types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
+import { haptics } from '../lib/haptics'
+import { M } from '../lib/motion'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import type { ReviewSession } from '../repositories/reviewSessionRepository'
@@ -146,8 +148,8 @@ function QuickActionButton({ action }: { action: QuickAction }) {
     <Pressable
       style={s.quickAction}
       onPress={action.onPress}
-      onPressIn={() => { scale.value = withSpring(0.98, { damping: 15, stiffness: 300 }) }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+      onPressIn={() => { scale.value = withSpring(M.scale.quickAction, M.spring); haptics.selection() }}
+      onPressOut={() => { scale.value = withSpring(1, M.spring) }}
     >
       <Animated.View style={[s.quickActionContent, animStyle]}>
         <View style={s.quickActionIcon}>

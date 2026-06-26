@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { haptics } from '../lib/haptics'
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -91,7 +92,7 @@ function TxItem({
     <Pressable
         onPressIn={() => { scale.value = withTiming(0.98, { duration: 90 }) }}
         onPressOut={() => { scale.value = withTiming(1, { duration: 120 }) }}
-      onPress={onPress}
+      onPress={() => { haptics.lightImpact(); onPress() }}
       android_ripple={{ color: C.line }}
     >
       <Animated.View style={[ti.row, animStyle]}>
@@ -154,7 +155,7 @@ const TypePills = memo(function TypePills({ value, onChange }: { value: TypeFilt
         return (
           <Pressable
             key={filter.value}
-            onPress={() => onChange(filter.value)}
+            onPress={() => { haptics.selection(); onChange(filter.value) }}
             style={tp.pill}
           >
             <Text style={[tp.text, active && tp.textActive]}>{filter.label}</Text>
@@ -605,6 +606,7 @@ export function TransactionsScreen() {
     setDeletingSwipeTx(true)
     try {
       await deleteTransaction(deleteConfirmTx.id)
+      haptics.mediumImpact()
       removeTx(deleteConfirmTx.id)
       if (detailTx?.id === deleteConfirmTx.id) {
         setDetailOpen(false)

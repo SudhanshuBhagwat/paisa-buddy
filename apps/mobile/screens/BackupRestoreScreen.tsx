@@ -28,6 +28,8 @@ import { Dialog, MessageDialog, type MessageDialogState } from '../components/Di
 import { useSetupReset } from '../navigation/setupContext'
 import type { RootStackParamList } from '../navigation/types'
 import { C, F, RADIUS } from '../lib/tokens'
+import { haptics } from '../lib/haptics'
+import { PressableScale } from '../components/PressableScale'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -83,6 +85,7 @@ export function BackupRestoreScreen() {
       setLastBackupAt(createdAt)
       setLastBackupSize(backup.length)
       invalidateSettingsData(queryClient)
+      haptics.success()
       await Share.share({ message: backup, title: 'Paisa Buddy Backup' })
     } catch {
       setMessageDialog({ title: 'Error', message: 'Could not export backup.' })
@@ -103,6 +106,7 @@ export function BackupRestoreScreen() {
       const json = new File(result.assets[0].uri).textSync()
       validateBackupJson(json)
       setPendingRestoreJson(json)
+      haptics.warning()
       setRestoreDialogOpen(true)
     } catch (error) {
       setMessageDialog({
@@ -122,9 +126,11 @@ export function BackupRestoreScreen() {
       queryClient.clear()
       setRestoreDialogOpen(false)
       setPendingRestoreJson(null)
+      haptics.success()
       onSetupReset()
     } catch (error) {
       setRestoreDialogOpen(false)
+      haptics.error()
       setMessageDialog({
         title: 'Restore failed',
         message: error instanceof Error ? error.message : 'Could not restore this backup.',
@@ -162,21 +168,23 @@ export function BackupRestoreScreen() {
               Backups include all transactions, accounts, categories, and settings. Store the backup file safely — it can be used to restore Paisa Buddy on any device.
             </Text>
 
-            <Pressable
+            <PressableScale
               style={[s.actionBtn, exportingBackup && s.disabled]}
               onPress={handleBackupExport}
               disabled={exportingBackup}
+              scale={0.97}
             >
               <Text style={s.actionText}>{exportingBackup ? 'Backing up…' : 'Backup Data'}</Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable
+            <PressableScale
               style={[s.actionBtn, restoringBackup && s.disabled]}
               onPress={handleRestoreBackup}
               disabled={restoringBackup}
+              scale={0.97}
             >
               <Text style={s.actionText}>{restoringBackup ? 'Restoring…' : 'Restore Backup'}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
       </ScrollView>

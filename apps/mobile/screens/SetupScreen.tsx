@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
+import { haptics } from '../lib/haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { C, F, RADIUS } from '../lib/tokens'
 import {
@@ -349,6 +350,7 @@ export function SetupScreen() {
       for (const id of upiIds) await addUpiId(id)
       await ensureDefaultCategories()
       await markSetupComplete()
+      haptics.success()
       onSetupComplete(action)
     } catch {
       setError('Something went wrong. Please try again.')
@@ -573,7 +575,7 @@ export function SetupScreen() {
                 ]).map(({ cat, icon, title, sub }) => {
                   const active = accountCategory === cat
                   return (
-                    <Pressable key={cat} style={[s.optionCard, active && s.optionCardActive]} onPress={() => pickAccountCategory(cat)}>
+                    <Pressable key={cat} style={[s.optionCard, active && s.optionCardActive]} onPress={() => { haptics.selection(); pickAccountCategory(cat) }}>
                       <IconTile active={active}>{icon}</IconTile>
                       <View style={s.optionCardBody}>
                         <Text style={[s.optionCardTitle, active && s.optionCardTitleActive]}>{title}</Text>
@@ -749,7 +751,7 @@ export function SetupScreen() {
                 ]).map(({ value, title, sub }) => {
                   const active = trackingPreference === value
                   return (
-                    <Pressable key={value} style={[s.optionCard, active && s.optionCardActive]} onPress={() => setTrackingPreference(value)}>
+                    <Pressable key={value} style={[s.optionCard, active && s.optionCardActive]} onPress={() => { haptics.selection(); setTrackingPreference(value) }}>
                       <View style={s.optionCardBody}>
                         <Text style={[s.optionCardTitle, active && s.optionCardTitleActive]}>{title}</Text>
                         <Text style={s.optionCardSub}>{sub}</Text>

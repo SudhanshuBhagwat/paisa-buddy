@@ -17,6 +17,7 @@ import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
 import { AnimatedProgressBar } from '../components/AnimatedProgressBar'
+import { haptics } from '../lib/haptics'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -316,6 +317,7 @@ export function ReviewScreen({ navigation }: Props) {
   useEffect(() => {
     if (phase === 'done' && reviewSession) {
       void completeReviewSession(reviewSession.id)
+      haptics.success()
     }
   }, [phase, reviewSession])
 
@@ -353,6 +355,7 @@ export function ReviewScreen({ navigation }: Props) {
       invalidateTransactionData(queryClient)
 
       const count = currentGroup.transactions.length
+      haptics.lightImpact()
       setReviewedCount((prev) => prev + count)
       setCompletionStats((prev) => ({
         ...prev,
@@ -402,6 +405,7 @@ export function ReviewScreen({ navigation }: Props) {
     setShowDatePicker(false)
     setShowTimePicker(false)
     setSheetOpen(true)
+    if (hasDuplicateWarning(tx)) haptics.warning()
     if (hasDuplicateWarning(tx) && tx.duplicate_of_transaction_id) {
       setDuplicateLoading(true)
       void getTransactionById(tx.duplicate_of_transaction_id)
@@ -441,6 +445,7 @@ export function ReviewScreen({ navigation }: Props) {
         payload.merchant || activeTx.parsed_display_name || activeTx.merchant,
         payload.type,
       )
+      haptics.lightImpact()
       if (activeTxContext === 'group') {
         setGroups((prev) => prev.map((group, idx) => idx === currentGroupIdx
           ? { ...group, transactions: group.transactions.map((tx) => tx.id === updated.id ? updated : tx) }

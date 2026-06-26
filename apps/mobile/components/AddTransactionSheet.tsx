@@ -14,6 +14,7 @@ import Svg, { Polyline } from 'react-native-svg'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useQueryClient } from '@tanstack/react-query'
 import { Sheet } from './Sheet'
+import { haptics } from '../lib/haptics'
 import { MessageDialog, type MessageDialogState } from './Dialog'
 import { TypePicker } from './TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -191,6 +192,7 @@ export function AddTransactionSheet({
         ? await updateTransaction(editTx!.id, payload)
         : await createTransaction(payload)
       invalidateTransactionData(queryClient)
+      haptics.lightImpact()
       onSaved(tx, isEdit)
       onClose()
     } catch (e) {
@@ -395,7 +397,7 @@ export function AddTransactionSheet({
                 <Pressable
                   key={`recent-${cat}`}
                   style={s.pickerRow}
-                  onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
+                  onPress={() => { haptics.selection(); setCategory(cat); setCatPickerOpen(false) }}
                 >
                   <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
                   <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
@@ -445,7 +447,7 @@ export function AddTransactionSheet({
             <Pressable
               key={acc.id}
               style={s.pickerRow}
-              onPress={() => { setAccountId(acc.id); setAccPickerOpen(false) }}
+              onPress={() => { haptics.selection(); setAccountId(acc.id); setAccPickerOpen(false) }}
             >
               <Text style={[s.pickerRowText, accountId === acc.id && { color: activeType.color, fontFamily: F.semibold }]}>
                 {acc.name}

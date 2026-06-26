@@ -32,6 +32,7 @@ import {
 import { invalidateCategoryData, invalidateSettingsData, queryKeys } from '../lib/query'
 import { normalizeUpiId } from '@paisa-buddy/shared/logic/upi'
 import { C, F, RADIUS } from '../lib/tokens'
+import { haptics } from '../lib/haptics'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { CATEGORY_METADATA, DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR, getCategoryIcon } from '../lib/categoryMetadata'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
@@ -355,6 +356,7 @@ export function SettingsScreen() {
   }
 
   function handleClearAll() {
+    haptics.warning()
     setClearDialogOpen(true)
   }
 
@@ -364,6 +366,7 @@ export function SettingsScreen() {
       await clearAllData()
       queryClient.clear()
       setClearDialogOpen(false)
+      haptics.error()
       onSetupReset()
     } catch {
       setClearDialogOpen(false)

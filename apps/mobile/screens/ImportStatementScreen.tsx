@@ -28,6 +28,7 @@ import { buildTransactionDedupeKey, parseTransactionDescription } from '../lib/d
 import { groupImportRows, type ImportGroupPreview } from '../lib/grouping'
 import { suggestForImportRows } from '../lib/suggestions'
 import type { RootStackParamList } from '../navigation/types'
+import { haptics } from '../lib/haptics'
 import type { TxInput } from '../repositories/transactionRepository'
 
 type Props = {
@@ -181,6 +182,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       setParsed(nextParsed)
       setImportPreview(groupImportRows(nextParsed.rows.map((row) => normalizeImportRowForPreview(row))))
       setSummaryCounts(await buildImportSummary(nextParsed.rows, selectedAccountId!))
+      haptics.selection()
       setPhase('summary')
     } catch (error) {
       setPhase('pick')
@@ -276,6 +278,7 @@ export function ImportStatementScreen({ navigation }: Props) {
       setConfirmedDuplicateCount(confirmedDuplicates)
       invalidateTransactionData(queryClient)
       void queryClient.invalidateQueries({ queryKey: queryKeys.review })
+      haptics.success()
       navigation.replace('Review')
     } catch (error) {
       setMessageDialog({ title: 'Import failed', message: error instanceof Error ? error.message : 'Could not save imported transactions.' })

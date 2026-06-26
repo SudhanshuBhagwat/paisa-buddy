@@ -53,6 +53,9 @@ importers:
       expo-font:
         specifier: ^56.0.7
         version: 56.0.7(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
+      expo-haptics:
+        specifier: ^56.0.3
+        version: 56.0.3(expo@54.0.35)
       expo-sqlite:
         specifier: ^56.0.5
         version: 56.0.5(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
@@ -5308,6 +5311,14 @@ packages:
       fontfaceobserver: 2.3.0
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.0)(react@19.1.0)
+    dev: false
+
+  /expo-haptics@56.0.3(expo@54.0.35):
+    resolution: {integrity: sha512-ycoahZJnR9tWAVh/0mJYxbETtHRYaWjiWS8cHlP6aDGU6Q6Y8rZ5NKsuBwWw6HR2Pe30mfVFgbF2HrBR6gtYmw==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.8.2)
     dev: false
 
   /expo-keep-awake@15.0.8(expo@54.0.35)(react@19.1.0):
