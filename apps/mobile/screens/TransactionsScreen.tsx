@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -25,9 +25,10 @@ import { deleteTransaction, getByMonth, getByMonths } from '../repositories/tran
 import { getTransactionSupportData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Sheet } from '../components/Sheet'
-import { MessageDialog, type MessageDialogState } from '../components/Dialog'
+import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet, type MonthPreset } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
+import { SwipeableRow } from '../components/SwipeableRow'
 
 type TypeFilter = 'all' | 'credit' | 'debit' | 'transfer'
 type MonthMode = 'single' | 'last-3-months'
@@ -70,11 +71,13 @@ function TxItem({
   accountMap,
   catColors,
   onPress,
+  onDelete,
 }: {
   tx: Transaction
   accountMap: Record<string, string>
   catColors: Record<string, string>
   onPress: () => void
+  onDelete: () => void
 }) {
   const catC = categoryColor(tx.category, catColors)
   const typeColor = TYPE_COLOR[tx.type] ?? C.ink
@@ -83,9 +86,10 @@ function TxItem({
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   return (
+    <SwipeableRow actionLabel="Delete" onAction={onDelete}>
     <Pressable
-      onPressIn={() => { scale.value = withSpring(0.98, { damping: 20, stiffness: 300 }) }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }) }}
+        onPressIn={() => { scale.value = withTiming(0.98, { duration: 90 }) }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 120 }) }}
       onPress={onPress}
       android_ripple={{ color: C.line }}
     >
@@ -114,6 +118,7 @@ function TxItem({
         </View>
       </Animated.View>
     </Pressable>
+    </SwipeableRow>
   )
 }
 
@@ -276,6 +281,7 @@ const TransactionsList = memo(function TransactionsList({
   catColors,
   fadeStyle,
   onSelectTransaction,
+  onDeleteTransaction,
 }: {
   isMonthChanging: boolean
   monthTxCount: number
@@ -286,6 +292,7 @@ const TransactionsList = memo(function TransactionsList({
   catColors: Record<string, string>
   fadeStyle: ReturnType<typeof useAnimatedStyle>
   onSelectTransaction: (tx: Transaction) => void
+  onDeleteTransaction: (tx: Transaction) => void
 }) {
   return (
     <Animated.View style={fadeStyle}>
@@ -323,6 +330,7 @@ const TransactionsList = memo(function TransactionsList({
                   accountMap={accountMap}
                   catColors={catColors}
                   onPress={() => onSelectTransaction(tx)}
+                  onDelete={() => onDeleteTransaction(tx)}
                 />
               ))}
             </View>
@@ -475,6 +483,8 @@ export function TransactionsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [deleteConfirmTx, setDeleteConfirmTx] = useState<Transaction | null>(null)
+  const [deletingSwipeTx, setDeletingSwipeTx] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
   const listOpacity = useSharedValue(1)
   const listFadeStyle = useAnimatedStyle(() => ({ opacity: listOpacity.value }))
@@ -522,6 +532,7 @@ export function TransactionsScreen() {
   const hasExtraFilters = !!(selectedCategory || selectedAccount || recurringOnly)
   const isInitialLoading = transactionsQuery.isLoading && !transactionsQuery.data
   const isMonthChanging = transactionsQuery.isPlaceholderData
+  const activeTransactionsQueryKey = queryKeys.transactions(monthMode === 'last-3-months' ? `${month}:last-3-months` : month)
   const monthLabel = monthMode === 'last-3-months' ? 'Last 3 Months' : formatMonthLabel(month)
   const toggleSearch = useCallback(() => setSearchOpen((value) => !value), [])
   const openFilters = useCallback(() => setFilterSheetOpen(true), [])
@@ -542,7 +553,7 @@ export function TransactionsScreen() {
   }, [listOpacity, typeFilter])
 
   function upsertTx(tx: Transaction) {
-    queryClient.setQueryData<Transaction[]>(queryKeys.transactions(month), (prev) => {
+    queryClient.setQueryData<Transaction[]>(activeTransactionsQueryKey, (prev) => {
       if (!prev) return prev
       const idx = prev.findIndex((t) => t.id === tx.id)
       const transactions = idx === -1 ? [tx, ...prev] : [...prev]
@@ -553,7 +564,7 @@ export function TransactionsScreen() {
   }
 
   function removeTx(id: string) {
-    queryClient.setQueryData<Transaction[]>(queryKeys.transactions(month), (prev) => (
+    queryClient.setQueryData<Transaction[]>(activeTransactionsQueryKey, (prev) => (
       prev ? prev.filter((t) => t.id !== id) : prev
     ))
     invalidateTransactionData(queryClient)
@@ -582,6 +593,28 @@ export function TransactionsScreen() {
     removeTx(tx.id)
     setDetailOpen(false)
     setDetailTx(null)
+  }
+
+  const requestDeleteTransaction = useCallback((tx: Transaction) => {
+    setDeleteConfirmTx(tx)
+  }, [])
+
+  async function handleConfirmSwipeDelete() {
+    if (!deleteConfirmTx) return
+    setDeletingSwipeTx(true)
+    try {
+      await deleteTransaction(deleteConfirmTx.id)
+      removeTx(deleteConfirmTx.id)
+      if (detailTx?.id === deleteConfirmTx.id) {
+        setDetailOpen(false)
+        setDetailTx(null)
+      }
+      setDeleteConfirmTx(null)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete transaction.' })
+    } finally {
+      setDeletingSwipeTx(false)
+    }
   }
 
   if (isInitialLoading) {
@@ -630,6 +663,7 @@ export function TransactionsScreen() {
           catColors={catColors}
           fadeStyle={listFadeStyle}
           onSelectTransaction={selectTransaction}
+          onDeleteTransaction={requestDeleteTransaction}
         />
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -669,6 +703,16 @@ export function TransactionsScreen() {
         accounts={accounts}
         catColors={catColors}
         recentCategories={recentCategories}
+      />
+      <Dialog
+        visible={!!deleteConfirmTx}
+        onClose={() => { if (!deletingSwipeTx) setDeleteConfirmTx(null) }}
+        title="Delete transaction?"
+        message="This cannot be undone."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setDeleteConfirmTx(null), disabled: deletingSwipeTx },
+          { label: 'Delete', variant: 'destructive', onPress: handleConfirmSwipeDelete, loading: deletingSwipeTx },
+        ]}
       />
       <MessageDialog
         dialog={messageDialog}
