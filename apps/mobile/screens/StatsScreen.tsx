@@ -1047,7 +1047,7 @@ function BudgetSheet({
       <Sheet
         visible={visible}
         onClose={onClose}
-        heightFraction={0.5}
+        heightFraction={0.72}
         header={(
           <View style={bs.header}>
             <Text style={bs.title}>{editing ? 'Edit Budget' : 'Add Budget'}</Text>
