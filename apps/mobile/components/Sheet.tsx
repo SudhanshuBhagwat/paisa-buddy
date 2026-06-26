@@ -129,6 +129,8 @@ export function Sheet({ visible, onClose, onOpen, onClosed, header, children, he
       }
     })
 
+  if (!visible && !localVisible) return null
+
   return (
     <Modal
       visible={localVisible}

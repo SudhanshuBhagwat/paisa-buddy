@@ -8,11 +8,14 @@ import { getCategoryColors } from '../repositories/categoryRepository'
 import {
   getAll,
   getByMonth,
-  getByMonths,
+  getMonthlyTransactionTotals,
   getMonthlySpends,
   getCategorySpendsByMonth,
+  getPendingReviewCount,
+  getRecentTransactions,
   getTotalCount,
   getUnreviewed,
+  type MonthlyTransactionTotals,
   type MonthlySpend,
 } from '../repositories/transactionRepository'
 import { listPlans } from '../repositories/planRepository'
@@ -27,7 +30,7 @@ import {
   type ImportHistoryItem,
   type ImportSession,
 } from '../repositories/importRepository'
-import { addMonths } from '@paisa-buddy/shared/logic/date'
+import { addMonths, toYearMonth } from '@paisa-buddy/shared/logic/date'
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import type { BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
@@ -53,13 +56,18 @@ export async function getReviewData(): Promise<ReviewData> {
 
 export async function getHomeData(): Promise<{
   transactions: Transaction[]
+  monthlyTotals: MonthlyTransactionTotals
+  pendingReviewCount: number
   accounts: Account[]
   settings: { display_name: string | null; expected_monthly_income: number | null }
   categoryColors: Record<string, string>
   reviewSession: ReviewSession | null
 }> {
-  const [transactions, accounts, settings, categoryColors, reviewSession] = await Promise.all([
-    getAll(),
+  const month = toYearMonth(new Date())
+  const [transactions, monthlyTotals, pendingReviewCount, accounts, settings, categoryColors, reviewSession] = await Promise.all([
+    getRecentTransactions(5),
+    getMonthlyTransactionTotals(month),
+    getPendingReviewCount(),
     listAccounts(),
     getAllSettings(),
     getCategoryColors(),
@@ -67,6 +75,8 @@ export async function getHomeData(): Promise<{
   ])
   return {
     transactions,
+    monthlyTotals,
+    pendingReviewCount,
     accounts,
     settings: {
       display_name: settings.displayName,
@@ -79,31 +89,19 @@ export async function getHomeData(): Promise<{
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
-export type TransactionMonthData = {
-  transactions: Transaction[]
+export type TransactionSupportData = {
   monthlySpends: MonthlySpend[]
   accounts: Account[]
   categoryColors: Record<string, string>
 }
 
-export async function getTransactionMonthData(month: string): Promise<TransactionMonthData> {
-  const [transactions, monthlySpends, accounts, categoryColors] = await Promise.all([
-    getByMonth(month),
+export async function getTransactionSupportData(): Promise<TransactionSupportData> {
+  const [monthlySpends, accounts, categoryColors] = await Promise.all([
     getMonthlySpends(),
     listAccounts(),
     getCategoryColors(),
   ])
-  return { transactions, monthlySpends, accounts, categoryColors }
-}
-
-export async function getTransactionMonthsData(months: string[]): Promise<TransactionMonthData> {
-  const [transactions, monthlySpends, accounts, categoryColors] = await Promise.all([
-    getByMonths(months),
-    getMonthlySpends(),
-    listAccounts(),
-    getCategoryColors(),
-  ])
-  return { transactions, monthlySpends, accounts, categoryColors }
+  return { monthlySpends, accounts, categoryColors }
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────

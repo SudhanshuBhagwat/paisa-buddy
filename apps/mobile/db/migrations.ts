@@ -230,6 +230,28 @@ async function migration008CategoryIconColumn(db: SQLiteDatabase): Promise<void>
   }
 }
 
+async function migration009FinanceQueryIndexes(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_transactions_category
+      ON transactions(category);
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_type_date
+      ON transactions(type, date);
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_category_type_date
+      ON transactions(category, type, date);
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_reviewed_date
+      ON transactions(reviewed, date);
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_account_reviewed
+      ON transactions(account_id, reviewed);
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_to_account_reviewed
+      ON transactions(to_account_id, reviewed);
+  `)
+}
+
 const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
@@ -239,6 +261,7 @@ const MIGRATIONS = [
   { version: 6, up: migration006ImportReviewSessions },
   { version: 7, up: migration007DefaultLaunchCategories },
   { version: 8, up: migration008CategoryIconColumn },
+  { version: 9, up: migration009FinanceQueryIndexes },
 ]
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo, useCallback, useMemo } from 'react'
 import {
   Pressable,
   ScrollView,
@@ -55,7 +55,7 @@ function buildMonthOptions(selectedMonth: string, monthlySpends: Record<string, 
   }))
 }
 
-export function MonthSelectionSheet({
+export const MonthSelectionSheet = memo(function MonthSelectionSheet({
   visible,
   selectedMonth,
   selectedPreset,
@@ -64,29 +64,75 @@ export function MonthSelectionSheet({
   onSelectMonth,
   onSelectPreset,
 }: MonthSelectionSheetProps) {
-  const thisMonth = toYearMonth(new Date())
-  const lastMonth = addMonths(thisMonth, -1)
-  const sections = buildMonthOptions(selectedMonth, monthlySpends)
-  const checkedMonths = selectedPreset === 'last-3-months'
-    ? new Set([selectedMonth, addMonths(selectedMonth, -1), addMonths(selectedMonth, -2)])
-    : new Set([selectedMonth])
-
-  function selectMonth(month: string) {
-    onSelectMonth(month)
-    onClose()
-  }
-
-  function selectPreset(preset: MonthPreset, month?: string) {
-    onSelectPreset?.(preset)
-    if (month) selectMonth(month)
-    else onClose()
-  }
-
-  const quickOptions: { key: MonthPreset; title: string; month?: string }[] = [
+  const thisMonth = useMemo(() => toYearMonth(new Date()), [])
+  const lastMonth = useMemo(() => addMonths(thisMonth, -1), [thisMonth])
+  const sections = useMemo(
+    () => buildMonthOptions(selectedMonth, monthlySpends),
+    [monthlySpends, selectedMonth],
+  )
+  const checkedMonths = useMemo(() => (
+    selectedPreset === 'last-3-months'
+      ? new Set([selectedMonth, addMonths(selectedMonth, -1), addMonths(selectedMonth, -2)])
+      : new Set([selectedMonth])
+  ), [selectedMonth, selectedPreset])
+  const quickOptions = useMemo<Array<{ key: MonthPreset; title: string; month?: string }>>(() => [
     { key: 'this-month', title: 'This Month', month: thisMonth },
     { key: 'last-month', title: 'Last Month', month: lastMonth },
     ...(onSelectPreset ? [{ key: 'last-3-months' as const, title: 'Last 3 Months' }] : []),
-  ]
+  ], [lastMonth, onSelectPreset, thisMonth])
+
+  const selectMonth = useCallback((month: string) => {
+    onSelectMonth(month)
+    onClose()
+  }, [onClose, onSelectMonth])
+
+  const selectPreset = useCallback((preset: MonthPreset, month?: string) => {
+    onSelectPreset?.(preset)
+    if (month) selectMonth(month)
+    else onClose()
+  }, [onClose, onSelectPreset, selectMonth])
+  const quickOptionRows = useMemo(() => quickOptions.map((option) => {
+    const selected = selectedPreset === option.key
+    return (
+      <Pressable
+        key={option.key}
+        style={[s.quickTile, selected && s.quickTileSelected]}
+        onPress={() => selectPreset(option.key, option.month)}
+      >
+        <Text style={[s.quickTitle, selected && s.quickTitleSelected]} numberOfLines={2}>{option.title}</Text>
+      </Pressable>
+    )
+  }), [quickOptions, selectPreset, selectedPreset])
+  const monthSectionRows = useMemo(() => sections.map((section) => (
+    <View key={section.year} style={s.monthSection}>
+      <Text style={s.yearTitle}>{section.year}</Text>
+      <View style={s.monthList}>
+        {section.months.map((month, idx) => {
+          const selected = checkedMonths.has(month)
+          const spends = monthlySpends[month] ?? 0
+          return (
+            <Pressable
+              key={month}
+              style={[s.monthRow, idx < section.months.length - 1 && s.monthRowBorder]}
+              onPress={() => selectMonth(month)}
+            >
+              <Text style={s.monthLabel}>{formatMonthLabel(month)}</Text>
+              <View style={s.monthRight}>
+                <Text style={s.spendText}>{formatAmount(spends)}</Text>
+                <View style={s.tickSlot}>
+                  {selected ? (
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M20 6 9 17l-5-5" />
+                    </Svg>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )), [checkedMonths, monthlySpends, sections, selectMonth])
 
   return (
     <Sheet
@@ -108,57 +154,17 @@ export function MonthSelectionSheet({
         <View style={s.quickSection}>
           <Text style={s.sectionTitle}>Quick Select</Text>
           <View style={s.quickRow}>
-            {quickOptions.map((option) => {
-              const selected = selectedPreset === option.key
-              return (
-                <Pressable
-                  key={option.key}
-                  style={[s.quickTile, selected && s.quickTileSelected]}
-                  onPress={() => selectPreset(option.key, option.month)}
-                >
-                  <Text style={[s.quickTitle, selected && s.quickTitleSelected]} numberOfLines={2}>{option.title}</Text>
-                </Pressable>
-              )
-            })}
+            {quickOptionRows}
           </View>
         </View>
 
         <View style={s.monthSections}>
-          {sections.map((section) => (
-            <View key={section.year} style={s.monthSection}>
-              <Text style={s.yearTitle}>{section.year}</Text>
-              <View style={s.monthList}>
-                {section.months.map((month, idx) => {
-                  const selected = checkedMonths.has(month)
-                  const spends = monthlySpends[month] ?? 0
-                  return (
-                    <Pressable
-                      key={month}
-                      style={[s.monthRow, idx < section.months.length - 1 && s.monthRowBorder]}
-                      onPress={() => selectMonth(month)}
-                    >
-                      <Text style={s.monthLabel}>{formatMonthLabel(month)}</Text>
-                      <View style={s.monthRight}>
-                        <Text style={s.spendText}>{formatAmount(spends)}</Text>
-                        <View style={s.tickSlot}>
-                          {selected ? (
-                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.brand} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                              <Path d="M20 6 9 17l-5-5" />
-                            </Svg>
-                          ) : null}
-                        </View>
-                      </View>
-                    </Pressable>
-                  )
-                })}
-              </View>
-            </View>
-          ))}
+          {monthSectionRows}
         </View>
       </ScrollView>
     </Sheet>
   )
-}
+})
 
 const s = StyleSheet.create({
   headerWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },

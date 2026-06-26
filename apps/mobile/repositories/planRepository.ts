@@ -1,5 +1,6 @@
 import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
+import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { Budget, BudgetWithSpent } from '@paisa-buddy/shared/types/budget'
 
 type PlanRow = {
@@ -24,6 +25,8 @@ function rowToBudgetWithSpent(row: PlanRow): BudgetWithSpent {
 
 export async function listPlans(month: string): Promise<BudgetWithSpent[]> {
   const db = getDb()
+  const start = `${month}-01`
+  const end = `${addMonths(month, 1)}-01`
   const rows = await db.getAllAsync<PlanRow>(
     `SELECT p.*,
        COALESCE((
@@ -31,11 +34,12 @@ export async function listPlans(month: string): Promise<BudgetWithSpent[]> {
          FROM transactions t
          WHERE t.category = p.category
            AND t.type = 'debit'
-           AND t.date LIKE ? || '%'
+           AND t.date >= ?
+           AND t.date < ?
        ), 0) AS spent
      FROM plans p
      ORDER BY p.created_at ASC`,
-    [month],
+    [start, end],
   )
   return rows.map(rowToBudgetWithSpent)
 }

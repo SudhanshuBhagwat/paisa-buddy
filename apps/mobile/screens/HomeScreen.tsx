@@ -26,21 +26,17 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import type { Transaction } from '@paisa-buddy/shared/types/transaction'
 import type { Account } from '@paisa-buddy/shared/types/account'
 import type { ReviewSession } from '../repositories/reviewSessionRepository'
-import {
-  calcSummary,
-  getMonthTransactions,
-} from '@paisa-buddy/shared/logic/transaction'
 import { formatAmount } from '@paisa-buddy/shared/logic/amount'
-import {
-  toYearMonth,
-} from '@paisa-buddy/shared/logic/date'
 import { C, F, RADIUS } from '../lib/tokens'
 import { getHomeData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
+import type { MonthlyTransactionTotals } from '../repositories/transactionRepository'
 
 type HomeData = {
   transactions: Transaction[]
+  monthlyTotals: MonthlyTransactionTotals
+  pendingReviewCount: number
   accounts: Account[]
   settings: { display_name: string | null; expected_monthly_income: number | null }
   categoryColors: Record<string, string>
@@ -214,7 +210,6 @@ export function HomeScreen() {
   const route = useRoute<RouteProp<MainTabParamList, 'Home'>>()
   const queryClient = useQueryClient()
   const handledInitialAction = useRef(false)
-  const month = toYearMonth(new Date())
   const homeQuery = useQuery({
     queryKey: queryKeys.home,
     queryFn: getHomeData,
@@ -238,6 +233,8 @@ export function HomeScreen() {
   }, [navigation, route.params?.initialAction])
 
   const allTxs = homeQuery.data?.transactions ?? []
+  const monthlyTotals = homeQuery.data?.monthlyTotals ?? { income: 0, expense: 0, transfer: 0, balance: 0 }
+  const pendingReviewCount = homeQuery.data?.pendingReviewCount ?? 0
   const accounts = homeQuery.data?.accounts ?? []
   const settings = homeQuery.data?.settings ?? null
   const catColors = homeQuery.data?.categoryColors ?? {}
@@ -255,8 +252,7 @@ export function HomeScreen() {
   }
 
   // ─── Derived state ──────────────────────────────────────────────────────────
-  const monthTxs = getMonthTransactions(allTxs, month)
-  const { income, expense, balance } = calcSummary(monthTxs)
+  const { income, expense, balance } = monthlyTotals
   const expectedIncome = settings?.expected_monthly_income ?? 0
   const hasIncomeTarget = expectedIncome > 0
   const displayBalance = hasIncomeTarget ? expectedIncome - expense : balance
@@ -270,10 +266,9 @@ export function HomeScreen() {
       : displayBalance / expectedIncome < 0.05 ? 'neutral'
       : 'happy'
     : displayBalance < 0 ? 'sad' : displayBalance === 0 ? 'neutral' : 'happy'
-  const pendingCount = allTxs.filter((t) => !t.reviewed).length
   const reviewRemaining = reviewSession
-    ? Math.max(reviewSession.total_count - reviewSession.review_progress, pendingCount)
-    : pendingCount
+    ? Math.max(reviewSession.total_count - reviewSession.review_progress, pendingReviewCount)
+    : pendingReviewCount
   const now = new Date()
   const firstName = settings?.display_name?.split(' ')[0] ?? null
   const dayGreeting = getDayGreeting(now)

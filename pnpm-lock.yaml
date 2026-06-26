@@ -53,9 +53,6 @@ importers:
       expo-font:
         specifier: ^56.0.7
         version: 56.0.7(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
-      expo-secure-store:
-        specifier: ~14.0.0
-        version: 14.0.0(expo@54.0.35)
       expo-sqlite:
         specifier: ^56.0.5
         version: 56.0.5(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
@@ -5343,14 +5340,6 @@ packages:
       invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.0)(react@19.1.0)
-    dev: false
-
-  /expo-secure-store@14.0.0(expo@54.0.35):
-    resolution: {integrity: sha512-VyhtRFXP+7hQmHhKlHIOWid1Q/IRpM7Uif32tZHLZHvQ6FNz2cUkr26XWGvCa7btYbrR6OL++FBFZYjbIcRZTw==}
-    peerDependencies:
-      expo: '*'
-    dependencies:
-      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.8.2)
     dev: false
 
   /expo-server@1.0.7:

@@ -6,7 +6,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { isSetupComplete } from '../repositories/settingsRepository'
-import { getAccounts, getHomeData, getReviewData, getSettingsData, getStatsData } from '../lib/data'
+import { getHomeData } from '../lib/data'
 import { queryKeys } from '../lib/query'
 import { CustomBottomNav } from './BottomNav'
 import { SetupScreen } from '../screens/SetupScreen'
@@ -23,7 +23,6 @@ import { BackupRestoreScreen } from '../screens/BackupRestoreScreen'
 import { StorageScreen } from '../screens/StorageScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { ImportHistoryScreen } from '../screens/ImportHistoryScreen'
-import { toYearMonth } from '@paisa-buddy/shared/logic/date'
 import { SetupCompleteCtx, SetupResetCtx } from './setupContext'
 import type { MainTabParamList, RootStackParamList, SetupStartAction } from './types'
 
@@ -49,15 +48,7 @@ function MainDataPrefetcher() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const month = toYearMonth(new Date())
-
-    void Promise.allSettled([
-      queryClient.prefetchQuery({ queryKey: queryKeys.home, queryFn: getHomeData }),
-      queryClient.prefetchQuery({ queryKey: queryKeys.review, queryFn: getReviewData }),
-      queryClient.prefetchQuery({ queryKey: queryKeys.accounts, queryFn: getAccounts }),
-      queryClient.prefetchQuery({ queryKey: queryKeys.settings, queryFn: getSettingsData }),
-      queryClient.prefetchQuery({ queryKey: queryKeys.stats(month), queryFn: () => getStatsData(month) }),
-    ])
+    void queryClient.prefetchQuery({ queryKey: queryKeys.home, queryFn: getHomeData })
   }, [queryClient])
 
   return null

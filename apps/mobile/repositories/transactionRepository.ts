@@ -1,5 +1,6 @@
 import { generateId } from '../lib/id'
 import { getDb } from '../db/database'
+import { addMonths } from '@paisa-buddy/shared/logic/date'
 import type { CategorySource, DuplicateStatus, Transaction, TransactionType } from '@paisa-buddy/shared/types/transaction'
 
 type TxRow = {
@@ -66,6 +67,10 @@ function rowToTransaction(row: TxRow): Transaction {
     investment_id: null,
     created_at: row.created_at,
   }
+}
+
+function monthRange(month: string): { start: string; end: string } {
+  return { start: `${month}-01`, end: `${addMonths(month, 1)}-01` }
 }
 
 export type TxInput = {
@@ -213,9 +218,10 @@ export async function getTransactionById(id: string): Promise<Transaction | null
 
 export async function getByMonth(month: string): Promise<Transaction[]> {
   const db = getDb()
+  const { start, end } = monthRange(month)
   const rows = await db.getAllAsync<TxRow>(
-    "SELECT * FROM transactions WHERE date LIKE ? ORDER BY date DESC, time DESC, created_at DESC",
-    [`${month}-%`],
+    'SELECT * FROM transactions WHERE date >= ? AND date < ? ORDER BY date DESC, time DESC, created_at DESC',
+    [start, end],
   )
   return rows.map(rowToTransaction)
 }
@@ -225,10 +231,11 @@ export async function getByMonths(months: string[]): Promise<Transaction[]> {
   if (uniqueMonths.length === 0) return []
 
   const db = getDb()
-  const clauses = uniqueMonths.map(() => 'date LIKE ?').join(' OR ')
+  const ranges = uniqueMonths.map(monthRange)
+  const clauses = ranges.map(() => '(date >= ? AND date < ?)').join(' OR ')
   const rows = await db.getAllAsync<TxRow>(
     `SELECT * FROM transactions WHERE ${clauses} ORDER BY date DESC, time DESC, created_at DESC`,
-    uniqueMonths.map((month) => `${month}-%`),
+    ranges.flatMap(({ start, end }) => [start, end]),
   )
   return rows.map(rowToTransaction)
 }
@@ -239,6 +246,57 @@ export async function getUnreviewed(): Promise<Transaction[]> {
     'SELECT * FROM transactions WHERE reviewed = 0 ORDER BY date DESC, created_at DESC',
   )
   return rows.map(rowToTransaction)
+}
+
+export async function getRecentTransactions(limit: number = 5): Promise<Transaction[]> {
+  const db = getDb()
+  const rows = await db.getAllAsync<TxRow>(
+    `SELECT * FROM transactions
+     WHERE reviewed = 1
+     ORDER BY date DESC, time DESC, created_at DESC
+     LIMIT ?`,
+    [limit],
+  )
+  return rows.map(rowToTransaction)
+}
+
+export type MonthlyTransactionTotals = {
+  income: number
+  expense: number
+  transfer: number
+  balance: number
+}
+
+export async function getMonthlyTransactionTotals(month: string): Promise<MonthlyTransactionTotals> {
+  const db = getDb()
+  const { start, end } = monthRange(month)
+  const row = await db.getFirstAsync<{
+    income: number | null
+    expense: number | null
+    transfer: number | null
+  }>(
+    `SELECT
+       SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
+       SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
+       SUM(CASE WHEN type = 'transfer' THEN amount ELSE 0 END) AS transfer
+     FROM transactions
+     WHERE reviewed = 1
+       AND date >= ?
+       AND date < ?`,
+    [start, end],
+  )
+  const income = row?.income ?? 0
+  const expense = row?.expense ?? 0
+  const transfer = row?.transfer ?? 0
+  return { income, expense, transfer, balance: income - expense }
+}
+
+export async function getPendingReviewCount(): Promise<number> {
+  const db = getDb()
+  const row = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM transactions WHERE reviewed = 0',
+  )
+  return row?.count ?? 0
 }
 
 export type MonthlySpend = { month: string; spent: number }
@@ -258,13 +316,17 @@ export async function getMonthlySpends(limitMonths: number = 12): Promise<Monthl
 
 export async function getCategorySpendsByMonth(month: string): Promise<Array<{ category: string; total: number }>> {
   const db = getDb()
+  const { start, end } = monthRange(month)
   return db.getAllAsync(
     `SELECT category, SUM(amount) AS total
      FROM transactions
-     WHERE type = 'debit' AND date LIKE ? AND category IS NOT NULL
+     WHERE type = 'debit'
+       AND date >= ?
+       AND date < ?
+       AND category IS NOT NULL
      GROUP BY category
      ORDER BY total DESC`,
-    [`${month}-%`],
+    [start, end],
   )
 }
 

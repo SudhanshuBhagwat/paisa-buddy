@@ -11,8 +11,6 @@ import {
 } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
 import { File } from 'expo-file-system'
-import * as XLSX from 'xlsx'
-import * as CryptoJS from 'crypto-js'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
@@ -138,7 +136,7 @@ export function ImportStatementScreen({ navigation }: Props) {
     }
 
     const file = new File(uri)
-    const nextHash = hashFile(file)
+    const nextHash = await hashFile(file)
     setFileHash(nextHash)
     if (!skipHashWarning) {
       const existingImport = await findImportSessionByHash(nextHash)
@@ -150,7 +148,7 @@ export function ImportStatementScreen({ navigation }: Props) {
     }
 
     try {
-      if (isExcel(name) && isEncryptedExcel(file)) {
+      if (isExcel(name) && await isEncryptedExcel(file)) {
         setPendingExcel({ name, uri })
         setPassword('')
         setPasswordError('')
@@ -631,7 +629,9 @@ function isExcel(fileName: string): boolean {
   return lower.endsWith('.xlsx') || lower.endsWith('.xls')
 }
 
-function hashFile(file: File): string {
+async function hashFile(file: File): Promise<string> {
+  const cryptoModule = await import('crypto-js')
+  const CryptoJS = cryptoModule.default ?? cryptoModule
   return CryptoJS.SHA256(file.base64Sync()).toString(CryptoJS.enc.Hex)
 }
 
@@ -694,8 +694,10 @@ function waitForUiFrame(): Promise<void> {
 }
 
 async function parseExcelFile(file: File, password?: string): Promise<ParsedImport> {
+  const xlsxModule = await import('xlsx')
+  const XLSX = xlsxModule.default ?? xlsxModule
   const bytes = file.bytesSync()
-  const workbookBytes = password && isAgileEncryptedExcel(bytes)
+  const workbookBytes = password && await isAgileEncryptedExcel(bytes)
     ? await decryptAgileExcel(bytes, password)
     : null
   const workbook = workbookBytes
@@ -709,7 +711,7 @@ async function parseExcelFile(file: File, password?: string): Promise<ParsedImpo
   return parseSpreadsheetRows(rows, 'xlsx')
 }
 
-function isEncryptedExcel(file: File): boolean {
+function isEncryptedExcel(file: File): Promise<boolean> {
   return isAgileEncryptedExcel(file.bytesSync())
 }
 
