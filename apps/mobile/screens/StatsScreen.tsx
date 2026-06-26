@@ -29,6 +29,7 @@ import { Sheet } from '../components/Sheet'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
+import { SwipeableRow } from '../components/SwipeableRow'
 import type { MainTabParamList } from '../navigation/types'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
@@ -611,10 +612,12 @@ const dc = StyleSheet.create({
 function BudgetBar({
   budget,
   onEdit,
+  onDelete,
   isLast,
 }: {
   budget: BudgetWithSpent
   onEdit: () => void
+  onDelete: () => void
   isLast: boolean
 }) {
   const pct = budgetProgress(budget.spent, budget.amount)
@@ -624,30 +627,32 @@ function BudgetBar({
   const statusLabel = overBudget ? 'Over Budget' : 'On Track'
 
   return (
-    <Pressable style={[bb.row, !isLast && bb.rowBorder]} onPress={onEdit}>
-      <View style={bb.header}>
-        <CategoryIcon category={budget.category} size={18} circleSize={32} />
-        <View style={bb.headerMain}>
-          <View style={bb.headerRow}>
-            <View style={bb.titleButton}>
-              <Text style={bb.catName} numberOfLines={1}>{budget.category}</Text>
+    <SwipeableRow actionLabel="Delete" onAction={onDelete}>
+      <Pressable style={[bb.row, !isLast && bb.rowBorder]} onPress={onEdit}>
+        <View style={bb.header}>
+          <CategoryIcon category={budget.category} size={18} circleSize={32} />
+          <View style={bb.headerMain}>
+            <View style={bb.headerRow}>
+              <View style={bb.titleButton}>
+                <Text style={bb.catName} numberOfLines={1}>{budget.category}</Text>
+              </View>
+              <Text style={bb.amounts} numberOfLines={1}>{formatAmount(budget.spent)} of {formatAmount(budget.amount)}</Text>
             </View>
-            <Text style={bb.amounts} numberOfLines={1}>{formatAmount(budget.spent)} of {formatAmount(budget.amount)}</Text>
+            <View style={bb.progressRow}>
+              <View style={bb.track}>
+                <View style={[bb.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+              </View>
+              <Text style={[bb.pctText, { color: barColor }]}>{pctLabel}</Text>
+            </View>
           </View>
-          <View style={bb.progressRow}>
-            <View style={bb.track}>
-              <View style={[bb.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+          <View style={bb.statusCol}>
+            <View style={[bb.statusPill, { backgroundColor: overBudget ? '#FEE2E2' : C.brandPale }]}>
+              <Text style={[bb.statusText, { color: barColor }]} numberOfLines={1}>{statusLabel}</Text>
             </View>
-            <Text style={[bb.pctText, { color: barColor }]}>{pctLabel}</Text>
           </View>
         </View>
-        <View style={bb.statusCol}>
-          <View style={[bb.statusPill, { backgroundColor: overBudget ? '#FEE2E2' : C.brandPale }]}>
-            <Text style={[bb.statusText, { color: barColor }]} numberOfLines={1}>{statusLabel}</Text>
-          </View>
-        </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </SwipeableRow>
   )
 }
 
@@ -718,7 +723,7 @@ const bb = StyleSheet.create({
   row: { backgroundColor: C.surface },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },
   header: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  headerMain: { flex: 1, gap: 10 },
+  headerMain: { flex: 1, gap: 6 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   titleButton: { flex: 1, minWidth: 0 },
   catName: { fontSize: 14, fontFamily: F.semibold, color: C.ink },
@@ -731,10 +736,10 @@ const bb = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: { fontSize: 10.5, fontFamily: F.bold },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
-  pctText: { width: 38, fontSize: 12, fontFamily: F.monoBold, textAlign: 'right' },
+  pctText: { fontSize: 12, fontFamily: F.monoBold, flexShrink: 0 },
 })
 
 // ─── Tab switcher ──────────────────────────────────────────────────────────────
@@ -1374,6 +1379,8 @@ export function StatsScreen() {
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null)
+  const [deleteConfirmBudget, setDeleteConfirmBudget] = useState<BudgetWithSpent | null>(null)
+  const [deletingSwipeBudget, setDeletingSwipeBudget] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const data = statsQuery.data ?? null
@@ -1461,6 +1468,19 @@ export function StatsScreen() {
     queryClient.invalidateQueries({ queryKey: queryKeys.stats() })
     setBudgetSheetOpen(false)
     setEditingBudget(null)
+  }
+
+  async function handleConfirmSwipeBudgetDelete() {
+    if (!deleteConfirmBudget) return
+    setDeletingSwipeBudget(true)
+    try {
+      await handleDeleteBudget(deleteConfirmBudget)
+      setDeleteConfirmBudget(null)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete budget.' })
+    } finally {
+      setDeletingSwipeBudget(false)
+    }
   }
 
   return (
@@ -1598,6 +1618,7 @@ export function StatsScreen() {
                         key={b.id}
                         budget={b}
                         onEdit={() => openEdit(b)}
+                        onDelete={() => setDeleteConfirmBudget(b)}
                         isLast={idx === budgets.length - 1}
                       />
                     ))}
@@ -1638,6 +1659,16 @@ export function StatsScreen() {
         allCategories={allCategories}
         onSaved={handleBudgetSaved}
         onDelete={handleDeleteBudget}
+      />
+      <Dialog
+        visible={!!deleteConfirmBudget}
+        onClose={() => { if (!deletingSwipeBudget) setDeleteConfirmBudget(null) }}
+        title="Delete budget?"
+        message="This cannot be undone."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setDeleteConfirmBudget(null), disabled: deletingSwipeBudget },
+          { label: 'Delete', variant: 'destructive', onPress: handleConfirmSwipeBudgetDelete, loading: deletingSwipeBudget },
+        ]}
       />
       <MessageDialog
         dialog={messageDialog}
