@@ -1,5 +1,5 @@
 import React from 'react'
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native'
+import { Pressable, type AccessibilityRole, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import { M } from '../lib/motion'
 import { haptics } from '../lib/haptics'
@@ -16,6 +16,7 @@ type Props = {
   disabled?: boolean
   children: React.ReactNode
   hitSlop?: number | { top?: number; bottom?: number; left?: number; right?: number }
+  accessibilityRole?: AccessibilityRole
   accessibilityLabel?: string
   testID?: string
 }
@@ -30,6 +31,7 @@ export function PressableScale({
   disabled,
   children,
   hitSlop,
+  accessibilityRole,
   accessibilityLabel,
   testID,
 }: Props) {
@@ -50,6 +52,7 @@ export function PressableScale({
       }}
       disabled={disabled}
       hitSlop={hitSlop}
+      accessibilityRole={accessibilityRole ?? 'button'}
       accessibilityLabel={accessibilityLabel}
       testID={testID}
       style={style}

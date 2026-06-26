@@ -69,6 +69,23 @@ export function Sheet({
     return () => { show.remove(); hide.remove() }
   }, [])
 
+  const keyboardHeight = useSharedValue(0)
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const show = Keyboard.addListener(showEvent, (e) => {
+      keyboardHeight.value = withTiming(e.endCoordinates.height, {
+        duration: Platform.OS === 'ios' ? (e.duration ?? 250) : 180,
+      })
+    })
+    const hide = Keyboard.addListener(hideEvent, (e) => {
+      keyboardHeight.value = withTiming(0, {
+        duration: Platform.OS === 'ios' ? (e.duration ?? 250) : 180,
+      })
+    })
+    return () => { show.remove(); hide.remove() }
+  }, [keyboardHeight])
+
   // Used by the gesture path: animation already done, just hide + notify
   const hideAfterGesture = useCallback(() => {
     setLocalVisible(false)
@@ -110,9 +127,15 @@ export function Sheet({
     opacity: backdropOpacity.value,
   }))
 
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }))
+  // Cap upward shift so sheet never goes above safe area + 8px gap
+  const maxKbdShift = Math.max(0, screenHeight - sheetHeight - insets.top - 8)
+
+  const sheetStyle = useAnimatedStyle(() => {
+    const kbdShift = Math.min(keyboardHeight.value, maxKbdShift)
+    return {
+      transform: [{ translateY: translateY.value - kbdShift }],
+    }
+  })
 
   const renderedHeader = header ?? (title ? (
     <View style={s.actionHeader}>

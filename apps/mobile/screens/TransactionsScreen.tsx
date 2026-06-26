@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -94,6 +94,8 @@ function TxItem({
         onPressOut={() => { scale.value = withTiming(1, { duration: 120 }) }}
       onPress={() => { haptics.lightImpact(); onPress() }}
       android_ripple={{ color: C.line }}
+      accessibilityRole="button"
+      accessibilityLabel={`${tx.merchant || tx.description || 'Transaction'}, ${tx.type === 'credit' ? 'Income' : tx.type === 'debit' ? 'Expense' : 'Transfer'} ${formatAmount(tx.amount)}${tx.category ? `, ${tx.category}` : ''}`}
     >
       <Animated.View style={[ti.row, animStyle]}>
         <CategoryIcon category={tx.category} colorMap={catColors} size={18} circleSize={34} />
@@ -157,6 +159,9 @@ const TypePills = memo(function TypePills({ value, onChange }: { value: TypeFilt
             key={filter.value}
             onPress={() => { haptics.selection(); onChange(filter.value) }}
             style={tp.pill}
+            accessibilityRole="button"
+            accessibilityLabel={filter.label}
+            accessibilityState={{ selected: active }}
           >
             <Text style={[tp.text, active && tp.textActive]}>{filter.label}</Text>
           </Pressable>
@@ -499,9 +504,10 @@ export function TransactionsScreen() {
       .filter((tx) => tx.type === 'debit')
       .reduce((total, tx) => total + tx.amount, 0)
   ), [monthTxs])
+  const deferredSearch = useDeferredValue(searchQuery)
   const selectedType = useMemo(() => transactionTypeForFilter(typeFilter), [typeFilter])
   const filteredTxs = useMemo(() => filterTransactions(monthTxs, {
-    search: searchQuery,
+    search: deferredSearch,
     type: selectedType,
     category: selectedCategory,
     account: selectedAccount,

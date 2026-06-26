@@ -1,10 +1,7 @@
 import { Platform } from 'react-native'
 import * as Haptics from 'expo-haptics'
 
-const HAPTICS_ENABLED = true
-
 function safe(fn: () => Promise<void>): void {
-  if (!HAPTICS_ENABLED) return
   void fn().catch((e) => {
     if (__DEV__) console.warn('[haptics] error', e)
   })

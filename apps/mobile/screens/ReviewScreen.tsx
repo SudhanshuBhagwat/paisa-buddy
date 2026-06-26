@@ -686,6 +686,9 @@ export function ReviewScreen({ navigation }: Props) {
                           isSuggested && s.catPillSuggested,
                         ]}
                         onPress={() => setPendingCategory(cat)}
+                        accessibilityRole="button"
+                        accessibilityLabel={cat}
+                        accessibilityState={{ selected: isSelected }}
                       >
                         <CategoryIcon category={cat} colorMap={catColors} size={11} circleSize={20} />
                         <Text style={[s.catPillText, isSelected && { color, fontFamily: F.semibold }]}>{cat}</Text>
@@ -707,6 +710,9 @@ export function ReviewScreen({ navigation }: Props) {
                         key={account.id}
                         style={[s.catPill, isSelected && s.accountPillSelected]}
                         onPress={() => setPendingAccountId(account.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={account.name}
+                        accessibilityState={{ selected: isSelected }}
                       >
                         <View style={[s.catPillDot, { backgroundColor: isSelected ? C.brand : C.ink3 }]} />
                         <Text style={[s.catPillText, isSelected && { color: C.brand, fontFamily: F.semibold }]}>{account.name}</Text>
@@ -775,7 +781,13 @@ export function ReviewScreen({ navigation }: Props) {
                     const tColor = TYPE_COLOR[tx.type]
                     const accountName = accounts.find((a) => a.id === tx.account_id)?.name
                     return (
-                      <Pressable key={tx.id} style={[s.row, i > 0 && s.rowBorder]} onPress={() => openSheet(tx, 'individual')}>
+                      <Pressable
+                        key={tx.id}
+                        style={[s.row, i > 0 && s.rowBorder]}
+                        onPress={() => openSheet(tx, 'individual')}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${displayNameForTx(tx)}, ${tx.type === 'credit' ? 'Income' : tx.type === 'debit' ? 'Expense' : 'Transfer'} ${formatAmount(tx.amount)}${tx.category ? `, ${tx.category}` : ', needs review'}`}
+                      >
                         <View style={s.rowBody}>
                           <Text style={s.rowMerchant} numberOfLines={1}>{displayNameForTx(tx)}</Text>
                           <View style={s.rowChips}>

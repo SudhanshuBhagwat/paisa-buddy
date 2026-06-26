@@ -13,13 +13,14 @@ import {
 } from '../lib/developerTools'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { BACKUP_SCHEMA_VERSION } from '../repositories/backupRepository'
+import { DB_VERSION } from '../db/migrations'
 import type { RootStackParamList } from '../navigation/types'
 import { C, F, RADIUS } from '../lib/tokens'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 const APP_VERSION = '1.0.0'
-const DATABASE_VERSION = 9
+const DATABASE_VERSION = DB_VERSION
 const PARSER_VERSION = 'description-parser-v1'
 
 function Row({ label, value }: { label: string; value: string | number }) {

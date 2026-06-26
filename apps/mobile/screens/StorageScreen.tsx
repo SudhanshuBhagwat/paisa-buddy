@@ -7,8 +7,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { getSettingsData } from '../lib/data'
 import { queryKeys } from '../lib/query'
+import { getDb } from '../db/database'
 import type { RootStackParamList } from '../navigation/types'
 import { C, F, RADIUS } from '../lib/tokens'
+
+async function getDbSize(): Promise<number | null> {
+  try {
+    const db = getDb()
+    const [pcRow, psRow] = await Promise.all([
+      db.getFirstAsync<{ page_count: number }>('PRAGMA page_count'),
+      db.getFirstAsync<{ page_size: number }>('PRAGMA page_size'),
+    ])
+    if (pcRow && psRow) return pcRow.page_count * psRow.page_size
+    return null
+  } catch {
+    return null
+  }
+}
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,9 +48,13 @@ export function StorageScreen() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<Nav>()
   const settingsQuery = useQuery({ queryKey: queryKeys.settings, queryFn: getSettingsData })
+  const dbSizeQuery = useQuery({ queryKey: ['dbSize'], queryFn: getDbSize })
   const data = settingsQuery.data?.settings ?? null
-
-  const estimatedSize = formatBytes(JSON.stringify(settingsQuery.data ?? {}).length)
+  const dbSizeBytes = dbSizeQuery.data ?? null
+  const dbSizeLabel = dbSizeBytes !== null ? 'Database size' : 'Estimated database size'
+  const dbSizeValue = dbSizeBytes !== null
+    ? formatBytes(dbSizeBytes)
+    : formatBytes(Math.max(8192, (data?.txCount ?? 0) * 512))
 
   return (
     <View style={s.root}>
@@ -60,7 +79,7 @@ export function StorageScreen() {
               <Divider />
               <Row label="Categories" value={data?.categoryCount ?? 0} />
               <Divider />
-              <Row label="Estimated size" value={estimatedSize} />
+              <Row label={dbSizeLabel} value={dbSizeValue} />
             </View>
             <Text style={s.hint}>
               Your data is stored entirely on this device. Nothing is sent to any server.

@@ -247,6 +247,9 @@ function AccountSheet({
                 key={t}
                 onPress={() => setF('type', t)}
                 style={[af.chip, form.type === t && { backgroundColor: C.brand, borderColor: C.brand }]}
+                accessibilityRole="button"
+                accessibilityLabel={ACCOUNT_TYPE_LABELS[t]}
+                accessibilityState={{ selected: form.type === t }}
               >
                 <Text style={[af.chipText, form.type === t && { color: '#fff' }]}>{ACCOUNT_TYPE_LABELS[t]}</Text>
               </Pressable>
@@ -278,6 +281,11 @@ function AccountSheet({
               placeholderTextColor={C.ink3}
             />
           </View>
+          {isCredit && (
+            <Text style={af.hint}>
+              Outstanding credit card dues are stored as a negative balance.
+            </Text>
+          )}
         </View>
 
         <Pressable
@@ -331,6 +339,7 @@ const af = StyleSheet.create({
   saveText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
   delete: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(219,90,75,0.35)' },
   deleteText: { fontSize: 14, fontFamily: F.semibold, color: C.neg },
+  hint: { fontSize: 11.5, fontFamily: F.regular, color: C.ink3, lineHeight: 17, marginTop: 4 },
 })
 
 // ─── AccountsScreen ────────────────────────────────────────────────────────────

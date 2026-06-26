@@ -7,7 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": false,
+        "NSDocumentsFolderUsageDescription": "Paisa Buddy needs file access to import bank statements and restore backups."
+      }
     },
     "android": {
       "adaptiveIcon": {

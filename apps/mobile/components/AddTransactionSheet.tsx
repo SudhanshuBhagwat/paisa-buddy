@@ -122,6 +122,7 @@ export function AddTransactionSheet({
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [catSearch, setCatSearch] = useState('')
   const [accPickerOpen, setAccPickerOpen] = useState(false)
   const [toAccPickerOpen, setToAccPickerOpen] = useState(false)
 
@@ -130,6 +131,13 @@ export function AddTransactionSheet({
 
   const recentCats = recentCategories.filter((c) => allCategories.includes(c)).slice(0, 3)
   const restCats = allCategories.filter((c) => !recentCats.includes(c))
+  const catSearchKey = catSearch.trim().toLowerCase()
+  const filteredRecentCats = catSearchKey
+    ? recentCats.filter((c) => c.toLowerCase().includes(catSearchKey))
+    : recentCats
+  const filteredRestCats = catSearchKey
+    ? restCats.filter((c) => c.toLowerCase().includes(catSearchKey))
+    : restCats
 
   useEffect(() => {
     if (visible) {
@@ -216,6 +224,7 @@ export function AddTransactionSheet({
         contentContainerStyle={s.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* ── Type selector ── */}
         <TypePicker types={TYPES} active={type} onChange={setType} />
@@ -378,26 +387,40 @@ export function AddTransactionSheet({
       {/* ── Category picker sheet ── */}
       <Sheet
         visible={catPickerOpen}
-        onClose={() => setCatPickerOpen(false)}
+        onClose={() => { setCatPickerOpen(false); setCatSearch('') }}
         heightFraction={0.6}
         header={(
           <View style={s.pickerHeader}>
             <Text style={s.pickerTitle}>Category</Text>
-            <Pressable onPress={() => setCatPickerOpen(false)} hitSlop={8}>
+            <Pressable onPress={() => { setCatPickerOpen(false); setCatSearch('') }} hitSlop={8}>
               <Text style={s.pickerDone}>Done</Text>
             </Pressable>
           </View>
         )}
       >
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.pickerScroll}>
-          {recentCats.length > 0 && (
+          <View style={s.searchWrap}>
+            <TextInput
+              style={s.searchInput}
+              value={catSearch}
+              onChangeText={setCatSearch}
+              placeholder="Search categories"
+              placeholderTextColor={C.ink3}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+          </View>
+          {filteredRecentCats.length > 0 && (
             <>
               <Text style={s.pickerSectionLabel}>RECENT</Text>
-              {recentCats.map((cat) => (
+              {filteredRecentCats.map((cat) => (
                 <Pressable
                   key={`recent-${cat}`}
                   style={s.pickerRow}
-                  onPress={() => { haptics.selection(); setCategory(cat); setCatPickerOpen(false) }}
+                  onPress={() => { haptics.selection(); setCategory(cat); setCatPickerOpen(false); setCatSearch('') }}
+                  accessibilityRole="button"
+                  accessibilityLabel={cat}
+                  accessibilityState={{ selected: category === cat }}
                 >
                   <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
                   <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
@@ -408,12 +431,17 @@ export function AddTransactionSheet({
               ))}
             </>
           )}
-          <Text style={s.pickerSectionLabel}>{recentCats.length > 0 ? 'ALL' : 'CATEGORIES'}</Text>
-          {restCats.map((cat) => (
+          {(catSearchKey ? filteredRestCats.length > 0 || filteredRecentCats.length > 0 : true) && (
+            <Text style={s.pickerSectionLabel}>{filteredRecentCats.length > 0 ? 'ALL' : 'CATEGORIES'}</Text>
+          )}
+          {filteredRestCats.map((cat) => (
             <Pressable
               key={cat}
               style={s.pickerRow}
-              onPress={() => { setCategory(cat); setCatPickerOpen(false) }}
+              onPress={() => { setCategory(cat); setCatPickerOpen(false); setCatSearch('') }}
+              accessibilityRole="button"
+              accessibilityLabel={cat}
+              accessibilityState={{ selected: category === cat }}
             >
               <CategoryIcon category={cat} colorMap={catColors} size={18} circleSize={32} />
               <Text style={[s.pickerRowText, category === cat && { color: activeType.color, fontFamily: F.semibold }]}>
@@ -422,6 +450,9 @@ export function AddTransactionSheet({
               {category === cat && <CheckMark color={activeType.color} />}
             </Pressable>
           ))}
+          {catSearchKey && filteredRecentCats.length === 0 && filteredRestCats.length === 0 && (
+            <Text style={s.pickerEmptyText}>No matching categories</Text>
+          )}
         </ScrollView>
       </Sheet>
 
@@ -606,6 +637,19 @@ const s = StyleSheet.create({
   submitBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   submitBtnText: { fontSize: 14, fontFamily: F.semibold, color: '#fff' },
   btnDisabled: { opacity: 0.4 },
+
+  searchWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
+  searchInput: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.bg,
+    fontSize: 14,
+    fontFamily: F.regular,
+    color: C.ink,
+  },
 
   // Picker sheet header
   pickerHeader: {

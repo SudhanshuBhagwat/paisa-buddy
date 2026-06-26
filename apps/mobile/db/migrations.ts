@@ -252,7 +252,7 @@ async function migration009FinanceQueryIndexes(db: SQLiteDatabase): Promise<void
   `)
 }
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   { version: 1, up: migration001InitialSchema },
   { version: 2, up: migration002SeedCategories },
   { version: 3, up: migration003FixPlansTable },
@@ -263,6 +263,8 @@ const MIGRATIONS = [
   { version: 8, up: migration008CategoryIconColumn },
   { version: 9, up: migration009FinanceQueryIndexes },
 ]
+
+export const DB_VERSION = MIGRATIONS.length
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`

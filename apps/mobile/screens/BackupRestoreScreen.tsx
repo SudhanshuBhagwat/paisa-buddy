@@ -66,6 +66,7 @@ export function BackupRestoreScreen() {
   const data = settingsQuery.data?.settings ?? null
 
   const [exportingBackup, setExportingBackup] = useState(false)
+  const [exportWarningOpen, setExportWarningOpen] = useState(false)
   const [restoringBackup, setRestoringBackup] = useState(false)
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null)
@@ -170,9 +171,10 @@ export function BackupRestoreScreen() {
 
             <PressableScale
               style={[s.actionBtn, exportingBackup && s.disabled]}
-              onPress={handleBackupExport}
+              onPress={() => setExportWarningOpen(true)}
               disabled={exportingBackup}
               scale={0.97}
+              accessibilityLabel="Backup Data"
             >
               <Text style={s.actionText}>{exportingBackup ? 'Backing up…' : 'Backup Data'}</Text>
             </PressableScale>
@@ -182,6 +184,7 @@ export function BackupRestoreScreen() {
               onPress={handleRestoreBackup}
               disabled={restoringBackup}
               scale={0.97}
+              accessibilityLabel="Restore Backup"
             >
               <Text style={s.actionText}>{restoringBackup ? 'Restoring…' : 'Restore Backup'}</Text>
             </PressableScale>
@@ -189,6 +192,23 @@ export function BackupRestoreScreen() {
         )}
       </ScrollView>
 
+      <Dialog
+        visible={exportWarningOpen}
+        onClose={() => setExportWarningOpen(false)}
+        title="Export backup?"
+        message="This backup contains your full financial data. Store it somewhere safe and do not share it publicly."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => setExportWarningOpen(false),
+          },
+          {
+            label: 'Export Backup',
+            onPress: () => { setExportWarningOpen(false); void handleBackupExport() },
+          },
+        ]}
+      />
       <Dialog
         visible={restoreDialogOpen}
         onClose={() => { if (!restoringBackup) setRestoreDialogOpen(false) }}

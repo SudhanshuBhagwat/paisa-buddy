@@ -3,6 +3,7 @@ import { Text, type StyleProp, type TextStyle } from 'react-native'
 import {
   runOnJS,
   useAnimatedReaction,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
@@ -35,12 +36,13 @@ export function AnimatedAmount({
   numberOfLines,
   skipInitialAnimation = false,
 }: AnimatedAmountProps) {
+  const reduceMotion = useReducedMotion()
   const animatedAmount = useSharedValue(0)
   const [displayAmount, setDisplayAmount] = useState(0)
   const hasAnimated = useRef(false)
 
   useEffect(() => {
-    if (hasAnimated.current || skipInitialAnimation) {
+    if (reduceMotion || hasAnimated.current || skipInitialAnimation) {
       setDisplayAmount(amount)
       animatedAmount.value = amount
       return
@@ -50,7 +52,7 @@ export function AnimatedAmount({
     setDisplayAmount(0)
     animatedAmount.value = 0
     animatedAmount.value = withTiming(amount, { duration })
-  }, [amount, animatedAmount, duration, skipInitialAnimation])
+  }, [amount, animatedAmount, duration, skipInitialAnimation, reduceMotion])
 
   useAnimatedReaction(
     () => Math.round(animatedAmount.value),
@@ -63,7 +65,11 @@ export function AnimatedAmount({
   )
 
   return (
-    <Text style={style} numberOfLines={numberOfLines}>
+    <Text
+      style={style}
+      numberOfLines={numberOfLines}
+      accessibilityLabel={formatter(amount)}
+    >
       {formatter(displayAmount)}
     </Text>
   )
