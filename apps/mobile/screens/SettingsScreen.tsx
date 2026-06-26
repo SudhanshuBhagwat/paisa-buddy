@@ -765,14 +765,7 @@ export function SettingsScreen() {
         visible={catSheetOpen}
         onClose={() => { setCatSheetOpen(false); setNewCat(''); setNewCatIcon(null); setNewCatPickerOpen(false); setIconPickerCat(null) }}
         heightFraction={0.82}
-        header={(
-          <View style={[s.sheetHeader, s.sheetHeaderBetween]}>
-            <Text style={s.sheetTitle}>Categories</Text>
-            <Pressable onPress={() => { setCatSheetOpen(false); setNewCat('') }} hitSlop={8}>
-              <Text style={s.sheetDone}>Done</Text>
-            </Pressable>
-          </View>
-        )}
+        title="Categories"
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -1102,7 +1095,6 @@ const s = StyleSheet.create({
 
   // Sheets
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
-  sheetHeaderBetween: { justifyContent: 'space-between' },
   sheetTitle: { fontSize: 17, fontFamily: F.extrabold, color: C.ink },
   sheetDone: { fontSize: 14, fontFamily: F.semibold, color: C.brand },
   sheetContent: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },

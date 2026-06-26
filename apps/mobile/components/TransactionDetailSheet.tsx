@@ -201,14 +201,7 @@ export function TransactionDetailSheet({
       visible={visible}
       onClose={onClose}
       heightFraction={0.88}
-      header={(
-        <View style={s.header}>
-          <Text style={s.headerTitle}>Edit Transaction</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={s.headerCancel}>Cancel</Text>
-          </Pressable>
-        </View>
-      )}
+      title="Edit Transaction"
     >
       <ScrollView
         style={s.scroll}
@@ -605,19 +598,8 @@ export function TransactionDetailSheet({
 }
 
 const s = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTitle: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
-  headerCancel: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
+  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 16 },
 
   amountRow: {
     flexDirection: 'row',

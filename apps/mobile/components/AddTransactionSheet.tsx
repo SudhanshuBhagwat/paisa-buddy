@@ -207,14 +207,7 @@ export function AddTransactionSheet({
       onClose={onClose}
       onOpen={isEdit ? undefined : () => amountRef.current?.focus()}
       heightFraction={0.88}
-      header={(
-        <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>{isEdit ? 'Edit transaction' : 'Add transaction'}</Text>
-          <Pressable onPress={onClose} style={s.sheetCancelBtn} hitSlop={8}>
-            <Text style={s.sheetCancelText}>Cancel</Text>
-          </Pressable>
-        </View>
-      )}
+      title={isEdit ? 'Edit transaction' : 'Add transaction'}
     >
       <ScrollView
         style={s.scroll}
@@ -554,19 +547,8 @@ export function AddTransactionSheet({
 }
 
 const s = StyleSheet.create({
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  sheetTitle: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
-  sheetCancelBtn: { paddingVertical: 4, paddingHorizontal: 2 },
-  sheetCancelText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 20 },
+  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 20 },
 
   amountRow: {
     flexDirection: 'row',

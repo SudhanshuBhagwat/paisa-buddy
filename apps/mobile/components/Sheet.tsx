@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,7 +21,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { C } from '../lib/tokens'
+import { C, F } from '../lib/tokens'
 
 type SheetProps = {
   visible: boolean
@@ -28,11 +29,23 @@ type SheetProps = {
   onOpen?: () => void
   onClosed?: () => void
   header?: React.ReactNode
+  title?: string
+  closeLabel?: string
   children: React.ReactNode
   heightFraction?: number
 }
 
-export function Sheet({ visible, onClose, onOpen, onClosed, header, children, heightFraction = 0.80 }: SheetProps) {
+export function Sheet({
+  visible,
+  onClose,
+  onOpen,
+  onClosed,
+  header,
+  title,
+  closeLabel = 'Cancel',
+  children,
+  heightFraction = 0.80,
+}: SheetProps) {
   const insets = useSafeAreaInsets()
   const screenHeight = Dimensions.get('window').height
   const sheetHeight = screenHeight * heightFraction
@@ -101,6 +114,16 @@ export function Sheet({ visible, onClose, onOpen, onClosed, header, children, he
     transform: [{ translateY: translateY.value }],
   }))
 
+  const renderedHeader = header ?? (title ? (
+    <View style={s.actionHeader}>
+      <Text style={s.actionTitle}>{title}</Text>
+      <Pressable onPress={() => onCloseRef.current()} style={s.actionCloseBtn} hitSlop={8}>
+        <Text style={s.actionCloseText}>{closeLabel}</Text>
+      </Pressable>
+    </View>
+  ) : null)
+  const hasHeader = !!renderedHeader
+
   const pan = Gesture.Pan()
     .activeOffsetY([5, 1000])
     .onBegin(() => {
@@ -154,15 +177,15 @@ export function Sheet({ visible, onClose, onOpen, onClosed, header, children, he
       >
         {/* Drag pill — Gesture scoped here only */}
         <GestureDetector gesture={pan}>
-          <View collapsable={false} style={header ? s.headerDragZone : s.dragZone}>
+          <View collapsable={false} style={hasHeader ? s.headerDragZone : s.dragZone}>
             <View style={s.handle} />
-            {header}
+            {renderedHeader}
           </View>
         </GestureDetector>
 
         {/* Content — children own their own gestures */}
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={[{ flex: 1 }, hasHeader && s.contentAfterHeader]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           {children}
@@ -193,6 +216,17 @@ const s = StyleSheet.create({
   headerDragZone: {
     paddingTop: 10,
   },
+  actionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  actionTitle: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
+  actionCloseBtn: { paddingVertical: 4, paddingHorizontal: 2 },
+  actionCloseText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
+  contentAfterHeader: { paddingTop: 8 },
   handle: {
     alignSelf: 'center',
     width: 40,

@@ -224,12 +224,7 @@ function AccountSheet({
       onClose={onClose}
       heightFraction={0.72}
       onOpen={!editing ? () => nameRef.current?.focus() : undefined}
-      header={(
-        <View style={af.header}>
-          <Text style={af.title}>{editing ? 'Edit Account' : 'New Account'}</Text>
-          <Pressable onPress={onClose} hitSlop={8}><Text style={af.cancel}>Cancel</Text></Pressable>
-        </View>
-      )}
+      title={editing ? 'Edit Account' : 'New Account'}
     >
       <ScrollView contentContainerStyle={af.content} keyboardShouldPersistTaps="handled">
         <View style={af.field}>
@@ -322,10 +317,7 @@ function AccountSheet({
 }
 
 const af = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
-  title: { flex: 1, marginRight: 12, fontSize: 20, fontFamily: F.semibold, color: C.ink },
-  cancel: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-  content: { padding: 16, gap: 16, paddingBottom: 40 },
+  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 16 },
   field: { gap: 6 },
   label: { fontSize: 12, fontFamily: F.medium, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { backgroundColor: C.bg, borderRadius: 12, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: F.regular, color: C.ink },
