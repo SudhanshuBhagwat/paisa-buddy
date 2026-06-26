@@ -424,9 +424,11 @@ export function HomeScreen() {
                   </View>
                   <View style={s.statInfo}>
                     <Text style={s.statLabel}>{label}</Text>
-                    <Text style={[s.statValue, { color }]} numberOfLines={1}>
-                      {formatAmount(value)}
-                    </Text>
+                    <AnimatedAmount
+                      amount={value}
+                      style={[s.statValue, { color }]}
+                      numberOfLines={1}
+                    />
                   </View>
                 </View>
               ))}

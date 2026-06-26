@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Text, type StyleProp, type TextStyle } from 'react-native'
 import {
   runOnJS,
@@ -35,8 +35,16 @@ export function AnimatedAmount({
 }: AnimatedAmountProps) {
   const animatedAmount = useSharedValue(0)
   const [displayAmount, setDisplayAmount] = useState(0)
+  const hasAnimated = useRef(false)
 
   useEffect(() => {
+    if (hasAnimated.current) {
+      setDisplayAmount(amount)
+      animatedAmount.value = amount
+      return
+    }
+
+    hasAnimated.current = true
     setDisplayAmount(0)
     animatedAmount.value = 0
     animatedAmount.value = withTiming(amount, { duration })

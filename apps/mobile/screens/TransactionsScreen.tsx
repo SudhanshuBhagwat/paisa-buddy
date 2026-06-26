@@ -29,6 +29,7 @@ import { Dialog, MessageDialog, type MessageDialogState } from '../components/Di
 import { MonthSelectionSheet, type MonthPreset } from '../components/MonthSelectionSheet'
 import { TransactionDetailSheet } from '../components/TransactionDetailSheet'
 import { SwipeableRow } from '../components/SwipeableRow'
+import { AnimatedAmount } from '../components/AnimatedAmount'
 
 type TypeFilter = 'all' | 'credit' | 'debit' | 'transfer'
 type MonthMode = 'single' | 'last-3-months'
@@ -648,7 +649,11 @@ export function TransactionsScreen() {
         <View style={s.monthSummaryRow}>
           <MonthPickerButton label={monthLabel} onPress={openMonthSheet} />
           <View style={s.totalSpentWrap}>
-            <Text style={s.totalSpentValue}>{formatAmount(totalSpent)}</Text>
+            <AnimatedAmount
+              amount={totalSpent}
+              style={s.totalSpentValue}
+              numberOfLines={1}
+            />
             <Text style={s.totalSpentLabel}>Total Spent</Text>
           </View>
         </View>

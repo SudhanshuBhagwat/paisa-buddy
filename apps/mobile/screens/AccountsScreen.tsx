@@ -27,6 +27,7 @@ import { C, F, RADIUS } from '../lib/tokens'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
 import { SwipeableRow } from '../components/SwipeableRow'
+import { AnimatedAmount } from '../components/AnimatedAmount'
 
 const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
 
@@ -120,7 +121,7 @@ function HeroCard({ totalBalance, bankCount, cardCount, accountCount }: {
         <BuddySVG size={110} />
       </View>
       <Text style={hero.tag}>Total across accounts</Text>
-      <Text style={hero.amount}>{formatAmount(totalBalance)}</Text>
+      <AnimatedAmount amount={totalBalance} style={hero.amount} numberOfLines={1} />
       <Text style={hero.sub}>
         {bankCount > 0 ? `${bankCount} bank${bankCount > 1 ? 's' : ''} · ` : ''}
         {cardCount > 0 ? `${cardCount} card${cardCount > 1 ? 's' : ''} · ` : ''}

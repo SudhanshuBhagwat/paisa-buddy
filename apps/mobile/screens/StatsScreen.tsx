@@ -30,6 +30,7 @@ import { Dialog, MessageDialog, type MessageDialogState } from '../components/Di
 import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
 import { SwipeableRow } from '../components/SwipeableRow'
+import { AnimatedAmount } from '../components/AnimatedAmount'
 import type { MainTabParamList } from '../navigation/types'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
@@ -336,12 +337,20 @@ function MonthStoryHeader({
       <View style={s.monthStoryMetricRow}>
         <View style={s.monthStoryMetric}>
           <Text style={s.monthStoryMetricLabel}>Spent</Text>
-          <Text style={[s.monthStoryMetricValue, { color: C.neg }]}>{formatAmount(spent)}</Text>
+          <AnimatedAmount
+            amount={spent}
+            style={[s.monthStoryMetricValue, { color: C.neg }]}
+            numberOfLines={1}
+          />
         </View>
         <View style={s.monthStoryMetricDivider} />
         <View style={s.monthStoryMetric}>
           <Text style={s.monthStoryMetricLabel}>{saved >= 0 ? 'Saved' : 'Over'}</Text>
-          <Text style={[s.monthStoryMetricValue, { color: saved >= 0 ? C.pos : C.neg }]}>{formatAmount(Math.abs(saved))}</Text>
+          <AnimatedAmount
+            amount={Math.abs(saved)}
+            style={[s.monthStoryMetricValue, { color: saved >= 0 ? C.pos : C.neg }]}
+            numberOfLines={1}
+          />
         </View>
       </View>
     </View>
@@ -674,7 +683,7 @@ function PlanSummary({ budgets }: { budgets: BudgetWithSpent[] }) {
         <Text style={ps.title}>Overall Plan</Text>
         <View style={ps.metricRow}>
           <View style={ps.left}>
-          <Text style={ps.amount}>{formatAmount(totalBudget)}</Text>
+          <AnimatedAmount amount={totalBudget} style={ps.amount} numberOfLines={1} />
           <Text style={ps.label}>monthly budget</Text>
           </View>
           <View style={ps.right}>
@@ -926,7 +935,7 @@ function SpendingSummary({ spent, previousSpent }: {
     <View style={ss.card}>
       <View style={ss.left}>
         <Text style={ss.kicker}>Total Spent</Text>
-        <Text style={ss.amount} numberOfLines={1}>{formatAmount(spent)}</Text>
+        <AnimatedAmount amount={spent} style={ss.amount} numberOfLines={1} />
         <Text style={ss.caption}>This Month</Text>
       </View>
       <View style={[ss.pill, { backgroundColor: lower ? C.brandPale : same || !hasPrevious ? C.bg : '#FEE2E2' }]}>
@@ -1578,7 +1587,11 @@ export function StatsScreen() {
                   {summaryStrip.map(({ label, value, color }, idx) => (
                     <View key={label} style={[s.summaryCol, idx > 0 && s.summaryColBorder]}>
                       <Text style={s.summaryLabel}>{label}</Text>
-                      <Text style={[s.summaryValue, { color }]} numberOfLines={1}>{formatAmount(value)}</Text>
+                      <AnimatedAmount
+                        amount={value}
+                        style={[s.summaryValue, { color }]}
+                        numberOfLines={1}
+                      />
                     </View>
                   ))}
                 </View>
