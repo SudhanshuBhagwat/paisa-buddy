@@ -32,6 +32,7 @@ import { getHomeData } from '../lib/data'
 import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { AddTransactionSheet } from '../components/AddTransactionSheet'
 import { AnimatedAmount } from '../components/AnimatedAmount'
+import { AnimatedProgressBar } from '../components/AnimatedProgressBar'
 import type { MonthlyTransactionTotals } from '../repositories/transactionRepository'
 
 type HomeData = {
@@ -380,17 +381,11 @@ export function HomeScreen() {
                         {incomeSpentPct}%
                       </Text>
                     </View>
-                    <View style={[s.progressTrack, s.progressStatusWidth]}>
-                      <View
-                        style={[
-                          s.progressFill,
-                          {
-                            width: `${incomeSpentPct}%` as `${number}%`,
-                            backgroundColor: incomeBarColor,
-                          },
-                        ]}
-                      />
-                    </View>
+                    <AnimatedProgressBar
+                      progress={incomeSpentPct}
+                      trackStyle={[s.progressTrack, s.progressStatusWidth]}
+                      fillStyle={[s.progressFill, { backgroundColor: incomeBarColor }]}
+                    />
                     <View style={[s.statusPill, { backgroundColor: incomeSpentPct < 100 ? `${C.pos}18` : `${C.neg}18` }]}>
                       <Text style={[s.statusPillText, { color: incomeSpentPct < 100 ? C.pos : C.neg }]}>
                         {incomeSpentPct < 100 ? '🤩  You\'re on track! Keep going' : '⚠️ You\'ve gone over — slow down'}

@@ -31,6 +31,7 @@ import { MonthSelectionSheet } from '../components/MonthSelectionSheet'
 import { MonthCalendarSheet } from '../components/MonthCalendarSheet'
 import { SwipeableRow } from '../components/SwipeableRow'
 import { AnimatedAmount } from '../components/AnimatedAmount'
+import { AnimatedProgressBar } from '../components/AnimatedProgressBar'
 import type { MainTabParamList } from '../navigation/types'
 
 // ─── Donut math ────────────────────────────────────────────────────────────────
@@ -316,12 +317,14 @@ function MonthStoryHeader({
   saved,
   previousMonthLabel,
   onComparePress,
+  skipInitialAnimation,
 }: {
   month: string
   spent: number
   saved: number
   previousMonthLabel: string
   onComparePress: () => void
+  skipInitialAnimation?: boolean
 }) {
   return (
     <View style={s.monthStoryHeaderCard}>
@@ -341,6 +344,7 @@ function MonthStoryHeader({
             amount={spent}
             style={[s.monthStoryMetricValue, { color: C.neg }]}
             numberOfLines={1}
+            skipInitialAnimation={skipInitialAnimation}
           />
         </View>
         <View style={s.monthStoryMetricDivider} />
@@ -350,6 +354,7 @@ function MonthStoryHeader({
             amount={Math.abs(saved)}
             style={[s.monthStoryMetricValue, { color: saved >= 0 ? C.pos : C.neg }]}
             numberOfLines={1}
+            skipInitialAnimation={skipInitialAnimation}
           />
         </View>
       </View>
@@ -623,11 +628,13 @@ function BudgetBar({
   onEdit,
   onDelete,
   isLast,
+  skipInitialAnimation,
 }: {
   budget: BudgetWithSpent
   onEdit: () => void
   onDelete: () => void
   isLast: boolean
+  skipInitialAnimation?: boolean
 }) {
   const pct = budgetProgress(budget.spent, budget.amount)
   const pctLabel = `${Math.round((budget.spent / Math.max(1, budget.amount)) * 100)}%`
@@ -648,9 +655,12 @@ function BudgetBar({
               <Text style={bb.amounts} numberOfLines={1}>{formatAmount(budget.spent)} of {formatAmount(budget.amount)}</Text>
             </View>
             <View style={bb.progressRow}>
-              <View style={bb.track}>
-                <View style={[bb.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
-              </View>
+              <AnimatedProgressBar
+                progress={pct}
+                trackStyle={bb.track}
+                fillStyle={[bb.fill, { backgroundColor: barColor }]}
+                skipInitialAnimation={skipInitialAnimation}
+              />
               <Text style={[bb.pctText, { color: barColor }]}>{pctLabel}</Text>
             </View>
           </View>
@@ -665,7 +675,7 @@ function BudgetBar({
   )
 }
 
-function PlanSummary({ budgets }: { budgets: BudgetWithSpent[] }) {
+function PlanSummary({ budgets, skipInitialAnimation }: { budgets: BudgetWithSpent[]; skipInitialAnimation?: boolean }) {
   const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0)
   const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0)
   const pctUsed = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0
@@ -683,7 +693,7 @@ function PlanSummary({ budgets }: { budgets: BudgetWithSpent[] }) {
         <Text style={ps.title}>Overall Plan</Text>
         <View style={ps.metricRow}>
           <View style={ps.left}>
-          <AnimatedAmount amount={totalBudget} style={ps.amount} numberOfLines={1} />
+          <AnimatedAmount amount={totalBudget} style={ps.amount} numberOfLines={1} skipInitialAnimation={skipInitialAnimation} />
           <Text style={ps.label}>monthly budget</Text>
           </View>
           <View style={ps.right}>
@@ -692,9 +702,12 @@ function PlanSummary({ budgets }: { budgets: BudgetWithSpent[] }) {
           </View>
         </View>
       </View>
-      <View style={ps.track}>
-        <View style={[ps.fill, { width: `${fillPct}%` as `${number}%`, backgroundColor: accent }]} />
-      </View>
+      <AnimatedProgressBar
+        progress={fillPct}
+        trackStyle={ps.track}
+        fillStyle={[ps.fill, { backgroundColor: accent }]}
+        skipInitialAnimation={skipInitialAnimation}
+      />
       <Text style={[ps.remaining, { color: accent }]}>{remainingText}</Text>
     </View>
   )
@@ -915,9 +928,10 @@ const stt = StyleSheet.create({
 
 // ─── Budget sheet ──────────────────────────────────────────────────────────────
 
-function SpendingSummary({ spent, previousSpent }: {
+function SpendingSummary({ spent, previousSpent, skipInitialAnimation }: {
   spent: number
   previousSpent: number
+  skipInitialAnimation?: boolean
 }) {
   const hasPrevious = previousSpent > 0
   const diff = spent - previousSpent
@@ -935,7 +949,7 @@ function SpendingSummary({ spent, previousSpent }: {
     <View style={ss.card}>
       <View style={ss.left}>
         <Text style={ss.kicker}>Total Spent</Text>
-        <AnimatedAmount amount={spent} style={ss.amount} numberOfLines={1} />
+        <AnimatedAmount amount={spent} style={ss.amount} numberOfLines={1} skipInitialAnimation={skipInitialAnimation} />
         <Text style={ss.caption}>This Month</Text>
       </View>
       <View style={[ss.pill, { backgroundColor: lower ? C.brandPale : same || !hasPrevious ? C.bg : '#FEE2E2' }]}>
@@ -1346,6 +1360,9 @@ export function StatsScreen() {
   const route = useRoute<RouteProp<MainTabParamList, 'Month'>>()
   const queryClient = useQueryClient()
   const handledInitialAction = useRef<number | 'initial' | null>(null)
+  const storyTabSeenRef = useRef(false)
+  const planTabSeenRef = useRef(false)
+  const spendingTabSeenRef = useRef(false)
   const addBudgetScale = useSharedValue(1)
   const addBudgetAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBudgetScale.value }] }))
 
@@ -1374,6 +1391,11 @@ export function StatsScreen() {
     queryFn: () => getStatsData(month),
   })
   const [activeTab, setActiveTab] = useState<Tab>('story')
+  useEffect(() => {
+    if (activeTab === 'story') storyTabSeenRef.current = true
+    if (activeTab === 'plan') planTabSeenRef.current = true
+    if (activeTab === 'spending') spendingTabSeenRef.current = true
+  }, [activeTab])
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false)
   const [monthSheetOpen, setMonthSheetOpen] = useState(false)
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false)
@@ -1532,6 +1554,7 @@ export function StatsScreen() {
                   saved={savedAmount}
                   previousMonthLabel={monthShortLabel(addMonths(month, -1))}
                   onComparePress={() => setMonthSheetOpen(true)}
+                  skipInitialAnimation={storyTabSeenRef.current}
                 />
                 <View style={s.storySummaryCardWrap}>
                 <View style={s.storySummaryCard}>
@@ -1567,9 +1590,12 @@ export function StatsScreen() {
                       <Text style={s.monthProgressLabel}>{monthHeaderLabel()}</Text>
                       <Text style={s.monthProgressValue}>{monthProgressPct}% completed</Text>
                     </View>
-                    <View style={s.monthProgressTrack}>
-                      <View style={[s.monthProgressFill, { width: `${monthProgressPct}%` }]} />
-                    </View>
+                    <AnimatedProgressBar
+                      progress={monthProgressPct}
+                      trackStyle={s.monthProgressTrack}
+                      fillStyle={s.monthProgressFill}
+                      skipInitialAnimation={storyTabSeenRef.current}
+                    />
                   </View>
                 </View>
                 </View>
@@ -1581,6 +1607,7 @@ export function StatsScreen() {
                         amount={value}
                         style={[s.summaryValue, { color }]}
                         numberOfLines={1}
+                        skipInitialAnimation={storyTabSeenRef.current}
                       />
                     </View>
                   ))}
@@ -1591,7 +1618,7 @@ export function StatsScreen() {
               </View>
             ) : activeTab === 'plan' ? (
               <>
-                <PlanSummary budgets={budgets} />
+                <PlanSummary budgets={budgets} skipInitialAnimation={planTabSeenRef.current} />
                 <View style={s.budgetHeader}>
                   <Text style={s.sectionTitle}>Plan vs Actual</Text>
                   <Pressable
@@ -1623,6 +1650,7 @@ export function StatsScreen() {
                         onEdit={() => openEdit(b)}
                         onDelete={() => setDeleteConfirmBudget(b)}
                         isLast={idx === budgets.length - 1}
+                        skipInitialAnimation={planTabSeenRef.current}
                       />
                     ))}
                   </View>
@@ -1630,7 +1658,7 @@ export function StatsScreen() {
               </>
             ) : (
               <View style={s.spendingStack}>
-                <SpendingSummary spent={expense} previousSpent={previousMonthSpend} />
+                <SpendingSummary spent={expense} previousSpent={previousMonthSpend} skipInitialAnimation={spendingTabSeenRef.current} />
                 {txs.length > 0 ? (
                   <View style={s.chartCard}>
                     <Text style={s.chartLabel}>SPENDING BY CATEGORY</Text>

@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sheet } from '../components/Sheet'
+import { AnimatedProgressBar } from '../components/AnimatedProgressBar'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { TypePicker } from '../components/TypePicker'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -106,9 +107,11 @@ function ProgressBar({ reviewed, total }: { reviewed: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round((reviewed / total) * 100)) : 0
   return (
     <View style={pb.wrap}>
-      <View style={pb.track}>
-        <View style={[pb.fill, { width: `${pct}%` as `${number}%` }]} />
-      </View>
+      <AnimatedProgressBar
+        progress={pct}
+        trackStyle={pb.track}
+        fillStyle={pb.fill}
+      />
       <View style={pb.row}>
         <Text style={pb.count}>{reviewed} / {total} reviewed</Text>
         <Text style={pb.pct}>{pct}%</Text>

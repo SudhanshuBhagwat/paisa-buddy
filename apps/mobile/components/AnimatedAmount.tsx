@@ -13,6 +13,7 @@ type AnimatedAmountProps = {
   duration?: number
   formatter?: (amount: number) => string
   numberOfLines?: number
+  skipInitialAnimation?: boolean
 }
 
 const currencyNoDecimals = new Intl.NumberFormat('en-IN', {
@@ -32,13 +33,14 @@ export function AnimatedAmount({
   duration = 700,
   formatter = formatAmountWithoutDecimals,
   numberOfLines,
+  skipInitialAnimation = false,
 }: AnimatedAmountProps) {
   const animatedAmount = useSharedValue(0)
   const [displayAmount, setDisplayAmount] = useState(0)
   const hasAnimated = useRef(false)
 
   useEffect(() => {
-    if (hasAnimated.current) {
+    if (hasAnimated.current || skipInitialAnimation) {
       setDisplayAmount(amount)
       animatedAmount.value = amount
       return
@@ -48,7 +50,7 @@ export function AnimatedAmount({
     setDisplayAmount(0)
     animatedAmount.value = 0
     animatedAmount.value = withTiming(amount, { duration })
-  }, [amount, animatedAmount, duration])
+  }, [amount, animatedAmount, duration, skipInitialAnimation])
 
   useAnimatedReaction(
     () => Math.round(animatedAmount.value),
