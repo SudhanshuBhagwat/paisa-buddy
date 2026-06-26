@@ -5,7 +5,10 @@ const HAPTICS_ENABLED = true
 
 function safe(fn: () => Promise<void>): void {
   if (!HAPTICS_ENABLED) return
-  void fn().catch(() => {})
+  if (__DEV__) console.log('[haptics] firing')
+  void fn().catch((e) => {
+    if (__DEV__) console.warn('[haptics] error', e)
+  })
 }
 
 const isAndroid = Platform.OS === 'android'
