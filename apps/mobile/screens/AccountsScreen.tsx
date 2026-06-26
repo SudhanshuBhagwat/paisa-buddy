@@ -26,6 +26,7 @@ import { formatAmount, openingBalanceForType, parseAmountToPaise } from '@paisa-
 import { C, F, RADIUS } from '../lib/tokens'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
+import { SwipeableRow } from '../components/SwipeableRow'
 
 const ACCOUNT_TYPES: AccountType[] = ['savings', 'current', 'credit', 'wallet', 'other']
 
@@ -355,6 +356,8 @@ export function AccountsScreen() {
   // Account sheet
   const [accSheetOpen, setAccSheetOpen] = useState(false)
   const [editingAcc, setEditingAcc] = useState<Account | null>(null)
+  const [deleteConfirmAcc, setDeleteConfirmAcc] = useState<Account | null>(null)
+  const [deletingSwipeAcc, setDeletingSwipeAcc] = useState(false)
   const [messageDialog, setMessageDialog] = useState<MessageDialogState | null>(null)
 
   const loading = accountsQuery.isLoading
@@ -381,6 +384,19 @@ export function AccountsScreen() {
     invalidateAccountData(queryClient)
     setAccSheetOpen(false)
     setEditingAcc(null)
+  }
+
+  async function handleConfirmSwipeAccDelete() {
+    if (!deleteConfirmAcc) return
+    setDeletingSwipeAcc(true)
+    try {
+      await handleDeleteAcc(deleteConfirmAcc)
+      setDeleteConfirmAcc(null)
+    } catch {
+      setMessageDialog({ title: 'Error', message: 'Could not delete account.' })
+    } finally {
+      setDeletingSwipeAcc(false)
+    }
   }
 
   return (
@@ -427,27 +443,34 @@ export function AccountsScreen() {
                 <View style={s.sections}>
                   {accountSections.map((section) => (
                     <View key={section.key} style={s.section}>
-                      <Text style={s.sectionTitle}>{section.title}</Text>
+                      <View style={s.sectionHeader}>
+                        <Text style={s.sectionTitle}>{section.title}</Text>
+                      </View>
                       <View style={s.listCard}>
                         {section.accounts.map((acc, idx) => {
                           const balColor = acc.current_balance >= 0 ? C.pos : C.neg
                           return (
-                            <Pressable
+                            <SwipeableRow
                               key={acc.id}
-                              style={[s.listRow, idx < section.accounts.length - 1 && s.listRowBorder]}
-                              onPress={() => openEditAcc(acc)}
+                              actionLabel="Delete"
+                              onAction={() => setDeleteConfirmAcc(acc)}
                             >
-                              <AccountIcon type={acc.type} />
-                              <View style={s.listInfo}>
-                                <Text style={s.listName} numberOfLines={1}>{acc.name}</Text>
-                                <Text style={s.listSub} numberOfLines={1}>
-                                  {ACCOUNT_TYPE_LABELS[acc.type]}{acc.bank ? ` · ${acc.bank}` : ''}
+                              <Pressable
+                                style={[s.listRow, idx < section.accounts.length - 1 && s.listRowBorder]}
+                                onPress={() => openEditAcc(acc)}
+                              >
+                                <AccountIcon type={acc.type} />
+                                <View style={s.listInfo}>
+                                  <Text style={s.listName} numberOfLines={1}>{acc.name}</Text>
+                                  <Text style={s.listSub} numberOfLines={1}>
+                                    {ACCOUNT_TYPE_LABELS[acc.type]}{acc.bank ? ` · ${acc.bank}` : ''}
+                                  </Text>
+                                </View>
+                                <Text style={[s.listBalance, { color: balColor }]} numberOfLines={1}>
+                                  {formatAmount(acc.current_balance)}
                                 </Text>
-                              </View>
-                              <Text style={[s.listBalance, { color: balColor }]} numberOfLines={1}>
-                                {formatAmount(acc.current_balance)}
-                              </Text>
-                            </Pressable>
+                              </Pressable>
+                            </SwipeableRow>
                           )
                         })}
                       </View>
@@ -468,6 +491,16 @@ export function AccountsScreen() {
         editing={editingAcc}
         onSaved={handleAccSaved}
         onDelete={handleDeleteAcc}
+      />
+      <Dialog
+        visible={!!deleteConfirmAcc}
+        onClose={() => { if (!deletingSwipeAcc) setDeleteConfirmAcc(null) }}
+        title={deleteConfirmAcc ? `Delete "${deleteConfirmAcc.name}"?` : 'Delete account?'}
+        message="Transactions linked to this account will be unlinked but not deleted."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setDeleteConfirmAcc(null), disabled: deletingSwipeAcc },
+          { label: 'Delete', variant: 'destructive', onPress: handleConfirmSwipeAccDelete, loading: deletingSwipeAcc },
+        ]}
       />
       <MessageDialog
         dialog={messageDialog}
@@ -491,8 +524,9 @@ const s = StyleSheet.create({
   addBtnText: { fontSize: 13.5, fontFamily: F.bold, color: '#fff' },
   loadingWrap: { paddingTop: 80, alignItems: 'center' },
   body: { paddingHorizontal: 18, paddingTop: 4, gap: 12 },
-  sections: { gap: 16 },
-  section: { gap: 8 },
+  sections: { gap: 16, marginTop: 8 },
+  section: {},
+  sectionHeader: { marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontFamily: F.extrabold, color: C.ink },
   listCard: {
     backgroundColor: C.surface,
