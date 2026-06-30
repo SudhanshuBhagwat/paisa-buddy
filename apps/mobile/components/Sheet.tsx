@@ -115,7 +115,7 @@ export function Sheet({
       }
       if (keyboardVisible.current) {
         Keyboard.dismiss()
-        const timer = setTimeout(startExit, 100)
+        const timer = setTimeout(startExit, 150)
         return () => clearTimeout(timer)
       } else {
         startExit()

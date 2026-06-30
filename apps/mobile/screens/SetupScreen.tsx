@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -362,7 +363,12 @@ export function SetupScreen() {
 
   function goBack() {
     if (step === 0) return
-    animateToStep((step - 1) as Step, 'back')
+    if (Keyboard.isVisible()) {
+      Keyboard.dismiss()
+      setTimeout(() => animateToStep((step - 1) as Step, 'back'), 150)
+    } else {
+      animateToStep((step - 1) as Step, 'back')
+    }
   }
 
   const stepAnimStyle = useAnimatedStyle(() => ({
