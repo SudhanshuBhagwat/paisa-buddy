@@ -148,8 +148,8 @@ if ($Apk) {
   }
 
   Copy-Item -LiteralPath $builtApk -Destination $OutputApk -Force
-  $apk = Get-Item -LiteralPath $OutputApk
-  Write-Host "APK written to $($apk.FullName) ($([math]::Round($apk.Length / 1MB, 2)) MB)"
+  $outputApkFile = Get-Item -LiteralPath $OutputApk
+  Write-Host "APK written to $($outputApkFile.FullName) ($([math]::Round($outputApkFile.Length / 1MB, 2)) MB)"
 } else {
   Invoke-Checked ".\gradlew.bat" @("clean", "bundleRelease") $androidRoot
 
