@@ -1,10 +1,13 @@
 import React from 'react'
 import {
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle, Polygon } from 'react-native-svg'
 import { formatMonthLabel } from '@paisa-buddy/shared/logic/date'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -66,9 +69,11 @@ export function MonthCalendarSheet({
   transactionCounts,
   onClose,
 }: MonthCalendarSheetProps) {
+  const insets = useSafeAreaInsets()
   const weeks = buildWeeks(month)
   const today = todayString()
   const hasAnyTxThisMonth = Object.keys(transactionCounts).length > 0
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 16) + 24
 
   return (
     <Sheet
@@ -86,7 +91,10 @@ export function MonthCalendarSheet({
         </View>
       )}
     >
-      <View style={s.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[s.content, { paddingBottom: bottomPad }]}
+      >
         <View style={s.calendarCard}>
           <View style={s.weekRow}>
             {DAY_HEADERS.map((day) => (
@@ -140,7 +148,7 @@ export function MonthCalendarSheet({
             <Text style={s.legendText}>Stars mark past days with no transactions recorded.</Text>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </Sheet>
   )
 }
@@ -150,7 +158,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 20, fontFamily: F.semibold, color: C.ink },
   done: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
-  content: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24 },
+  content: { paddingHorizontal: 16, paddingTop: 4 },
   calendarCard: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
