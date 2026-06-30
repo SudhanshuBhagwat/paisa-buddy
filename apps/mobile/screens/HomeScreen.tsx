@@ -360,13 +360,13 @@ export function HomeScreen() {
 
         {/* ── Balance card ── */}
         <View style={s.cardPad}>
-          <View style={s.card}>
-            <View style={s.balTopRow}>
+          <View style={[s.card, !hasIncomeTarget && s.cardNoIncome]}>
+            <View style={[s.balTopRow, !hasIncomeTarget && s.balTopRowCompact]}>
               <View style={s.balTopLeft}>
                 <Text style={s.balLabel}>
                   {hasIncomeTarget ? 'Remaining' : 'Net balance'}
                 </Text>
-                <View style={s.balRow}>
+                <View style={[s.balRow, !hasIncomeTarget && s.balRowCompact]}>
                   <AnimatedAmount
                     amount={displayBalance}
                     style={[s.balInt, { color: displayBalanceColor }]}
@@ -397,8 +397,8 @@ export function HomeScreen() {
                 )}
               </View>
             </View>
-            <View pointerEvents="none" style={s.cornerBuddy}>
-              <CornerBuddy size={172} mood={cornerBuddyMood} />
+            <View pointerEvents="none" style={[s.cornerBuddy, !hasIncomeTarget && s.cornerBuddyCompact]}>
+              <CornerBuddy size={hasIncomeTarget ? 172 : 120} mood={cornerBuddyMood} />
             </View>
             <View style={s.statsRow}>
               {[
@@ -560,12 +560,19 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  cardNoIncome: {
+    paddingTop: 14,
+  },
   balTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
     minHeight: 136,
+  },
+  balTopRowCompact: {
+    minHeight: 0,
+    marginBottom: 0,
   },
   balTopLeft: { flex: 1, minWidth: 0, maxWidth: '64%', paddingRight: 8, zIndex: 2 },
   balLabel: {
@@ -576,6 +583,7 @@ const s = StyleSheet.create({
     letterSpacing: 0.55,
   },
   balRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
+  balRowCompact: { marginTop: 0 },
   balInt: { fontSize: 34, fontFamily: F.monoBold, letterSpacing: -0.68 },
   progressWrap: { marginTop: 8, paddingLeft: 6 },
   progressLabelRow: {
@@ -604,6 +612,12 @@ const s = StyleSheet.create({
     width: 172,
     height: 172,
     zIndex: 1,
+  },
+  cornerBuddyCompact: {
+    right: 8,
+    bottom: 42,
+    width: 120,
+    height: 120,
   },
   statsRow: {
     flexDirection: 'row',
