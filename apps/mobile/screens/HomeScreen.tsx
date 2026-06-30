@@ -389,8 +389,13 @@ export function HomeScreen() {
                       fillStyle={[s.progressFill, { backgroundColor: incomeBarColor }]}
                     />
                     <View style={[s.statusPill, { backgroundColor: incomeSpentPct < 100 ? `${C.pos}18` : `${C.neg}18` }]}>
-                      <Text style={[s.statusPillText, { color: incomeSpentPct < 100 ? C.pos : C.neg }]}>
-                        {incomeSpentPct < 100 ? '🤩  You\'re on track! Keep going' : '⚠️ You\'ve gone over — slow down'}
+                      <Text
+                        style={[s.statusPillText, { color: incomeSpentPct < 100 ? C.pos : C.neg }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.9}
+                      >
+                        {incomeSpentPct < 100 ? '🤩 You\'re on track! Keep going' : '⚠️ You\'ve gone over — slow down'}
                       </Text>
                     </View>
                   </View>
@@ -604,7 +609,11 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 99,
   },
-  statusPillText: { fontSize: 11.5, fontFamily: F.semibold },
+  statusPillText: {
+    fontSize: 11.5,
+    fontFamily: F.semibold,
+    flexShrink: 1,
+  },
   cornerBuddy: {
     position: 'absolute',
     right: -10,
