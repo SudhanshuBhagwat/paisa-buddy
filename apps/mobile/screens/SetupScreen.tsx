@@ -837,7 +837,12 @@ export function SetupScreen() {
                 </View>
               )}
 
-              <SetupButton title="Continue" onPress={() => goTo(7)} style={{ marginTop: 28 }} />
+              <SetupButton
+                title="Continue"
+                onPress={() => goTo(7)}
+                style={{ marginTop: 28 }}
+                disabled={upiIds.length === 0}
+              />
 
               <SetupButton title="Skip — I'll add UPI IDs later" onPress={() => goTo(7)} variant="ghost" />
             </View>
