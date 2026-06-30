@@ -958,15 +958,20 @@ export function ReviewScreen({ navigation }: Props) {
 
             <View style={s.amountRow}>
               <Text style={[s.rupeeSign, { color: activeType.color }]}>₹</Text>
-              <TextInput
-                style={[s.amountInput, { color: activeType.color }]}
-                value={formatDisplayAmount(form.amountStr)}
-                onChangeText={(v) => setForm({ ...form, amountStr: sanitizeAmountInput(v.replace(/,/g, '')) })}
-                placeholder="0"
-                placeholderTextColor={activeType.color + '60'}
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-              />
+              <View style={s.amountInputWrap}>
+                <TextInput
+                  style={[s.amountInput, { color: activeType.color }]}
+                  value={formatDisplayAmount(form.amountStr)}
+                  onChangeText={(v) => setForm({ ...form, amountStr: sanitizeAmountInput(v.replace(/,/g, '')) })}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                />
+                {!form.amountStr && (
+                  <View pointerEvents="none" style={s.amountPlaceholderWrap}>
+                    <Text style={[s.amountPlaceholder, { color: activeType.color + '60' }]}>0</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {form.type !== 'transfer' && (
@@ -1624,7 +1629,10 @@ const s = StyleSheet.create({
   rawDescriptionText: { fontSize: 12.5, fontFamily: F.regular, color: C.ink3, lineHeight: 18 },
   amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   rupeeSign: { fontSize: 40, fontFamily: F.regular, lineHeight: 56 },
+  amountInputWrap: { minWidth: 120, position: 'relative' },
   amountInput: { fontSize: 52, fontFamily: F.semibold, textAlign: 'center', minWidth: 120, padding: 0 },
+  amountPlaceholderWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  amountPlaceholder: { fontSize: 52, fontFamily: F.semibold },
   field: { gap: 8 },
   twoCol: { flexDirection: 'row', gap: 16 },
   colField: { flex: 1, gap: 8 },

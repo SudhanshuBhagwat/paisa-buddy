@@ -121,7 +121,7 @@ export function Sheet({
         startExit()
       }
     }
-  }, [visible])
+  }, [visible, sheetHeight])
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
@@ -131,7 +131,7 @@ export function Sheet({
   const maxKbdShift = Math.max(0, screenHeight - sheetHeight - insets.top - 8)
 
   const sheetStyle = useAnimatedStyle(() => {
-    const kbdShift = Math.min(keyboardHeight.value, maxKbdShift)
+    const kbdShift = Platform.OS === 'ios' ? Math.min(keyboardHeight.value, maxKbdShift) : 0
     return {
       transform: [{ translateY: translateY.value - kbdShift }],
     }
@@ -194,7 +194,10 @@ export function Sheet({
       <Animated.View
         style={[
           s.sheet,
-          { height: sheetHeight, paddingBottom: Math.max(insets.bottom, 8) },
+          {
+            height: sheetHeight,
+            paddingBottom: Math.max(insets.bottom, 8),
+          },
           sheetStyle,
         ]}
       >
@@ -209,7 +212,7 @@ export function Sheet({
         {/* Content — children own their own gestures */}
         <KeyboardAvoidingView
           style={[{ flex: 1 }, hasHeader && s.contentAfterHeader]}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           {children}
         </KeyboardAvoidingView>

@@ -215,16 +215,21 @@ export function TransactionDetailSheet({
         {/* Amount */}
         <View style={s.amountRow}>
           <Text style={[s.rupeeSign, { color: activeType.color }]}>₹</Text>
-          <TextInput
-            style={[s.amountInput, { color: activeType.color }]}
-            value={formatDisplayAmount(amountStr)}
-            onChangeText={(v) => setAmountStr(sanitizeAmountInput(v.replace(/,/g, '')))}
-            placeholder="0"
-            placeholderTextColor={activeType.color + '60'}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-          />
-          <Text style={[s.rupeeSign, { color: 'transparent' }]} aria-hidden>₹</Text>
+          <View style={s.amountInputWrap}>
+            <TextInput
+              style={[s.amountInput, { color: activeType.color }]}
+              value={formatDisplayAmount(amountStr)}
+              onChangeText={(v) => setAmountStr(sanitizeAmountInput(v.replace(/,/g, '')))}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+            />
+            {!amountStr && (
+              <View pointerEvents="none" style={s.amountPlaceholderWrap}>
+                <Text style={[s.amountPlaceholder, { color: activeType.color + '60' }]}>0</Text>
+              </View>
+            )}
+          </View>
+          <View style={s.rupeeSpacer} />
         </View>
 
         {/* Date + Time */}
@@ -609,6 +614,8 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   rupeeSign: { fontSize: 36, fontFamily: F.regular, lineHeight: 48 },
+  rupeeSpacer: { width: 22 },
+  amountInputWrap: { minWidth: 100, position: 'relative' },
   amountInput: {
     fontSize: 36,
     fontFamily: F.semibold,
@@ -616,6 +623,8 @@ const s = StyleSheet.create({
     minWidth: 100,
     padding: 0,
   },
+  amountPlaceholderWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  amountPlaceholder: { fontSize: 36, fontFamily: F.semibold },
 
   twoCol: { flexDirection: 'row', gap: 16 },
   colField: { flex: 1, gap: 6 },

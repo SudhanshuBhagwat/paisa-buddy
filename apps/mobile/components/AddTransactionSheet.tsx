@@ -232,17 +232,22 @@ export function AddTransactionSheet({
         {/* ── Amount ── */}
         <View style={s.amountRow}>
           <Text style={[s.rupeeSign, { color: activeType.color }]}>₹</Text>
-          <TextInput
-            ref={amountRef}
-            style={[s.amountInput, { color: activeType.color }]}
-            value={formatDisplayAmount(amountStr)}
-            onChangeText={(v) => setAmountStr(sanitizeAmountInput(v.replace(/,/g, '')))}
-            placeholder="0"
-            placeholderTextColor={activeType.color + '60'}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-          />
-          <Text style={[s.rupeeSign, { color: 'transparent' }]} aria-hidden>₹</Text>
+          <View style={s.amountInputWrap}>
+            <TextInput
+              ref={amountRef}
+              style={[s.amountInput, { color: activeType.color }]}
+              value={formatDisplayAmount(amountStr)}
+              onChangeText={(v) => setAmountStr(sanitizeAmountInput(v.replace(/,/g, '')))}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+            />
+            {!amountStr && (
+              <View pointerEvents="none" style={s.amountPlaceholderWrap}>
+                <Text style={[s.amountPlaceholder, { color: activeType.color + '60' }]}>0</Text>
+              </View>
+            )}
+          </View>
+          <View style={s.rupeeSpacer} />
         </View>
 
         {/* ── Category ── */}
@@ -591,6 +596,8 @@ const s = StyleSheet.create({
     paddingVertical: 4,
   },
   rupeeSign: { fontSize: 56, fontFamily: F.regular, lineHeight: 68 },
+  rupeeSpacer: { width: 34 },
+  amountInputWrap: { minWidth: 120, position: 'relative' },
   amountInput: {
     fontSize: 56,
     fontFamily: F.semibold,
@@ -598,6 +605,8 @@ const s = StyleSheet.create({
     minWidth: 120,
     padding: 0,
   },
+  amountPlaceholderWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  amountPlaceholder: { fontSize: 56, fontFamily: F.semibold },
 
   field: { gap: 8 },
   twoCol: { flexDirection: 'row', gap: 16 },
