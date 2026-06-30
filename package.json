@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "build:android": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1",
     "lint": "turbo lint"
   },
   "devDependencies": {
