@@ -80,12 +80,18 @@ type BackScreenHeaderProps = {
   onBack: () => void
   right?: React.ReactNode
   style?: StyleProp<ViewStyle>
+  plainBackButton?: boolean
 }
 
-export function BackScreenHeader({ title, topInset, onBack, right, style }: BackScreenHeaderProps) {
+export function BackScreenHeader({ title, topInset, onBack, right, style, plainBackButton = false }: BackScreenHeaderProps) {
   return (
     <View style={[p.stackHeader, { paddingTop: topInset + SCREEN.stackHeaderTop }, style]}>
-      <Pressable style={p.backButton} onPress={onBack} accessibilityLabel="Go back">
+      <Pressable
+        style={[p.backButton, plainBackButton && p.backButtonPlain]}
+        onPress={onBack}
+        accessibilityLabel="Go back"
+        hitSlop={8}
+      >
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <Path d="M15 18 9 12l6-6" />
         </Svg>
@@ -192,7 +198,12 @@ const p = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
   },
-  stackTitle: { flex: 1, fontSize: 21, fontFamily: F.extrabold, color: C.ink },
+  backButtonPlain: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  stackTitle: { flex: 1, fontSize: 21, lineHeight: 27, fontFamily: F.extrabold, color: C.ink, includeFontPadding: false },
   card: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,

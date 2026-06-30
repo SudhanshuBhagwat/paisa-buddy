@@ -290,7 +290,12 @@ export function ImportStatementScreen({ navigation }: Props) {
 
   return (
     <ScreenRoot>
-      <BackScreenHeader title="Import Statement" topInset={insets.top} onBack={() => navigation.goBack()} />
+      <BackScreenHeader
+        title="Import Statement"
+        topInset={insets.top}
+        onBack={() => navigation.goBack()}
+        plainBackButton
+      />
 
       {(phase === 'processing' || phase === 'password') ? (
         <View style={s.processing}>
