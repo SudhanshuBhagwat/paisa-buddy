@@ -314,6 +314,7 @@ export function SetupScreen() {
 
   // Income
   const [incomeInput, setIncomeInput] = useState('')
+  const incomePaise = parseAmountToPaise(incomeInput)
 
   // Account
   const [accountCategory, setAccountCategory] = useState<'bank' | 'cash'>('bank')
@@ -635,7 +636,7 @@ export function SetupScreen() {
                   <Text style={[s.incomeInput, !incomeInput && s.incomePlaceholder]}>
                     {incomeInput ? formatDisplayAmount(incomeInput) : '0'}
                   </Text>
-                  <Text style={[s.incomePrefix, { color: 'transparent', marginRight: 0, marginLeft: 6 }]} aria-hidden>₹</Text>
+                  <View style={s.incomeSuffixSpacer} />
                 </View>
                 <View style={s.incomeKeypad}>
                   {INCOME_KEYPAD.map((key) => (
@@ -652,11 +653,16 @@ export function SetupScreen() {
                 </View>
               </View>
 
-              <SetupButton title="Continue" onPress={() => goTo(4)} style={{ marginTop: 8 }} />
+              <SetupButton
+                title="Continue"
+                onPress={() => goTo(4)}
+                style={{ marginTop: 8 }}
+                disabled={incomePaise <= 0}
+              />
 
               <SetupButton title="Skip — I'll add this later" onPress={() => goTo(4)} variant="ghost" />
 
-              <Text style={[s.hint, { textAlign: 'center' }]}>
+              <Text style={[s.hint, s.incomeSkipHint]}>
                 Skipping will make monthly spending insights less accurate.
               </Text>
             </View>
@@ -951,6 +957,7 @@ const s = StyleSheet.create({
     gap: 8,
   },
   incomePrefix: { fontSize: 58, fontFamily: F.regular, color: C.brand, lineHeight: 68 },
+  incomeSuffixSpacer: { width: 42, marginLeft: 6 },
   incomeInput: {
     fontSize: 58,
     fontFamily: F.semibold,
@@ -962,10 +969,10 @@ const s = StyleSheet.create({
   incomePlaceholder: { color: C.brand + '60' },
 
   // Income keypad
-  incomeKeypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  incomeKeypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   incomeKey: {
     width: '30.5%',
-    height: 54,
+    height: 50,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: C.line,
@@ -975,6 +982,7 @@ const s = StyleSheet.create({
   },
   incomeKeyPressed: { backgroundColor: C.brandPale, borderColor: C.brand },
   incomeKeyText: { fontSize: 22, fontFamily: F.semibold, color: C.ink },
+  incomeSkipHint: { textAlign: 'center', marginBottom: 8 },
 
   // Option cards (account type step 4)
   optionCards: { gap: 12 },
