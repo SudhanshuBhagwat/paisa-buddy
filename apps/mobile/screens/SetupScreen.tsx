@@ -8,6 +8,7 @@ import {
   type StyleProp,
   StyleSheet,
   Text,
+  type TextStyle,
   TextInput,
   useWindowDimensions,
   View,
@@ -47,6 +48,9 @@ const TOTAL_STEPS = 7
 const INCOME_KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del']
 const UPI_EXAMPLES = ['yourname@oksbi', 'yourname@ybl', 'yourname@paytm']
 const STEP_EASE = Easing.inOut(Easing.cubic)
+const ANDROID_TEXT_FIX: TextStyle | undefined = Platform.OS === 'android'
+  ? { includeFontPadding: false, textAlignVertical: 'center' }
+  : undefined
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -285,7 +289,7 @@ function SetupButton({
       ]}>
         {loading && isPrimary
           ? <ActivityIndicator size="small" color="#fff" />
-          : <Text style={isPrimary ? s.btnText : s.skipText}>{title}</Text>}
+          : <Text style={[isPrimary ? s.btnText : s.skipText, ANDROID_TEXT_FIX]}>{title}</Text>}
       </Animated.View>
     </Pressable>
   )
@@ -607,7 +611,12 @@ export function SetupScreen() {
                   : <Text style={s.hint}>Optional. Used for future AI features and exports.</Text>}
               </View>
 
-              <SetupButton title="Continue" onPress={handleContinueProfile} style={{ marginTop: 8 }} />
+              <SetupButton
+                title="Continue"
+                onPress={handleContinueProfile}
+                style={{ marginTop: 8 }}
+                disabled={!name.trim()}
+              />
             </View>
           )}
 
@@ -998,11 +1007,11 @@ const s = StyleSheet.create({
   exampleText: { fontSize: 12, fontFamily: F.mono, color: C.ink3 },
 
   // Buttons
-  btn: { backgroundColor: C.brand, borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center', height: 54, justifyContent: 'center', shadowColor: C.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  btn: { backgroundColor: C.brand, borderRadius: RADIUS, alignItems: 'center', height: 54, justifyContent: 'center', shadowColor: C.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnOff: { opacity: 0.45 },
-  btnText: { color: '#ffffff', fontSize: 16, fontFamily: F.bold },
-  skipBtn: { alignItems: 'center', paddingVertical: 14 },
-  skipText: { fontSize: 14, fontFamily: F.regular, color: C.ink3 },
+  btnText: { color: '#ffffff', fontSize: 16, lineHeight: 20, fontFamily: F.bold },
+  skipBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 46 },
+  skipText: { fontSize: 14, lineHeight: 18, fontFamily: F.regular, color: C.ink3 },
 
   err: { fontSize: 12, fontFamily: F.regular, color: C.neg, marginTop: 6 },
 })
