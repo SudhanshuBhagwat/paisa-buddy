@@ -545,7 +545,7 @@ const s = StyleSheet.create({
   greetName: { fontSize: 18, fontFamily: F.extrabold, color: C.ink, letterSpacing: -0.18 },
   greetDate: { fontSize: 12.5, fontFamily: F.regular, color: C.ink3, marginTop: 1 },
 
-  cardPad: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  cardPad: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 8 },
   card: {
     backgroundColor: C.surface,
     borderRadius: RADIUS,
@@ -659,7 +659,7 @@ const s = StyleSheet.create({
   pendingSub: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
   resumeText: { fontSize: 12, fontFamily: F.bold, color: C.neg },
 
-  quickActionsWrap: { paddingTop: 14, paddingHorizontal: 16 },
+  quickActionsWrap: { paddingTop: 14, paddingHorizontal: 18 },
   quickActionsTitle: {
     marginBottom: 10,
     fontSize: 16,
@@ -695,7 +695,7 @@ const s = StyleSheet.create({
     color: C.ink,
     textAlign: 'center',
   },
-  recentWrap: { paddingHorizontal: 16, paddingTop: 12 },
+  recentWrap: { paddingHorizontal: 18, paddingTop: 12 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

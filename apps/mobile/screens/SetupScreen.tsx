@@ -9,11 +9,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Svg, { Circle, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg'
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated'
 import { haptics } from '../lib/haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { C, F, RADIUS } from '../lib/tokens'
@@ -44,6 +46,7 @@ const BANK_TYPES: AccountType[] = ['savings', 'current', 'credit']
 const TOTAL_STEPS = 7
 const INCOME_KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del']
 const UPI_EXAMPLES = ['yourname@oksbi', 'yourname@ybl', 'yourname@paytm']
+const STEP_EASE = Easing.inOut(Easing.cubic)
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -190,20 +193,50 @@ function WalletIcon({ size = 20, color = C.brand }: { size?: number; color?: str
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SegmentedProgressBar({ step }: { step: number }) {
+function ProgressSegment({
+  index,
+  progress,
+  segmentWidth,
+}: {
+  index: number
+  progress: SharedValue<number>
+  segmentWidth: number
+}) {
+  const animStyle = useAnimatedStyle(() => ({
+    width: segmentWidth,
+    transform: [
+      { translateX: -(segmentWidth * (1 - Math.max(0, Math.min(1, progress.value - index)))) / 2 },
+      { scaleX: Math.max(0, Math.min(1, progress.value - index)) },
+    ],
+  }))
+
+  return (
+    <View style={pb.seg}>
+      <Animated.View style={[pb.segFill, animStyle]} />
+    </View>
+  )
+}
+
+function SegmentedProgressBar({ step, screenWidth }: { step: number; screenWidth: number }) {
+  const progress = useSharedValue(step)
+  const segmentWidth = Math.max(0, (screenWidth - 36 - 5 * (TOTAL_STEPS - 1)) / TOTAL_STEPS)
+
+  React.useEffect(() => {
+    progress.value = withTiming(step, { duration: 260 })
+  }, [progress, step])
+
   return (
     <View style={pb.row}>
       {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-        <View key={i} style={[pb.seg, i < step ? pb.segFilled : pb.segEmpty]} />
+        <ProgressSegment key={i} index={i} progress={progress} segmentWidth={segmentWidth} />
       ))}
     </View>
   )
 }
 const pb = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 5, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 6 },
-  seg: { flex: 1, height: 5, borderRadius: 999 },
-  segFilled: { backgroundColor: C.brand },
-  segEmpty: { backgroundColor: '#E9ECE6' },
+  row: { flexDirection: 'row', gap: 5, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 },
+  seg: { flex: 1, height: 5, borderRadius: 999, backgroundColor: '#E9ECE6', overflow: 'hidden' },
+  segFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999, backgroundColor: C.brand },
 })
 
 function IconTile({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
@@ -263,9 +296,12 @@ function SetupButton({
 export function SetupScreen() {
   const insets = useSafeAreaInsets()
   const onSetupComplete = useSetupComplete()
+  const { width } = useWindowDimensions()
   const bottomPad = Math.max(insets.bottom, 16) + 24
 
   const [step, setStep] = useState<Step>(0)
+  const stepTranslateX = useSharedValue(0)
+  const stepOpacity = useSharedValue(1)
 
   // Profile
   const [name, setName] = useState('')
@@ -293,8 +329,59 @@ export function SetupScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function goTo(s: Step) { setError(null); setStep(s) }
-  function goBack() { if (step === 0) return; goTo((step - 1) as Step) }
+  function animateToStep(nextStep: Step, direction: 'forward' | 'back') {
+    setError(null)
+    stepOpacity.value = 1
+    stepTranslateX.value = direction === 'forward' ? width : -width * 0.55
+    setStep(nextStep)
+    requestAnimationFrame(() => {
+      stepTranslateX.value = withTiming(0, { duration: 260, easing: STEP_EASE })
+    })
+  }
+
+  function goTo(s: Step) {
+    if (s === step) return
+    animateToStep(s, s > step ? 'forward' : 'back')
+  }
+
+  function finishSwipeBack() {
+    if (step === 0) return
+    setError(null)
+    stepTranslateX.value = -width * 0.22
+    setStep((step - 1) as Step)
+    requestAnimationFrame(() => {
+      stepOpacity.value = withTiming(1, { duration: 120, easing: STEP_EASE })
+      stepTranslateX.value = withTiming(0, { duration: 220, easing: STEP_EASE })
+    })
+  }
+
+  function goBack() {
+    if (step === 0) return
+    animateToStep((step - 1) as Step, 'back')
+  }
+
+  const stepAnimStyle = useAnimatedStyle(() => ({
+    opacity: stepOpacity.value,
+    transform: [{ translateX: stepTranslateX.value }],
+  }))
+
+  const backSwipeGesture = React.useMemo(() => (
+    Gesture.Pan()
+      .activeOffsetX(28)
+      .failOffsetY([-24, 24])
+      .onUpdate((event) => {
+        stepTranslateX.value = Math.max(0, event.translationX)
+      })
+      .onEnd((event) => {
+        const shouldGoBack = event.translationX > 84 || event.velocityX > 650
+        if (shouldGoBack) {
+          stepOpacity.value = 0
+          runOnJS(finishSwipeBack)()
+        } else {
+          stepTranslateX.value = withSpring(0, { damping: 18, stiffness: 210 })
+        }
+      })
+  ), [step, width])
 
   function pickAccountCategory(cat: 'bank' | 'cash') {
     setAccountCategory(cat)
@@ -367,6 +454,7 @@ export function SetupScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
+          <Animated.View style={stepAnimStyle}>
           {/* Buddy */}
           <View style={s.welcomeHero}>
             <WelcomeMascot size={118} />
@@ -405,6 +493,7 @@ export function SetupScreen() {
             <ShieldCheckIcon size={13} />
             <Text style={s.welcomeFooterText}>Your financial data is stored locally on this device.</Text>
           </View>
+          </Animated.View>
         </ScrollView>
       </View>
     )
@@ -413,15 +502,17 @@ export function SetupScreen() {
   // ── Steps 1–7: shared wrapper ────────────────────────────────────────────────
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <SegmentedProgressBar step={step} />
+      <SegmentedProgressBar step={step} screenWidth={width} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={[s.scroll, { paddingBottom: bottomPad }]}
-          bounces={false}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      <GestureDetector gesture={backSwipeGesture}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            contentContainerStyle={[s.scroll, { paddingBottom: bottomPad }]}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+          <Animated.View style={stepAnimStyle}>
           {/* Back + step count */}
           <View style={s.navRow}>
             <Pressable style={s.backRow} onPress={goBack} hitSlop={8}>
@@ -772,15 +863,17 @@ export function SetupScreen() {
               />
             </View>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </GestureDetector>
     </View>
   )
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 22, paddingTop: 8 },
+  scroll: { paddingHorizontal: 18, paddingTop: 8 },
 
   // Nav
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginBottom: 28 },
@@ -789,7 +882,7 @@ const s = StyleSheet.create({
   stepCount: { fontSize: 13.5, fontFamily: F.bold, color: C.ink3 },
 
   // Welcome
-  welcomeScroll: { paddingHorizontal: 22, flexGrow: 1, justifyContent: 'center' },
+  welcomeScroll: { paddingHorizontal: 18, flexGrow: 1, justifyContent: 'center' },
   welcomeHero: { alignItems: 'center', marginBottom: 36 },
   wordmarkRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 18 },
   wordmarkPaisa: { fontSize: 27, fontFamily: F.extrabold, letterSpacing: -0.5, color: C.ink },
@@ -801,7 +894,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
     overflow: 'hidden',
-    shadowColor: '#142819', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
   groupRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
   groupRowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },

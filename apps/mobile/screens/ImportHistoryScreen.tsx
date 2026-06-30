@@ -2,14 +2,13 @@ import React, { useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import Svg, { Path, Polyline } from 'react-native-svg'
+import Svg, { Polyline } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -23,6 +22,14 @@ import { invalidateTransactionData, queryKeys } from '../lib/query'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import type { RootStackParamList } from '../navigation/types'
 import { C, F, RADIUS } from '../lib/tokens'
+import {
+  BackScreenHeader,
+  Divider,
+  ScreenBody,
+  ScreenRoot,
+  ScreenScroll,
+  SurfaceCard,
+} from '../components/ScreenPrimitives'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -32,8 +39,6 @@ function formatDateTime(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return 'Not available'
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
-
-function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
 
 export function ImportHistoryScreen() {
   const insets = useSafeAreaInsets()
@@ -95,22 +100,15 @@ export function ImportHistoryScreen() {
   const importHistory = data?.importHistory ?? []
 
   return (
-    <View style={s.root}>
-      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[s.header, { paddingTop: insets.top + 14 }]}>
-          <Pressable style={s.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M15 18 9 12l6-6" />
-            </Svg>
-          </Pressable>
-          <Text style={s.title}>Import History</Text>
-        </View>
+    <ScreenRoot>
+      <ScreenScroll>
+        <BackScreenHeader title="Import History" topInset={insets.top} onBack={() => navigation.goBack()} />
 
         {settingsQuery.isLoading ? (
           <View style={s.loading}><ActivityIndicator color={C.brand} /></View>
         ) : (
-          <View style={s.body}>
-            <View style={s.card}>
+          <ScreenBody>
+            <SurfaceCard>
               {importHistory.length === 0 ? (
                 <View style={s.emptyRow}>
                   <Text style={s.emptyTitle}>No imports yet</Text>
@@ -119,7 +117,7 @@ export function ImportHistoryScreen() {
               ) : (
                 importHistory.map((item, idx) => (
                   <View key={item.id}>
-                    {idx > 0 && <RowDivider />}
+                    {idx > 0 && <Divider />}
                     <Pressable
                       style={s.historyRow}
                       onPress={() => navigation.navigate('ImportDetails', { importSessionId: item.id })}
@@ -142,7 +140,7 @@ export function ImportHistoryScreen() {
                   </View>
                 ))
               )}
-            </View>
+            </SurfaceCard>
 
             <Pressable
               style={[s.actionBtn, undoingImport && s.disabled]}
@@ -151,9 +149,9 @@ export function ImportHistoryScreen() {
             >
               <Text style={s.actionText}>{undoingImport ? 'Undoing…' : 'Undo Last Import'}</Text>
             </Pressable>
-          </View>
+          </ScreenBody>
         )}
-      </ScrollView>
+      </ScreenScroll>
 
       <Dialog
         visible={undoImportDialogOpen}
@@ -176,29 +174,12 @@ export function ImportHistoryScreen() {
         ]}
       />
       <MessageDialog dialog={messageDialog} onClose={() => setMessageDialog(null)} />
-    </View>
+    </ScreenRoot>
   )
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scroll: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 18, paddingBottom: 12,
-  },
-  backButton: {
-    width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
-  },
-  title: { fontSize: 21, fontFamily: F.extrabold, color: C.ink },
   loading: { paddingTop: 80, alignItems: 'center' },
-  body: { paddingHorizontal: 18, gap: 12, paddingBottom: 34 },
-  card: {
-    backgroundColor: C.surface, borderRadius: RADIUS,
-    borderWidth: 1, borderColor: C.line, overflow: 'hidden',
-  },
   emptyRow: { padding: 18, gap: 6 },
   emptyTitle: { fontSize: 14, fontFamily: F.bold, color: C.ink },
   emptyText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 19 },

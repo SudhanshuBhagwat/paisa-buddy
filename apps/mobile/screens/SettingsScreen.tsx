@@ -37,26 +37,17 @@ import { CategoryIcon } from '../components/CategoryIcon'
 import { CATEGORY_METADATA, DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR, getCategoryIcon } from '../lib/categoryMetadata'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
 import { Sheet } from '../components/Sheet'
+import { Divider, SectionLabel, SurfaceCard } from '../components/ScreenPrimitives'
 import { useSetupReset } from '../navigation/setupContext'
 import type { RootStackParamList } from '../navigation/types'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text style={sl.text}>{children}</Text>
-}
-const sl = StyleSheet.create({
-  text: { fontSize: 10.5, fontFamily: F.bold, letterSpacing: 0.07 * 10, color: C.ink3, textTransform: 'uppercase', marginBottom: 8 },
-})
-
 function Card({ children }: { children: React.ReactNode }) {
-  return <View style={card.wrap}>{children}</View>
+  return <SurfaceCard>{children}</SurfaceCard>
 }
-const card = StyleSheet.create({
-  wrap: { backgroundColor: C.surface, borderRadius: RADIUS, borderWidth: 1, borderColor: C.line, overflow: 'hidden', shadowColor: '#14281E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1 },
-})
 
-function RowDivider() { return <View style={{ height: 1, backgroundColor: C.line }} /> }
+function RowDivider() { return <Divider /> }
 
 function Chevron() {
   return (

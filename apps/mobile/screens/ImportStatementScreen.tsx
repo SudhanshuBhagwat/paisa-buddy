@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Svg, { Path, Polyline } from 'react-native-svg'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Dialog, MessageDialog, type MessageDialogState } from '../components/Dialog'
+import { BackScreenHeader, ScreenRoot } from '../components/ScreenPrimitives'
 import { C, F, RADIUS } from '../lib/tokens'
 import { createTransaction, getByMonth } from '../repositories/transactionRepository'
 import { completeImportSession, createImportSession, findImportSessionByHash, type ImportSession } from '../repositories/importRepository'
@@ -288,15 +289,8 @@ export function ImportStatementScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
-      <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <Polyline points="15 18 9 12 15 6" />
-          </Svg>
-        </Pressable>
-        <Text style={s.headerTitle}>Import Statement</Text>
-      </View>
+    <ScreenRoot>
+      <BackScreenHeader title="Import Statement" topInset={insets.top} onBack={() => navigation.goBack()} />
 
       {(phase === 'processing' || phase === 'password') ? (
         <View style={s.processing}>
@@ -550,7 +544,7 @@ export function ImportStatementScreen({ navigation }: Props) {
           { label: 'Cancel', variant: 'secondary', onPress: () => setDuplicateImport(null) },
         ]}
       />
-    </View>
+    </ScreenRoot>
   )
 }
 
@@ -731,12 +725,8 @@ function isExcelPasswordError(error: unknown): boolean {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  backBtn: { padding: 2 },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: F.extrabold, color: C.ink },
-  content: { paddingHorizontal: 16, paddingTop: 18, gap: 18 },
+  content: { paddingHorizontal: 18, paddingTop: 18, gap: 18 },
   uploadCard: {
     alignItems: 'center',
     backgroundColor: C.surface,

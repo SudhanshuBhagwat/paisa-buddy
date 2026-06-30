@@ -528,7 +528,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 18, paddingTop: 4, gap: 12 },
   sections: { gap: 16, marginTop: 8 },
   section: {},
-  sectionHeader: { marginBottom: 16 },
+  sectionHeader: { marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontFamily: F.extrabold, color: C.ink },
   listCard: {
     backgroundColor: C.surface,
@@ -536,7 +536,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.line,
     overflow: 'hidden',
-    shadowColor: '#14281E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, paddingHorizontal: 16 },
   listRowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },

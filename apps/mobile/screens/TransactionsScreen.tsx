@@ -758,7 +758,7 @@ const tp = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     gap: 2,
-    marginHorizontal: 16,
+    marginHorizontal: 18,
     marginTop: 8,
     marginBottom: 10,
     padding: 3,
@@ -807,7 +807,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   iconBtnActive: {},
-  searchWrap: { paddingHorizontal: 16, paddingTop: 8 },
+  searchWrap: { paddingHorizontal: 18, paddingTop: 8 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -824,7 +824,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingTop: 8,
     paddingBottom: 10,
     gap: 12,
