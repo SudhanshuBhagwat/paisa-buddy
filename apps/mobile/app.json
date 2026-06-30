@@ -32,7 +32,15 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-font",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1B8D68"
+        }
+      ]
     ]
   }
 }

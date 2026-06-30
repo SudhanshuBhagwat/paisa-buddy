@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, View } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
 import { StatusBar } from 'expo-status-bar'
+import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -18,6 +18,11 @@ import {
 } from '@expo-google-fonts/space-mono'
 import { RootNavigator } from './navigation'
 import { openDatabase } from './db/database'
+import { LaunchSplash } from './components/LaunchSplash'
+
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // Native splash may already be hidden in development reloads.
+})
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +45,7 @@ export default function App() {
     SpaceMono_700Bold,
   })
   const [dbReady, setDbReady] = useState(false)
+  const [navigatorReady, setNavigatorReady] = useState(false)
 
   useEffect(() => {
     openDatabase()
@@ -50,19 +56,29 @@ export default function App() {
       })
   }, [])
 
-  if (!fontsLoaded || !dbReady) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F2' }}>
-        <ActivityIndicator color="#1A936F" />
-      </View>
-    )
+  const appReady = fontsLoaded && dbReady
+
+  useEffect(() => {
+    if (!appReady || !navigatorReady) {
+      return
+    }
+
+    void SplashScreen.hideAsync()
+  }, [appReady, navigatorReady])
+
+  const onNavigatorReady = useCallback(() => {
+    setNavigatorReady(true)
+  }, [])
+
+  if (!appReady) {
+    return <LaunchSplash />
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <RootNavigator />
+          <RootNavigator onReady={onNavigatorReady} />
           <StatusBar style="dark" />
         </SafeAreaProvider>
       </GestureHandlerRootView>

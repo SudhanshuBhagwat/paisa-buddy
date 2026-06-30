@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { ActivityIndicator, View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { isSetupComplete } from '../repositories/settingsRepository'
@@ -23,6 +22,7 @@ import { BackupRestoreScreen } from '../screens/BackupRestoreScreen'
 import { StorageScreen } from '../screens/StorageScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { ImportHistoryScreen } from '../screens/ImportHistoryScreen'
+import { LaunchSplash } from '../components/LaunchSplash'
 import { SetupCompleteCtx, SetupResetCtx } from './setupContext'
 import type { MainTabParamList, RootStackParamList, SetupStartAction } from './types'
 
@@ -54,7 +54,7 @@ function MainDataPrefetcher() {
   return null
 }
 
-export function RootNavigator() {
+export function RootNavigator({ onReady }: { onReady?: () => void }) {
   const [setupCompleted, setSetupCompleted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [setupStartAction, setSetupStartAction] = useState<SetupStartAction | undefined>()
@@ -76,18 +76,14 @@ export function RootNavigator() {
   }, [])
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F2' }}>
-        <ActivityIndicator size="large" color="#1A936F" />
-      </View>
-    )
+    return <LaunchSplash />
   }
 
   return (
     <SetupCompleteCtx.Provider value={onSetupComplete}>
     <SetupResetCtx.Provider value={onSetupReset}>
       {setupCompleted && <MainDataPrefetcher />}
-      <NavigationContainer>
+      <NavigationContainer onReady={onReady}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {!setupCompleted ? (
             <Stack.Screen name="Setup" component={SetupScreen} />
