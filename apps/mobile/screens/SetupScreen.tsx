@@ -277,8 +277,8 @@ function SetupButton({
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.9, { damping: 15, stiffness: 300 }) }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }) }}
+      onPressIn={() => { scale.value = withTiming(0.96, { duration: 80 }) }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }) }}
       disabled={disabled || loading}
     >
       <Animated.View style={[
