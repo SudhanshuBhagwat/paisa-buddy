@@ -159,7 +159,6 @@ export function TransactionDetailSheet({
 
   const isValid =
     parseAmountToPaise(amountStr) > 0 &&
-    !!description.trim() &&
     !!category &&
     !!accountId &&
     (type !== 'transfer' || !!toAccountId)
@@ -298,7 +297,7 @@ export function TransactionDetailSheet({
 
         {/* Notes */}
         <View style={s.field}>
-          <Text style={s.label}>NOTES <Text style={{ color: C.neg }}>*</Text></Text>
+          <Text style={s.label}>NOTES</Text>
           <TextInput
             style={s.textInput}
             value={description}
