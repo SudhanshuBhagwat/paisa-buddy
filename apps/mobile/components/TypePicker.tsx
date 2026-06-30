@@ -34,7 +34,7 @@ export function TypePicker({ types, active, onChange }: Props) {
       <Animated.View style={[s.pill, { width: tabWidth }, pillStyle]} />
       {types.map((t) => (
         <Pressable key={t.value} onPress={() => onChange(t.value)} style={s.typeBtn}>
-          <Text style={[s.typeBtnText, { color: active === t.value ? t.color : C.ink3 }]}>
+          <Text style={[s.typeBtnText, { color: active === t.value ? t.color : C.ink3 }]} numberOfLines={1}>
             {t.label}
           </Text>
         </Pressable>

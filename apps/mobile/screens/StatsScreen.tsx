@@ -661,7 +661,7 @@ function BudgetBar({
           </View>
           <View style={bb.statusCol}>
             <View style={[bb.statusPill, { backgroundColor: overBudget ? '#FEE2E2' : C.brandPale }]}>
-              <Text style={[bb.statusText, { color: barColor }]} numberOfLines={1}>{statusLabel}</Text>
+              <Text style={[bb.statusText, { color: barColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{statusLabel}</Text>
             </View>
           </View>
         </View>
@@ -752,7 +752,7 @@ const bb = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
   },
-  statusText: { fontSize: 10.5, fontFamily: F.bold },
+  statusText: { fontSize: 10.5, fontFamily: F.bold, flexShrink: 1 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
@@ -787,7 +787,7 @@ function TabSwitcher({ active, onChange }: { active: Tab; onChange: (t: Tab) => 
       <Animated.View style={[ts.pill, { width: tabWidth }, pillStyle]} />
       {tabs.map((t) => (
         <Pressable key={t.id} onPress={() => onChange(t.id)} style={ts.btn}>
-          <Text style={[ts.label, active === t.id && ts.labelActive]}>{t.label}</Text>
+          <Text style={[ts.label, active === t.id && ts.labelActive]} numberOfLines={1}>{t.label}</Text>
         </Pressable>
       ))}
     </View>
@@ -955,7 +955,7 @@ function SpendingSummary({ spent, previousSpent, skipInitialAnimation }: {
           )}
         </Svg>
         <View style={ss.pillText}>
-          <Text style={[ss.pillValue, { color: accent }]} numberOfLines={1}>{pillLabel}</Text>
+          <Text style={[ss.pillValue, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{pillLabel}</Text>
           <Text style={ss.pillCaption}>than last month</Text>
         </View>
       </View>
@@ -986,7 +986,7 @@ const ss = StyleSheet.create({
   caption: { fontSize: 12, fontFamily: F.medium, color: C.ink2 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 10, flexShrink: 0 },
   pillText: { gap: 1 },
-  pillValue: { fontSize: 13, fontFamily: F.bold },
+  pillValue: { fontSize: 13, fontFamily: F.bold, flexShrink: 1 },
   pillCaption: { fontSize: 10, fontFamily: F.medium, color: C.ink3 },
 })
 
@@ -1571,7 +1571,7 @@ export function StatsScreen() {
                             </>
                           )}
                         </Svg>
-                        <Text style={s.reviewPillText}>{reviewLine}</Text>
+                        <Text style={s.reviewPillText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{reviewLine}</Text>
                       </View>
                     </View>
                   </View>
@@ -1797,7 +1797,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 4,
   },
-  reviewPillText: { flexShrink: 0, fontSize: 11.5, fontFamily: F.bold, lineHeight: 16, color: C.brandDeep },
+  reviewPillText: { flexShrink: 1, fontSize: 11.5, fontFamily: F.bold, lineHeight: 16, color: C.brandDeep },
   mascotWrap: {
     position: 'absolute',
     right: -40,

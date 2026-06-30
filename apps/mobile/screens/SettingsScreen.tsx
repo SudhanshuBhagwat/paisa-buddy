@@ -415,7 +415,7 @@ export function SettingsScreen() {
                         returnKeyType="done"
                         onSubmitEditing={handleSaveName}
                       />
-                      {nameSaved && <Text style={s.savedBadge}>Saved</Text>}
+                      {nameSaved && <Text style={s.savedBadge} numberOfLines={1}>Saved</Text>}
                     </View>
                   </View>
                 </View>
@@ -435,7 +435,7 @@ export function SettingsScreen() {
                     keyboardType="numeric"
                     returnKeyType="done"
                   />
-                  {incomeSaved && <Text style={s.savedBadge}>Saved</Text>}
+                  {incomeSaved && <Text style={s.savedBadge} numberOfLines={1}>Saved</Text>}
                 </View>
               </Card>
               <Text style={s.hint}>Your name and monthly income are used to personalise summaries and track spending against salary.</Text>
@@ -707,7 +707,7 @@ export function SettingsScreen() {
                         style={[s.predChip, selected && s.predChipSelected]}
                         onPress={() => setMappingCategoryInput(cat.name)}
                       >
-                        <Text style={[s.predChipText, selected && s.predChipTextSelected]}>{cat.name}</Text>
+                        <Text style={[s.predChipText, selected && s.predChipTextSelected]} numberOfLines={1}>{cat.name}</Text>
                       </Pressable>
                     )
                   })}
@@ -825,7 +825,7 @@ export function SettingsScreen() {
                         <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
                         {cat.transactionCount > 0 && (
                           <View style={s.catBadge}>
-                            <Text style={s.catBadgeText}>{cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}</Text>
+                            <Text style={s.catBadgeText} numberOfLines={1}>{cat.transactionCount} transaction{cat.transactionCount !== 1 ? 's' : ''}</Text>
                           </View>
                         )}
                       </View>
@@ -846,8 +846,8 @@ export function SettingsScreen() {
               <View style={s.predefined}>
                 {predefinedCats.map(({ name, transactionCount }) => (
                   <View key={name} style={s.predChip}>
-                    <Text style={s.predChipText}>{name}</Text>
-                    {transactionCount > 0 && <Text style={s.predChipCount}>{transactionCount}</Text>}
+                    <Text style={s.predChipText} numberOfLines={1}>{name}</Text>
+                    {transactionCount > 0 && <Text style={s.predChipCount} numberOfLines={1}>{transactionCount}</Text>}
                   </View>
                 ))}
               </View>
@@ -1079,11 +1079,11 @@ const s = StyleSheet.create({
   catNameGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   catName: { fontSize: 14, fontFamily: F.regular, color: C.ink, flexShrink: 1 },
   catBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
-  catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3 },
+  catBadgeText: { fontSize: 11, fontFamily: F.regular, color: C.ink3, flexShrink: 1 },
   predefined: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   predChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
   predChipSelected: { borderColor: C.brand, backgroundColor: C.brandPale },
-  predChipText: { fontSize: 12, fontFamily: F.regular, color: C.ink3 },
+  predChipText: { fontSize: 12, fontFamily: F.regular, color: C.ink3, flexShrink: 1 },
   predChipTextSelected: { fontFamily: F.bold, color: C.brandDeep },
   predChipCount: { fontSize: 12, fontFamily: F.bold, color: C.ink },
 

@@ -163,7 +163,7 @@ const TypePills = memo(function TypePills({ value, onChange }: { value: TypeFilt
             accessibilityLabel={filter.label}
             accessibilityState={{ selected: active }}
           >
-            <Text style={[tp.text, active && tp.textActive]}>{filter.label}</Text>
+            <Text style={[tp.text, active && tp.textActive]} numberOfLines={1}>{filter.label}</Text>
           </Pressable>
         )
       })}
@@ -412,7 +412,7 @@ const TransactionsFilterSheet = memo(function TransactionsFilterSheet({
                       onPress={() => onSelectCategory(active ? null : cat)}
                       style={[s.chip, active && { backgroundColor: cc, borderColor: cc }]}
                     >
-                      <Text style={[s.chipText, active && { color: '#fff' }]}>{cat}</Text>
+                      <Text style={[s.chipText, active && { color: '#fff' }]} numberOfLines={1}>{cat}</Text>
                     </Pressable>
                   )
                 })}
@@ -434,7 +434,7 @@ const TransactionsFilterSheet = memo(function TransactionsFilterSheet({
                       onPress={() => onSelectAccount(active ? null : acc.id)}
                       style={[s.chip, active && { backgroundColor: C.brand, borderColor: C.brand }]}
                     >
-                      <Text style={[s.chipText, active && { color: '#fff' }]}>{acc.name}</Text>
+                      <Text style={[s.chipText, active && { color: '#fff' }]} numberOfLines={1}>{acc.name}</Text>
                     </Pressable>
                   )
                 })}
@@ -898,7 +898,7 @@ const s = StyleSheet.create({
     borderColor: C.line,
     backgroundColor: C.bg,
   },
-  chipText: { fontSize: 14, fontFamily: F.medium, color: C.ink },
+  chipText: { fontSize: 14, fontFamily: F.medium, color: C.ink, flexShrink: 1 },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',

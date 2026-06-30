@@ -361,7 +361,7 @@ export function ImportStatementScreen({ navigation }: Props) {
                         style={[s.accountPill, selected && s.accountPillSelected]}
                         onPress={() => setSelectedAccountId(account.id)}
                       >
-                        <Text style={[s.accountPillText, selected && s.accountPillTextSelected]}>{account.name}</Text>
+                        <Text style={[s.accountPillText, selected && s.accountPillTextSelected]} numberOfLines={1}>{account.name}</Text>
                         {selected && <CheckIcon color={C.brand} size={14} />}
                       </Pressable>
                     )
@@ -778,7 +778,7 @@ const s = StyleSheet.create({
     paddingVertical: 9,
   },
   accountPillSelected: { borderColor: C.brand },
-  accountPillText: { fontSize: 14, fontFamily: F.medium, color: C.ink },
+  accountPillText: { fontSize: 14, fontFamily: F.medium, color: C.ink, flexShrink: 1 },
   accountPillTextSelected: { color: C.brand, fontFamily: F.semibold },
   emptyText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 19 },
   primaryBtn: { backgroundColor: C.brand, borderRadius: RADIUS, paddingVertical: 16, alignItems: 'center' },

@@ -537,7 +537,7 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={s.headerTitle}>Review</Text>
         {phase === 'group-review' && (
           <View style={s.headerGroupBadge}>
-            <Text style={s.headerGroupBadgeText}>{currentGroupIdx + 1} / {groups.length}</Text>
+            <Text style={s.headerGroupBadgeText} numberOfLines={1}>{currentGroupIdx + 1} / {groups.length}</Text>
           </View>
         )}
       </View>
@@ -605,12 +605,12 @@ export function ReviewScreen({ navigation }: Props) {
                   {currentGroup.suggestion && !groupJustDone && (
                     <View style={s.suggestionRow}>
                       <View style={s.suggestionChip}>
-                        <Text style={s.suggestionText}>
+                        <Text style={s.suggestionText} numberOfLines={1}>
                           {confidenceLabel(currentGroup.suggestionSource)}: {currentGroup.suggestion}
                         </Text>
                       </View>
                       <Pressable style={s.suggestionConfirm} onPress={() => setPendingCategory(currentGroup.suggestion)}>
-                        <Text style={s.suggestionConfirmText}>Confirm</Text>
+                        <Text style={s.suggestionConfirmText} numberOfLines={1}>Confirm</Text>
                       </Pressable>
                     </View>
                   )}
@@ -654,14 +654,14 @@ export function ReviewScreen({ navigation }: Props) {
                 <View style={s.amountPills}>
                   {currentGroup.transactions.slice(0, 4).map((tx) => (
                     <View key={tx.id} style={[s.amountPill, { backgroundColor: TYPE_COLOR[tx.type] + '18' }]}>
-                      <Text style={[s.amountPillText, { color: TYPE_COLOR[tx.type] }]}>
+                      <Text style={[s.amountPillText, { color: TYPE_COLOR[tx.type] }]} numberOfLines={1}>
                         {TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}
                       </Text>
                     </View>
                   ))}
                   {currentGroup.transactions.length > 4 && (
                     <View style={s.amountPillMore}>
-                      <Text style={s.amountPillMoreText}>+{currentGroup.transactions.length - 4} more</Text>
+                      <Text style={s.amountPillMoreText} numberOfLines={1}>+{currentGroup.transactions.length - 4} more</Text>
                     </View>
                   )}
                 </View>
@@ -691,7 +691,7 @@ export function ReviewScreen({ navigation }: Props) {
                         accessibilityState={{ selected: isSelected }}
                       >
                         <CategoryIcon category={cat} colorMap={catColors} size={11} circleSize={20} />
-                        <Text style={[s.catPillText, isSelected && { color, fontFamily: F.semibold }]}>{cat}</Text>
+                        <Text style={[s.catPillText, isSelected && { color, fontFamily: F.semibold }]} numberOfLines={1}>{cat}</Text>
                         {isSuggested && <Text style={s.suggestedTag}>✦</Text>}
                       </Pressable>
                     )
@@ -715,7 +715,7 @@ export function ReviewScreen({ navigation }: Props) {
                         accessibilityState={{ selected: isSelected }}
                       >
                         <View style={[s.catPillDot, { backgroundColor: isSelected ? C.brand : C.ink3 }]} />
-                        <Text style={[s.catPillText, isSelected && { color: C.brand, fontFamily: F.semibold }]}>{account.name}</Text>
+                        <Text style={[s.catPillText, isSelected && { color: C.brand, fontFamily: F.semibold }]} numberOfLines={1}>{account.name}</Text>
                         {isSelected && <CheckIcon color={C.brand} size={14} />}
                       </Pressable>
                     )
@@ -773,7 +773,7 @@ export function ReviewScreen({ navigation }: Props) {
                 <View style={s.monthRow}>
                   <Text style={s.monthLabel}>{formatMonthLabel(month)}</Text>
                   <View style={s.monthCountBadge}>
-                    <Text style={s.monthCountText}>{monthTxs.length}</Text>
+                    <Text style={s.monthCountText} numberOfLines={1}>{monthTxs.length}</Text>
                   </View>
                 </View>
                 <View style={s.monthCard}>
@@ -793,19 +793,19 @@ export function ReviewScreen({ navigation }: Props) {
                           <View style={s.rowChips}>
                             {hasDuplicateWarning(tx) && (
                               <View style={[s.rowInfoChip, s.duplicateChip]}>
-                                <Text style={[s.rowInfoText, s.duplicateChipText]} numberOfLines={1}>
+                                <Text style={[s.rowInfoText, s.duplicateChipText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
                                   {tx.duplicate_status === 'confirmed_duplicate' ? 'Confirmed duplicate' : 'Possible duplicate'}
                                 </Text>
                               </View>
                             )}
                             <View style={[s.rowInfoChip, !tx.category && s.rowInfoChipMissing]}>
                               {!!tx.category && <View style={[s.rowInfoDot, { backgroundColor: categoryColor(tx.category, catColors) }]} />}
-                              <Text style={[s.rowInfoText, !tx.category && s.rowInfoTextMissing]} numberOfLines={1}>
+                              <Text style={[s.rowInfoText, !tx.category && s.rowInfoTextMissing]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
                                 {tx.category || 'Category needed'}
                               </Text>
                             </View>
                             <View style={[s.rowInfoChip, !accountName && s.rowInfoChipMissing]}>
-                              <Text style={[s.rowInfoText, !accountName && s.rowInfoTextMissing]} numberOfLines={1}>
+                              <Text style={[s.rowInfoText, !accountName && s.rowInfoTextMissing]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
                                 {accountName || 'Account needed'}
                               </Text>
                             </View>
@@ -813,7 +813,7 @@ export function ReviewScreen({ navigation }: Props) {
                           <Text style={s.rowDate}>{formatDateLabel(tx.date)}</Text>
                         </View>
                         <View style={[s.typeBadge, { backgroundColor: tColor + '20' }]}>
-                          <Text style={[s.typeBadgeText, { color: tColor }]}>{tx.type}</Text>
+                          <Text style={[s.typeBadgeText, { color: tColor }]} numberOfLines={1}>{tx.type}</Text>
                         </View>
                         <Text style={[s.rowAmount, { color: tColor }]}>{TYPE_PREFIX[tx.type]}{formatAmount(tx.amount)}</Text>
                       </Pressable>
@@ -1396,7 +1396,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  suggestionText: { fontSize: 12, fontFamily: F.semibold, color: C.brand },
+  suggestionText: { fontSize: 12, fontFamily: F.semibold, color: C.brand, flexShrink: 1 },
   suggestionConfirm: { borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: C.brand },
   suggestionConfirmText: { fontSize: 12, fontFamily: F.semibold, color: C.brand },
   groupCountBadge: {
@@ -1467,7 +1467,7 @@ const s = StyleSheet.create({
   catPillSuggested: { borderColor: C.brand + '60', backgroundColor: C.brandPale + '60' },
   accountPillSelected: { borderColor: C.brand },
   catPillDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  catPillText: { fontSize: 14, fontFamily: F.medium, color: C.ink },
+  catPillText: { fontSize: 14, fontFamily: F.medium, color: C.ink, flexShrink: 1 },
   suggestedTag: { fontSize: 10, color: C.brand },
   inlineEmptyText: { fontSize: 13, fontFamily: F.regular, color: C.ink3, lineHeight: 19 },
 

@@ -445,7 +445,7 @@ export function HomeScreen() {
             onPress={() => navigation.navigate('Review')}
           >
             <View style={s.pendingBadge}>
-              <Text style={s.pendingBadgeText}>{reviewRemaining}</Text>
+              <Text style={s.pendingBadgeText} numberOfLines={1}>{reviewRemaining}</Text>
             </View>
             <View style={s.pendingInfo}>
               <Text style={s.pendingTitle}>Resume Review</Text>

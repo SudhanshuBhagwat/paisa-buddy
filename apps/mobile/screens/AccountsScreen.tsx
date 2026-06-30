@@ -251,7 +251,7 @@ function AccountSheet({
                 accessibilityLabel={ACCOUNT_TYPE_LABELS[t]}
                 accessibilityState={{ selected: form.type === t }}
               >
-                <Text style={[af.chipText, form.type === t && { color: '#fff' }]}>{ACCOUNT_TYPE_LABELS[t]}</Text>
+                <Text style={[af.chipText, form.type === t && { color: '#fff' }]} numberOfLines={1}>{ACCOUNT_TYPE_LABELS[t]}</Text>
               </Pressable>
             ))}
           </View>
@@ -331,7 +331,7 @@ const af = StyleSheet.create({
   input: { backgroundColor: C.bg, borderRadius: 12, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: F.regular, color: C.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1, borderColor: C.line, backgroundColor: C.bg },
-  chipText: { fontSize: 13.5, fontFamily: F.medium, color: C.ink2 },
+  chipText: { fontSize: 13.5, fontFamily: F.medium, color: C.ink2, flexShrink: 0 },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.bg, borderRadius: 12, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, paddingVertical: 10 },
   rupee: { fontSize: 14, fontFamily: F.medium, color: C.ink3 },
   amountInput: { flex: 1, fontSize: 14, fontFamily: F.mono, color: C.ink, padding: 0 },
